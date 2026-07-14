@@ -16,6 +16,7 @@ export interface ConnectionSettings {
   showStatusBadge?: boolean;
   visibleAlarmModes?: Partial<Record<AlarmModeKey, boolean>>;
   selectedCameraIds?: string[];
+  selectedSensorIds?: string[];
   selectedPersonId?: string;
 }
 export interface AlarmoEvent {

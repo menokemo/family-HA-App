@@ -158,15 +158,6 @@ export async function removeTodoItem(settings: ConnectionSettings, entityId: str
   await request(settings, '/api/services/todo/remove_item', { method: 'POST', body: JSON.stringify({ entity_id: entityId, item: uid }) });
 }
 
-export async function getAlarmoSensorIds(settings: ConnectionSettings, alarmEntityId: string): Promise<string[]> {
-  const entries = (await wsCommand(settings, { type: 'config/entity_registry/list' })) as Array<{ entity_id: string; config_entry_id?: string | null }>;
-  const alarmEntry = entries.find(e => e.entity_id === alarmEntityId);
-  if (!alarmEntry?.config_entry_id) return [];
-  return entries
-    .filter(e => e.config_entry_id === alarmEntry.config_entry_id && e.entity_id !== alarmEntityId && (e.entity_id.startsWith('binary_sensor.') || e.entity_id.startsWith('sensor.')))
-    .map(e => e.entity_id);
-}
-
 export async function callAlarmoArm(settings: ConnectionSettings, entityId: string, mode: string, force = false): Promise<void> {
   const data: Record<string, unknown> = { entity_id: entityId, mode, force };
   if (settings.alarmCode.trim()) data.code = settings.alarmCode.trim();
