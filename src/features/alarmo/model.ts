@@ -6,7 +6,7 @@ export const armModes = [
   { feature:16, mode:'vacation', state:'armed_vacation', label:'armVacation' },
   { feature:32, mode:'custom', state:'armed_custom_bypass', label:'armCustom' },
 ] as const;
-export function supportedModes(alarm: HaEntity) { const features=Number(alarm.attributes.supported_features ?? 0); return armModes.filter(x => (features & x.feature) === x.feature); }
+export function supportedModes(alarm: HaEntity) { const features=Number(alarm.attributes.supported_features ?? 0); if(!features)return armModes; return armModes.filter(x => (features & x.feature) === x.feature); }
 export function sensorIdsFromAlarm(alarm: HaEntity): string[] {
   const ids = new Set<string>();
   const walk=(value:unknown):void=>{ if(typeof value==='string' && /^(binary_sensor|sensor)\./.test(value)) ids.add(value); else if(Array.isArray(value)) value.forEach(walk); else if(value && typeof value==='object') Object.values(value as Record<string,unknown>).forEach(walk); };
