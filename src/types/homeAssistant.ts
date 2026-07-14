@@ -8,6 +8,7 @@ export interface ConnectionSettings {
   alarmCode: string;
   alarmEntityId?: string;
   language?: 'ar' | 'en' | 'nl';
+  themeMode?: 'light' | 'dark' | 'auto';
   sirenEnabled?: boolean;
   sirenTone?: SirenTone;
   snapshotRefreshSeconds?: number;
