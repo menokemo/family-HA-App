@@ -111,7 +111,14 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
           originWhitelist={['*']}
           javaScriptEnabled
           domStorageEnabled
-          onMessage={e => setSelected(people.find(p => p.entity_id === e.nativeEvent.data) ?? null)}
+          onMessage={e => {
+            if (e.nativeEvent.data === 'MAP_HTML_V2_LOADED') {
+              const g = globalThis as unknown as { __familyHaLog?: (level: string, args: unknown[]) => void };
+              g.__familyHaLog?.('trace', ['Map WebView loaded latest HTML (V2)']);
+              return;
+            }
+            setSelected(people.find(p => p.entity_id === e.nativeEvent.data) ?? null);
+          }}
           style={s.web}
         />
         <View style={s.badge}>
@@ -223,6 +230,7 @@ async function loadPlaces(){
 window.showPlaces=function(){placesLayer.addTo(map);void loadPlaces();if(placesTimer)clearTimeout(placesTimer);map.on('moveend',onPlacesMoveEnd);};
 window.hidePlaces=function(){placesLayer.clearLayers();map.removeLayer(placesLayer);map.off('moveend',onPlacesMoveEnd);};
 function onPlacesMoveEnd(){if(placesTimer)clearTimeout(placesTimer);placesTimer=setTimeout(loadPlaces,600);}
+window.ReactNativeWebView.postMessage('MAP_HTML_V2_LOADED');
 </script></body></html>`;
 }
 
@@ -240,9 +248,9 @@ const s = StyleSheet.create({
   web: { flex: 1, backgroundColor: colors.background },
   empty: { padding: 24 },
   muted: { color: colors.muted },
-  badge: { position: 'absolute', top: 14, left: 14, flexDirection: 'row', gap: 8, alignItems: 'center', backgroundColor: 'rgba(16,24,38,.94)', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.border },
+  badge: { position: 'absolute', top: 14, left: 14, flexDirection: 'row', gap: 8, alignItems: 'center', backgroundColor: 'rgba(16,24,38,.94)', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.border, elevation: 12, zIndex: 12 },
   badgeText: { color: colors.text, fontWeight: '800' },
-  placesToggle: { position: 'absolute', top: 14, right: 14, flexDirection: 'row', gap: 7, alignItems: 'center', backgroundColor: 'rgba(16,24,38,.94)', paddingHorizontal: 13, paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.border },
+  placesToggle: { position: 'absolute', top: 14, right: 14, flexDirection: 'row', gap: 7, alignItems: 'center', backgroundColor: 'rgba(16,24,38,.94)', paddingHorizontal: 13, paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.border, elevation: 12, zIndex: 12 },
   placesToggleActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   placesToggleText: { color: colors.text, fontWeight: '800', fontSize: 12 },
   placesToggleTextActive: { color: colors.black },
