@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Card } from '../../components/Card';
 import { colors } from '../../theme';
 import { i18n } from '../../i18n';
-import { getCalendarEvents, type CalendarEvent } from '../../api/homeAssistant';
+import { createCalendarEvent, getCalendarEvents, type CalendarEvent } from '../../api/homeAssistant';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 
 type Props = { calendars: HaEntity[]; settings: ConnectionSettings };
@@ -24,13 +24,13 @@ export function CalendarView({ calendars, settings }: Props) {
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
 
-  useEffect(() => {
-    let on = true;
+  const load = () => {
     setLoading(true);
     const start = startOfMonth(monthCursor);
     const end = endOfMonth(monthCursor);
-    void Promise.all(
+    return Promise.all(
       calendars.map(async (cal, i) => {
         try {
           const raw = await getCalendarEvents(settings, cal.entity_id, start.toISOString(), end.toISOString());
@@ -39,9 +39,12 @@ export function CalendarView({ calendars, settings }: Props) {
           return [];
         }
       }),
-    ).then(lists => {
-      if (on) { setEvents(lists.flat()); setLoading(false); }
-    });
+    ).then(lists => { setEvents(lists.flat()); setLoading(false); });
+  };
+
+  useEffect(() => {
+    let on = true;
+    void load().catch(() => { if (on) setLoading(false); });
     return () => { on = false; };
   }, [calendars.map(c => c.entity_id).join('|'), settings.baseUrl, settings.token, monthCursor.getMonth(), monthCursor.getFullYear()]);
 
@@ -74,7 +77,19 @@ export function CalendarView({ calendars, settings }: Props) {
         <Pressable style={[styles.toggleBtn, mode === 'month' && styles.toggleBtnActive]} onPress={() => setMode('month')}>
           <Text style={[styles.toggleText, mode === 'month' && styles.toggleTextActive]}>{i18n.t('month')}</Text>
         </Pressable>
+        <Pressable style={styles.addBtn} onPress={() => setShowAdd(true)}>
+          <Ionicons name="add" size={20} color={colors.black} />
+        </Pressable>
       </View>
+
+      <AddEventModal
+        visible={showAdd}
+        defaultDay={mode === 'month' ? selectedDay : new Date()}
+        calendars={calendars}
+        settings={settings}
+        onClose={() => setShowAdd(false)}
+        onCreated={() => { setShowAdd(false); void load(); }}
+      />
 
       {loading ? <Card><Text style={styles.muted}>{i18n.t('loading')}</Text></Card> : null}
 
@@ -143,6 +158,99 @@ function MonthGrid({ cursor, eventsByDay, selectedDay, onSelect }: { cursor: Dat
   );
 }
 
+function AddEventModal({
+  visible,
+  defaultDay,
+  calendars,
+  settings,
+  onClose,
+  onCreated,
+}: {
+  visible: boolean;
+  defaultDay: Date;
+  calendars: HaEntity[];
+  settings: ConnectionSettings;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [summary, setSummary] = useState('');
+  const [calendarId, setCalendarId] = useState(calendars[0]?.entity_id);
+  const [startTime, setStartTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('10:00');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string>();
+
+  const submit = async () => {
+    const target = calendars.find(c => c.entity_id === calendarId) ?? calendars[0];
+    if (!target || !summary.trim()) return;
+    const [sh, sm] = startTime.split(':').map(Number);
+    const [eh, em] = endTime.split(':').map(Number);
+    if (![sh, sm, eh, em].every(Number.isFinite)) { setError(i18n.t('invalidTime')); return; }
+    const start = new Date(defaultDay);
+    start.setHours(sh, sm, 0, 0);
+    const end = new Date(defaultDay);
+    end.setHours(eh, em, 0, 0);
+    setSaving(true);
+    setError(undefined);
+    try {
+      await createCalendarEvent(settings, target.entity_id, {
+        summary: summary.trim(),
+        start_date_time: `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')} ${startTime}:00`,
+        end_date_time: `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')} ${endTime}:00`,
+      });
+      setSummary('');
+      onCreated();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalCard}>
+          <Text style={styles.dayTitle}>{i18n.t('newEvent')}</Text>
+          <Text style={styles.modalDate}>{defaultDay.toLocaleDateString(i18n.locale, { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
+
+          {calendars.length > 1 ? (
+            <View style={styles.calRow}>
+              {calendars.map(c => (
+                <Pressable key={c.entity_id} style={[styles.calChip, calendarId === c.entity_id && styles.calChipActive]} onPress={() => setCalendarId(c.entity_id)}>
+                  <Text style={[styles.calChipText, calendarId === c.entity_id && styles.calChipTextActive]}>{String(c.attributes.friendly_name ?? c.entity_id)}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+
+          <TextInput value={summary} onChangeText={setSummary} placeholder={i18n.t('eventTitle')} placeholderTextColor={colors.muted} style={styles.modalInput} />
+
+          <View style={styles.timeRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.muted}>{i18n.t('startTime')}</Text>
+              <TextInput value={startTime} onChangeText={setStartTime} placeholder="09:00" placeholderTextColor={colors.muted} style={styles.modalInput} keyboardType="numbers-and-punctuation" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.muted}>{i18n.t('endTime')}</Text>
+              <TextInput value={endTime} onChangeText={setEndTime} placeholder="10:00" placeholderTextColor={colors.muted} style={styles.modalInput} keyboardType="numbers-and-punctuation" />
+            </View>
+          </View>
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          <View style={styles.modalActions}>
+            <Pressable style={styles.modalCancel} onPress={onClose}><Text style={styles.modalCancelText}>{i18n.t('cancel')}</Text></Pressable>
+            <Pressable style={[styles.modalSave, (!summary.trim() || saving) && styles.modalSaveDisabled]} disabled={!summary.trim() || saving} onPress={() => void submit()}>
+              <Text style={styles.modalSaveText}>{saving ? i18n.t('loading') : i18n.t('saveEvent')}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
   muted: { color: colors.muted },
   toggleRow: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: 14, padding: 4, gap: 4 },
@@ -150,6 +258,7 @@ const styles = StyleSheet.create({
   toggleBtnActive: { backgroundColor: colors.surfaceElevated },
   toggleText: { color: colors.muted, fontWeight: '800', fontSize: 13 },
   toggleTextActive: { color: colors.primary },
+  addBtn: { width: 40, height: 40, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   dayTitle: { color: colors.text, fontWeight: '800', fontSize: 15, marginBottom: 8, textTransform: 'capitalize' },
   eventRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
   eventDot: { width: 9, height: 9, borderRadius: 4.5 },
@@ -164,4 +273,21 @@ const styles = StyleSheet.create({
   cellTextSelected: { color: colors.black },
   cellDot: { position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: 2, backgroundColor: colors.warning },
   selectedDayEvents: { marginTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingTop: 10, gap: 4 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(4,8,14,.82)', alignItems: 'center', justifyContent: 'center', padding: 20 },
+  modalCard: { width: '100%', maxWidth: 380, backgroundColor: colors.surface, borderRadius: 24, borderWidth: 1, borderColor: colors.border, padding: 20, gap: 12 },
+  modalDate: { color: colors.muted, marginTop: -6, marginBottom: 4 },
+  calRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  calChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 12, backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border },
+  calChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  calChipText: { color: colors.muted, fontSize: 12, fontWeight: '700' },
+  calChipTextActive: { color: colors.black },
+  modalInput: { color: colors.text, backgroundColor: colors.surfaceElevated, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 10, marginTop: 4 },
+  timeRow: { flexDirection: 'row', gap: 10 },
+  errorText: { color: colors.danger, fontSize: 13 },
+  modalActions: { flexDirection: 'row', gap: 10, marginTop: 6 },
+  modalCancel: { flex: 1, padding: 13, borderRadius: 13, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+  modalCancelText: { color: colors.muted, fontWeight: '800' },
+  modalSave: { flex: 1, padding: 13, borderRadius: 13, backgroundColor: colors.primary, alignItems: 'center' },
+  modalSaveDisabled: { opacity: 0.5 },
+  modalSaveText: { color: colors.black, fontWeight: '900' },
 });
