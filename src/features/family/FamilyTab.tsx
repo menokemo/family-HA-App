@@ -17,8 +17,11 @@ export function FamilyTab({ states, settings }: Props) {
   const lists = findTodoEntities(states);
   const [eventCount, setEventCount] = useState<number | null>(null);
   const [itemCount, setItemCount] = useState<number | null>(null);
+  const calendarKey = calendars.map(c => c.entity_id).sort().join('|');
+  const listKey = lists.map(l => l.entity_id).sort().join('|');
 
   useEffect(() => {
+    if (screen !== 'hub') return;
     let on = true;
     if (!calendars.length) { setEventCount(0); return; }
     const start = new Date();
@@ -27,15 +30,16 @@ export function FamilyTab({ states, settings }: Props) {
     void Promise.all(calendars.map(c => getCalendarEvents(settings, c.entity_id, start.toISOString(), end.toISOString()).catch(() => [])))
       .then(lists2 => { if (on) setEventCount(lists2.flat().length); });
     return () => { on = false; };
-  }, [calendars.map(c => c.entity_id).join('|'), settings.baseUrl, settings.token]);
+  }, [screen, calendarKey, settings.baseUrl, settings.token]);
 
   useEffect(() => {
+    if (screen !== 'hub') return;
     let on = true;
     if (!lists.length) { setItemCount(0); return; }
     void Promise.all(lists.map(l => getTodoItems(settings, l.entity_id).catch(() => [])))
       .then(all => { if (on) setItemCount(all.flat().filter(i => i.status !== 'completed').length); });
     return () => { on = false; };
-  }, [lists.map(l => l.entity_id).join('|'), settings.baseUrl, settings.token]);
+  }, [screen, listKey, settings.baseUrl, settings.token]);
 
   if (screen === 'calendar') {
     return (

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Card } from '../../components/Card';
@@ -14,11 +14,13 @@ export function ListsView({ lists, settings }: Props) {
   const [items, setItems] = useState<TodoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState('');
+  const fetchingRef = useRef(false);
 
   const active = lists.find(l => l.entity_id === activeId) ?? lists[0];
 
   const load = async () => {
-    if (!active) return;
+    if (!active || fetchingRef.current) return;
+    fetchingRef.current = true;
     setLoading(true);
     try {
       setItems(await getTodoItems(settings, active.entity_id));
@@ -26,6 +28,7 @@ export function ListsView({ lists, settings }: Props) {
       setItems([]);
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   };
 
