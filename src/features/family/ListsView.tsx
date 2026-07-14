@@ -29,7 +29,7 @@ export function ListsView({ lists, settings }: Props) {
     }
   };
 
-  useEffect(() => { void load(); }, [active?.entity_id, settings.baseUrl, settings.token]);
+  useEffect(() => { load().catch(() => setItems([])); }, [active?.entity_id, settings.baseUrl, settings.token]);
 
   if (!lists.length) return <Card><Text style={styles.muted}>{i18n.t('noLists')}</Text></Card>;
 
