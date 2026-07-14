@@ -52,6 +52,7 @@ function battery(p: HaEntity, states: HaEntity[]) {
 export function PeopleMapWeb({ people, home, states, selectedPersonId, settings }: Props) {
   const [selected, setSelected] = useState<HaEntity | null>(null);
   const [avatars, setAvatars] = useState<Record<string, string>>({});
+  const [showPlaces, setShowPlaces] = useState(false);
   const webRef = useRef<WebView>(null);
 
   useEffect(() => {
@@ -86,6 +87,10 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
     }
   };
 
+  useEffect(() => {
+    webRef.current?.injectJavaScript(`window.${showPlaces ? 'showPlaces' : 'hidePlaces'} && window.${showPlaces ? 'showPlaces' : 'hidePlaces'}(); true;`);
+  }, [showPlaces]);
+
   if (!people.length) return <View style={s.empty}><Text style={s.muted}>{i18n.t('noPeople')}</Text></View>;
 
   const navigate = (p: HaEntity) => {
@@ -113,6 +118,10 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
           <Ionicons name="people" size={19} color={colors.primary} />
           <Text style={s.badgeText}>{people.length} {i18n.t('people')}</Text>
         </View>
+        <Pressable style={[s.placesToggle, showPlaces && s.placesToggleActive]} onPress={() => setShowPlaces(v => !v)}>
+          <Ionicons name="storefront" size={18} color={showPlaces ? colors.black : colors.text} />
+          <Text style={[s.placesToggleText, showPlaces && s.placesToggleTextActive]}>{i18n.t('nearbyPlaces')}</Text>
+        </Pressable>
       </View>
 
       <View style={s.listHalf}>
@@ -177,7 +186,7 @@ function Box({ label, value }: { label: string; value: string }) {
 function mapHtml(points: Point[], home?: { lat: number; lng: number; name: string }) {
   const all = [...points.map(p => [p.lat, p.lng]), ...(home ? [[home.lat, home.lng]] : [])];
   const c = all[0] ?? [52.1, 5.1];
-  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>html,body,#map{height:100%;margin:0;background:#0b1220}.person{width:48px;height:48px;border:3px solid #51c7ff;border-radius:50%;background:#152238;overflow:hidden;box-shadow:0 4px 12px #0008}.person img{width:100%;height:100%;object-fit:cover}.initial{color:#fff;font:700 18px sans-serif;text-align:center;line-height:48px}.home{width:40px;height:40px;border-radius:50%;background:#27c499;color:#fff;text-align:center;line-height:40px;font-size:20px;border:3px solid #fff}</style></head><body><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
+  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>html,body,#map{height:100%;margin:0;background:#0b1220}.person{width:48px;height:48px;border:3px solid #51c7ff;border-radius:50%;background:#152238;overflow:hidden;box-shadow:0 4px 12px #0008}.person img{width:100%;height:100%;object-fit:cover}.initial{color:#fff;font:700 18px sans-serif;text-align:center;line-height:48px}.home{width:40px;height:40px;border-radius:50%;background:#27c499;color:#fff;text-align:center;line-height:40px;font-size:20px;border:3px solid #fff}.place{width:30px;height:30px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 8px #0007}</style></head><body><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
 const map=L.map('map').setView([${c[0]},${c[1]}],16);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:20,subdomains:'abcd',attribution:'© OpenStreetMap contributors © CARTO'}).addTo(map);
 const b=[];
@@ -190,6 +199,30 @@ ${points
   .join('')}
 if(b.length>1)map.fitBounds(b,{padding:[50,50]});
 window.focusPerson=function(id){const m=markers[id];if(!m)return;map.setView(m.getLatLng(),16,{animate:true});m.openTooltip();};
+
+const placesLayer=L.layerGroup();
+const placeIcons={restaurant:'🍽️',cafe:'☕',fast_food:'🍔',pharmacy:'💊',hospital:'🏥',bank:'🏦',fuel:'⛽',supermarket:'🛒',school:'🏫',bakery:'🥖',bar:'🍺'};
+let placesTimer=null;
+async function loadPlaces(){
+  const bounds=map.getBounds();
+  const bbox=[bounds.getSouth(),bounds.getWest(),bounds.getNorth(),bounds.getEast()].join(',');
+  const query='[out:json][timeout:20];node["amenity"~"restaurant|cafe|fast_food|pharmacy|hospital|bank|fuel|supermarket|school|bakery|bar"]('+bbox+');out center 80;';
+  try{
+    const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:query});
+    const data=await res.json();
+    placesLayer.clearLayers();
+    (data.elements||[]).forEach(el=>{
+      const amenity=el.tags&&el.tags.amenity;
+      const emoji=placeIcons[amenity]||'📍';
+      const name=(el.tags&&el.tags.name)||amenity||'Place';
+      const icon=L.divIcon({className:'',html:'<div class="place">'+emoji+'</div>',iconSize:[30,30],iconAnchor:[15,15]});
+      L.marker([el.lat,el.lon],{icon}).addTo(placesLayer).bindTooltip(name);
+    });
+  }catch(e){}
+}
+window.showPlaces=function(){placesLayer.addTo(map);void loadPlaces();if(placesTimer)clearTimeout(placesTimer);map.on('moveend',onPlacesMoveEnd);};
+window.hidePlaces=function(){placesLayer.clearLayers();map.removeLayer(placesLayer);map.off('moveend',onPlacesMoveEnd);};
+function onPlacesMoveEnd(){if(placesTimer)clearTimeout(placesTimer);placesTimer=setTimeout(loadPlaces,600);}
 </script></body></html>`;
 }
 
@@ -209,6 +242,10 @@ const s = StyleSheet.create({
   muted: { color: colors.muted },
   badge: { position: 'absolute', top: 14, left: 14, flexDirection: 'row', gap: 8, alignItems: 'center', backgroundColor: 'rgba(16,24,38,.94)', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.border },
   badgeText: { color: colors.text, fontWeight: '800' },
+  placesToggle: { position: 'absolute', top: 14, right: 14, flexDirection: 'row', gap: 7, alignItems: 'center', backgroundColor: 'rgba(16,24,38,.94)', paddingHorizontal: 13, paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.border },
+  placesToggleActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  placesToggleText: { color: colors.text, fontWeight: '800', fontSize: 12 },
+  placesToggleTextActive: { color: colors.black },
   sheet: { position: 'absolute', left: 14, right: 14, bottom: 14, backgroundColor: colors.surface, borderRadius: 24, borderWidth: 1, borderColor: colors.border, padding: 16, elevation: 8 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
   avatar: { width: 58, height: 58, borderRadius: 29 },
