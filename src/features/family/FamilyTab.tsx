@@ -53,7 +53,7 @@ export function FamilyTab({ states, settings }: Props) {
     return (
       <View style={{ flex: 1 }}>
         <BackHeader title={i18n.t('lists')} onBack={() => setScreen('hub')} />
-        <ScrollView contentContainerStyle={s.content}><ListsView lists={lists} settings={settings} /></ScrollView>
+        <ListsView lists={lists} settings={settings} />
       </View>
     );
   }

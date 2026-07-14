@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { Card } from '../../components/Card';
 import { colors } from '../../theme';
 import { i18n } from '../../i18n';
 import { addTodoItem, getTodoItems, removeTodoItem, setTodoItemStatus, type TodoItem } from '../../api/homeAssistant';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 
 type Props = { lists: HaEntity[]; settings: ConnectionSettings };
+type Row = { kind: 'item'; item: TodoItem } | { kind: 'header'; count: number };
 
 export function ListsView({ lists, settings }: Props) {
   const [activeId, setActiveId] = useState(lists[0]?.entity_id);
@@ -34,9 +34,8 @@ export function ListsView({ lists, settings }: Props) {
 
   useEffect(() => { load().catch(() => setItems([])); }, [active?.entity_id, settings.baseUrl, settings.token]);
 
-  if (!lists.length) return <Card><Text style={styles.muted}>{i18n.t('noLists')}</Text></Card>;
-
   const toggle = async (item: TodoItem) => {
+    if (!active) return;
     setItems(cur => cur.map(x => (x.uid === item.uid ? { ...x, status: x.status === 'completed' ? 'needs_action' : 'completed' } : x)));
     try {
       await setTodoItemStatus(settings, active.entity_id, item.uid, item.status === 'completed' ? 'needs_action' : 'completed');
@@ -46,6 +45,7 @@ export function ListsView({ lists, settings }: Props) {
   };
 
   const remove = async (item: TodoItem) => {
+    if (!active) return;
     setItems(cur => cur.filter(x => x.uid !== item.uid));
     try {
       await removeTodoItem(settings, active.entity_id, item.uid);
@@ -66,81 +66,95 @@ export function ListsView({ lists, settings }: Props) {
     }
   };
 
-  const pending = items.filter(x => x.status !== 'completed');
-  const done = items.filter(x => x.status === 'completed');
+  const pending = useMemo(() => items.filter(x => x.status !== 'completed'), [items]);
+  const done = useMemo(() => items.filter(x => x.status === 'completed'), [items]);
+
+  // قائمة واحدة مدمجة (Row[]) تتغذّى لـ FlatList — أهم جزء في الحل:
+  // FlatList بيرسم بس العناصر الظاهرة فعليًا على الشاشة، مهما كان
+  // عدد العناصر الكلي كبير (آلاف العناصر)، عكس map() العادي اللي كان
+  // بيرسم الكل مرة واحدة ويجمّد الواجهة.
+  const rows = useMemo<Row[]>(() => {
+    const list: Row[] = pending.map(item => ({ kind: 'item', item }));
+    if (done.length) {
+      list.push({ kind: 'header', count: done.length });
+      for (const item of done) list.push({ kind: 'item', item });
+    }
+    return list;
+  }, [pending, done]);
+
+  if (!lists.length) return <View style={styles.card}><Text style={styles.muted}>{i18n.t('noLists')}</Text></View>;
 
   return (
-    <View style={{ gap: 12 }}>
-      {lists.length > 1 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
-          {lists.map(l => (
-            <Pressable key={l.entity_id} style={[styles.tab, active?.entity_id === l.entity_id && styles.tabActive]} onPress={() => setActiveId(l.entity_id)}>
-              <Text style={[styles.tabText, active?.entity_id === l.entity_id && styles.tabTextActive]}>{String(l.attributes.friendly_name ?? l.entity_id)}</Text>
+    <FlatList
+      style={{ flex: 1 }}
+      contentContainerStyle={styles.listContent}
+      data={rows}
+      keyExtractor={(row, i) => (row.kind === 'header' ? `header-${i}` : row.item.uid)}
+      initialNumToRender={20}
+      maxToRenderPerBatch={20}
+      windowSize={7}
+      removeClippedSubviews
+      ListHeaderComponent={
+        <View style={{ gap: 12, marginBottom: 4 }}>
+          {lists.length > 1 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
+              {lists.map(l => (
+                <Pressable key={l.entity_id} style={[styles.tab, active?.entity_id === l.entity_id && styles.tabActive]} onPress={() => setActiveId(l.entity_id)}>
+                  <Text style={[styles.tabText, active?.entity_id === l.entity_id && styles.tabTextActive]}>{String(l.attributes.friendly_name ?? l.entity_id)}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          ) : null}
+          <View style={styles.addRow}>
+            <TextInput
+              value={draft}
+              onChangeText={setDraft}
+              placeholder={i18n.t('addItem')}
+              placeholderTextColor={colors.muted}
+              style={styles.input}
+              onSubmitEditing={() => void add()}
+              returnKeyType="done"
+            />
+            <Pressable style={styles.addBtn} onPress={() => void add()}>
+              <Ionicons name="add" size={22} color={colors.black} />
             </Pressable>
-          ))}
-        </ScrollView>
-      ) : null}
-
-      <Card>
-        <View style={styles.addRow}>
-          <TextInput
-            value={draft}
-            onChangeText={setDraft}
-            placeholder={i18n.t('addItem')}
-            placeholderTextColor={colors.muted}
-            style={styles.input}
-            onSubmitEditing={() => void add()}
-            returnKeyType="done"
-          />
-          <Pressable style={styles.addBtn} onPress={() => void add()}>
-            <Ionicons name="add" size={22} color={colors.black} />
-          </Pressable>
+          </View>
+          {loading ? <Text style={styles.muted}>{i18n.t('loading')}</Text> : null}
+          {!loading && !rows.length ? <Text style={styles.muted}>{i18n.t('emptyList')}</Text> : null}
         </View>
-
-        {loading ? <Text style={styles.muted}>{i18n.t('loading')}</Text> : null}
-
-        {pending.map(item => (
-          <Pressable key={item.uid} style={styles.itemRow} onPress={() => void toggle(item)}>
-            <View style={styles.checkbox} />
-            <Text style={styles.itemText}>{item.summary}</Text>
-            <Pressable onPress={() => void remove(item)} hitSlop={10}>
+      }
+      renderItem={({ item: row }) =>
+        row.kind === 'header' ? (
+          <Text style={styles.doneLabel}>{i18n.t('completed')} · {row.count}</Text>
+        ) : (
+          <Pressable style={styles.itemRow} onPress={() => void toggle(row.item)}>
+            <View style={[styles.checkbox, row.item.status === 'completed' && styles.checkboxDone]}>
+              {row.item.status === 'completed' ? <Ionicons name="checkmark" size={13} color={colors.black} /> : null}
+            </View>
+            <Text style={[styles.itemText, row.item.status === 'completed' && styles.itemTextDone]}>{row.item.summary}</Text>
+            <Pressable onPress={() => void remove(row.item)} hitSlop={10}>
               <Ionicons name="close" size={18} color={colors.muted} />
             </Pressable>
           </Pressable>
-        ))}
-
-        {!loading && !pending.length && !done.length ? <Text style={styles.muted}>{i18n.t('emptyList')}</Text> : null}
-
-        {done.length ? (
-          <>
-            <Text style={styles.doneLabel}>{i18n.t('completed')} · {done.length}</Text>
-            {done.map(item => (
-              <Pressable key={item.uid} style={styles.itemRow} onPress={() => void toggle(item)}>
-                <View style={[styles.checkbox, styles.checkboxDone]}><Ionicons name="checkmark" size={13} color={colors.black} /></View>
-                <Text style={[styles.itemText, styles.itemTextDone]}>{item.summary}</Text>
-                <Pressable onPress={() => void remove(item)} hitSlop={10}>
-                  <Ionicons name="close" size={18} color={colors.muted} />
-                </Pressable>
-              </Pressable>
-            ))}
-          </>
-        ) : null}
-      </Card>
-    </View>
+        )
+      }
+    />
   );
 }
 
 const styles = StyleSheet.create({
+  card: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 20, padding: 16 },
+  listContent: { padding: 16, paddingBottom: 32 },
   muted: { color: colors.muted },
   tabs: { gap: 8 },
   tab: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   tabActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   tabText: { color: colors.muted, fontWeight: '800', fontSize: 13 },
   tabTextActive: { color: colors.black },
-  addRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  addRow: { flexDirection: 'row', gap: 10 },
   input: { flex: 1, color: colors.text, backgroundColor: colors.surfaceElevated, borderRadius: 14, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 12 },
   addBtn: { width: 46, height: 46, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  itemRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  itemRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   checkboxDone: { backgroundColor: colors.safe, borderColor: colors.safe },
   itemText: { flex: 1, color: colors.text, fontSize: 15 },
