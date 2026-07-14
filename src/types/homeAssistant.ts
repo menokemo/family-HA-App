@@ -17,6 +17,7 @@ export interface ConnectionSettings {
   visibleAlarmModes?: Partial<Record<AlarmModeKey, boolean>>;
   selectedCameraIds?: string[];
   selectedSensorIds?: string[];
+  biometricDisarmEnabled?: boolean;
   selectedPersonId?: string;
 }
 export interface AlarmoEvent {
