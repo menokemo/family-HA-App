@@ -24,6 +24,58 @@ async function request(settings: ConnectionSettings, path: string, init?: Reques
 export async function testConnection(settings: ConnectionSettings): Promise<void> { await request(settings, '/api/'); }
 export async function getStates(settings: ConnectionSettings): Promise<HaEntity[]> { return (await request(settings, '/api/states')).json() as Promise<HaEntity[]>; }
 
+export async function callOnvifPtz(settings: ConnectionSettings, entityId: string, data: Record<string, unknown>): Promise<void> {
+  await request(settings, '/api/services/onvif/ptz', { method: 'POST', body: JSON.stringify({ entity_id: entityId, ...data }) });
+}
+
+export async function pressButton(settings: ConnectionSettings, entityId: string): Promise<void> {
+  await request(settings, '/api/services/button/press', { method: 'POST', body: JSON.stringify({ entity_id: entityId }) });
+}
+
+export type PtzDirection = 'left' | 'right' | 'up' | 'down' | 'zoomIn' | 'zoomOut';
+
+export function findReolinkPtzButtons(states: HaEntity[], cameraEntityId: string): Partial<Record<PtzDirection | 'stop', string>> {
+  const slug = cameraEntityId.split('.')[1] ?? '';
+  const parts = slug.split('_').filter(p => p.length > 2);
+  const candidates = states.filter(s => s.entity_id.startsWith('button.') && parts.some(p => s.entity_id.includes(p)));
+  const find = (...keywords: string[]) => candidates.find(s => keywords.every(k => s.entity_id.includes(k)))?.entity_id;
+  return {
+    left: find('ptz', 'left'),
+    right: find('ptz', 'right'),
+    up: find('ptz', 'up'),
+    down: find('ptz', 'down'),
+    zoomIn: find('zoom', 'in'),
+    zoomOut: find('zoom', 'out'),
+    stop: find('ptz', 'stop'),
+  };
+}
+
+export async function ptzMove(settings: ConnectionSettings, states: HaEntity[], cameraEntityId: string, direction: PtzDirection): Promise<void> {
+  try {
+    const data: Record<string, unknown> = { move_mode: 'ContinuousMove', speed: 1, distance: 0.5 };
+    if (direction === 'left' || direction === 'right') data.pan = direction.toUpperCase();
+    if (direction === 'up' || direction === 'down') data.tilt = direction.toUpperCase();
+    if (direction === 'zoomIn') data.zoom = 'ZOOM_IN';
+    if (direction === 'zoomOut') data.zoom = 'ZOOM_OUT';
+    await callOnvifPtz(settings, cameraEntityId, data);
+    return;
+  } catch {
+    const buttons = findReolinkPtzButtons(states, cameraEntityId);
+    const id = buttons[direction];
+    if (id) await pressButton(settings, id);
+  }
+}
+
+export async function ptzStop(settings: ConnectionSettings, states: HaEntity[], cameraEntityId: string): Promise<void> {
+  try {
+    await callOnvifPtz(settings, cameraEntityId, { move_mode: 'Stop' });
+    return;
+  } catch {
+    const buttons = findReolinkPtzButtons(states, cameraEntityId);
+    if (buttons.stop) await pressButton(settings, buttons.stop);
+  }
+}
+
 export async function callAlarmoArm(settings: ConnectionSettings, entityId: string, mode: string, force = false): Promise<void> {
   const data: Record<string, unknown> = { entity_id: entityId, mode, force };
   if (settings.alarmCode.trim()) data.code = settings.alarmCode.trim();

@@ -45,6 +45,7 @@ const websocketUrl = (baseUrl: string) =>
 export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
   const [streamUrl, setStreamUrl] = useState<string>();
   const [status, setStatus] = useState(i18n.t('connecting'));
+  const [hasAudio, setHasAudio] = useState(false);
   const fallbackRef = useRef(onUnavailable);
   fallbackRef.current = onUnavailable;
 
@@ -150,6 +151,8 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
         peerEvents.ontrack = event => {
           if (!remoteStream || disposed) return;
           remoteStream.addTrack(event.track as never);
+          const kind = (event.track as unknown as { kind?: string }).kind;
+          if (kind === 'audio') setHasAudio(true);
           setStreamUrl(remoteStream.toURL());
           setStatus(i18n.t('liveStream'));
         };
@@ -241,7 +244,12 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
   return (
     <View style={styles.container}>
       {streamUrl ? (
-        <RTCView streamURL={streamUrl} style={styles.video} objectFit="contain" mirror={false} />
+        <>
+          <RTCView streamURL={streamUrl} style={styles.video} objectFit="contain" mirror={false} />
+          <View style={styles.audioBadge}>
+            <Text style={styles.audioBadgeText}>{hasAudio ? '🔊' : '🔇 ' + i18n.t('noAudioSource')}</Text>
+          </View>
+        </>
       ) : (
         <View style={styles.loading}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -257,4 +265,6 @@ const styles = StyleSheet.create({
   video: { flex: 1, backgroundColor: colors.black },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
   status: { color: '#fff', textAlign: 'center', paddingHorizontal: 24 },
+  audioBadge: { position: 'absolute', bottom: 12, left: 12, backgroundColor: 'rgba(0,0,0,.6)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
+  audioBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
 });
