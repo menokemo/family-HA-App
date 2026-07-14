@@ -76,6 +76,70 @@ export async function ptzStop(settings: ConnectionSettings, states: HaEntity[], 
   }
 }
 
+export function findCalendarEntities(states: HaEntity[]): HaEntity[] {
+  return states.filter(e => e.entity_id.startsWith('calendar.'));
+}
+export function findTodoEntities(states: HaEntity[]): HaEntity[] {
+  return states.filter(e => e.entity_id.startsWith('todo.'));
+}
+
+export type CalendarEvent = { summary: string; start: string; end: string; description?: string; location?: string; uid?: string };
+
+export async function getCalendarEvents(settings: ConnectionSettings, entityId: string, startISO: string, endISO: string): Promise<CalendarEvent[]> {
+  const res = await request(settings, `/api/calendar/${entityId}/events?start=${encodeURIComponent(startISO)}&end=${encodeURIComponent(endISO)}`);
+  return (await res.json()) as CalendarEvent[];
+}
+
+export async function createCalendarEvent(settings: ConnectionSettings, entityId: string, data: { summary: string; start_date_time: string; end_date_time: string; description?: string; location?: string }): Promise<void> {
+  await request(settings, '/api/services/calendar/create_event', { method: 'POST', body: JSON.stringify({ entity_id: entityId, ...data }) });
+}
+
+export type TodoItem = { uid: string; summary: string; status: 'needs_action' | 'completed'; due?: string };
+
+function wsUrl(baseUrl: string) {
+  return `${normalizeUrl(baseUrl).replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:')}/api/websocket`;
+}
+
+export function wsCommand(settings: ConnectionSettings, payload: Record<string, unknown>): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const socket = new WebSocket(wsUrl(settings.baseUrl));
+    let id = 0;
+    const timer = setTimeout(() => { socket.close(); reject(new Error('WebSocket request timed out')); }, 10000);
+    socket.onmessage = event => {
+      const message = JSON.parse(String(event.data)) as Record<string, unknown>;
+      if (message.type === 'auth_required') socket.send(JSON.stringify({ type: 'auth', access_token: settings.token }));
+      if (message.type === 'auth_ok') { id = Math.floor(Math.random() * 1000000) + 1; socket.send(JSON.stringify({ id, ...payload })); }
+      if (message.type === 'auth_invalid') { clearTimeout(timer); socket.close(); reject(new Error('Authentication failed')); }
+      if (message.type === 'result' && message.id === id) {
+        clearTimeout(timer);
+        socket.close();
+        if (message.success === false) reject(new Error(String((message.error as { message?: string } | undefined)?.message ?? 'Command failed')));
+        else resolve(message.result);
+      }
+    };
+    socket.onerror = () => { clearTimeout(timer); reject(new Error('WebSocket connection failed')); };
+  });
+}
+
+export async function getTodoItems(settings: ConnectionSettings, entityId: string): Promise<TodoItem[]> {
+  const result = (await wsCommand(settings, { type: 'call_service', domain: 'todo', service: 'get_items', target: { entity_id: entityId }, return_response: true })) as {
+    response?: Record<string, { items?: TodoItem[] }>;
+  };
+  return result?.response?.[entityId]?.items ?? [];
+}
+
+export async function addTodoItem(settings: ConnectionSettings, entityId: string, summary: string): Promise<void> {
+  await request(settings, '/api/services/todo/add_item', { method: 'POST', body: JSON.stringify({ entity_id: entityId, item: summary }) });
+}
+
+export async function setTodoItemStatus(settings: ConnectionSettings, entityId: string, uid: string, status: 'needs_action' | 'completed'): Promise<void> {
+  await request(settings, '/api/services/todo/update_item', { method: 'POST', body: JSON.stringify({ entity_id: entityId, item: uid, status }) });
+}
+
+export async function removeTodoItem(settings: ConnectionSettings, entityId: string, uid: string): Promise<void> {
+  await request(settings, '/api/services/todo/remove_item', { method: 'POST', body: JSON.stringify({ entity_id: entityId, item: uid }) });
+}
+
 export async function callAlarmoArm(settings: ConnectionSettings, entityId: string, mode: string, force = false): Promise<void> {
   const data: Record<string, unknown> = { entity_id: entityId, mode, force };
   if (settings.alarmCode.trim()) data.code = settings.alarmCode.trim();
