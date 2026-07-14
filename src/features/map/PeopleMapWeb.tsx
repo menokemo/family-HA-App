@@ -13,7 +13,7 @@ type Point = { id: string; name: string; lat: number; lng: number; picture?: str
 
 // نغيّر الرقم ده لو عملنا تعديل جوهري في mapHtml، عشان نجبر الـ WebView
 // يعمل remount كامل بدل ما يحاول يحدّث المحتوى القديم في مكانه.
-const MAP_TEMPLATE_VERSION = 'v3';
+const MAP_TEMPLATE_VERSION = 'v4';
 
 const coord = (e: HaEntity) => ({ latitude: Number(e.attributes.latitude), longitude: Number(e.attributes.longitude) });
 
@@ -128,6 +128,11 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
         cacheEnabled={false}
         onMessage={e => {
           if (e.nativeEvent.data === 'MAP_HTML_V2_LOADED') return;
+          if (e.nativeEvent.data.startsWith('TILE_TEST')) {
+            const g = globalThis as unknown as { __familyHaLog?: (level: string, args: unknown[]) => void };
+            g.__familyHaLog?.('trace', [e.nativeEvent.data]);
+            return;
+          }
           setSelected(people.find(p => p.entity_id === e.nativeEvent.data) ?? null);
         }}
         style={s.web}
@@ -192,7 +197,7 @@ function mapHtml(points: Point[], home?: { lat: number; lng: number; name: strin
   const c = all[0] ?? [52.1, 5.1];
   return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>html,body,#map{height:100%;margin:0;background:#0b1220}.person{width:50px;height:50px;border:3px solid #51c7ff;border-radius:50%;background:#152238;overflow:hidden;box-shadow:0 4px 12px #0008}.person img{width:100%;height:100%;object-fit:cover}.initial{color:#fff;font:700 19px sans-serif;text-align:center;line-height:50px}.home{width:40px;height:40px;border-radius:50%;background:#27c499;color:#fff;text-align:center;line-height:40px;font-size:20px;border:3px solid #fff}.place{width:30px;height:30px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 8px #0007}</style></head><body><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
 const map=L.map('map',{zoomControl:true}).setView([${c[0]},${c[1]}],16);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:20,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'}).addTo(map);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors',errorTileUrl:''}).addTo(map);
 const b=[];
 const markers={};
 ${home ? `L.marker([${home.lat},${home.lng}],{icon:L.divIcon({className:'',html:'<div class="home">⌂</div>',iconSize:[46,46],iconAnchor:[23,23]})}).addTo(map).bindTooltip(\`${esc(home.name)}\`);b.push([${home.lat},${home.lng}]);` : ''}
@@ -228,6 +233,7 @@ window.showPlaces=function(){placesLayer.addTo(map);void loadPlaces();if(placesT
 window.hidePlaces=function(){placesLayer.clearLayers();map.removeLayer(placesLayer);map.off('moveend',onPlacesMoveEnd);};
 function onPlacesMoveEnd(){if(placesTimer)clearTimeout(placesTimer);placesTimer=setTimeout(loadPlaces,600);}
 window.ReactNativeWebView.postMessage('MAP_HTML_V2_LOADED');
+fetch('https://tile.openstreetmap.org/1/0/0.png').then(r=>window.ReactNativeWebView.postMessage('TILE_TEST:'+r.status)).catch(e=>window.ReactNativeWebView.postMessage('TILE_TEST_FAILED:'+String(e)));
 </script></body></html>`;
 }
 
