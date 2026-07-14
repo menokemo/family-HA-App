@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, PermissionsAndroid, Platform, StyleSheet, Text, View } from 'react-native';
 import {
   MediaStream,
   RTCPeerConnection,
@@ -175,14 +175,15 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
       }
     };
 
-    socket = new WebSocket(websocketUrl(settings.baseUrl));
-    socket.onmessage = raw => {
-      const message = JSON.parse(String(raw.data)) as WsMessage;
-      if (message.type === 'auth_required') {
-        socket?.send(JSON.stringify({ type: 'auth', access_token: settings.token }));
-        return;
-      }
-      if (message.type === 'auth_invalid') {
+    const openSocket = () => {
+      socket = new WebSocket(websocketUrl(settings.baseUrl));
+      socket.onmessage = raw => {
+        const message = JSON.parse(String(raw.data)) as WsMessage;
+        if (message.type === 'auth_required') {
+          socket?.send(JSON.stringify({ type: 'auth', access_token: settings.token }));
+          return;
+        }
+        if (message.type === 'auth_invalid') {
         fail('Home Assistant authentication failed');
         return;
       }
@@ -205,8 +206,27 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
       if (message.type === 'event' && message.id === offerSubscriptionId && message.event) {
         void handleOfferEvent(message.event);
       }
+      };
+      socket.onerror = () => fail(i18n.t('webrtcConnectionFailed'));
     };
-    socket.onerror = () => fail(i18n.t('webrtcConnectionFailed'));
+
+    const requestMediaPermissions = async () => {
+      if (Platform.OS !== 'android') return true;
+      try {
+        const results = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        ]);
+        return Object.values(results).every(r => r === PermissionsAndroid.RESULTS.GRANTED);
+      } catch {
+        return false;
+      }
+    };
+
+    void requestMediaPermissions().then(() => {
+      if (disposed) return;
+      openSocket();
+    });
 
     return () => {
       disposed = true;
