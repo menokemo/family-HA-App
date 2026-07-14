@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Image, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -10,6 +10,10 @@ import { i18n } from '../../i18n';
 
 type Props = { people: HaEntity[]; home?: HaEntity; states: HaEntity[]; selectedPersonId?: string; settings: ConnectionSettings };
 type Point = { id: string; name: string; lat: number; lng: number; picture?: string };
+
+// نغيّر الرقم ده لو عملنا تعديل جوهري في mapHtml، عشان نجبر الـ WebView
+// يعمل remount كامل بدل ما يحاول يحدّث المحتوى القديم في مكانه.
+const MAP_TEMPLATE_VERSION = 'v3';
 
 const coord = (e: HaEntity) => ({ latitude: Number(e.attributes.latitude), longitude: Number(e.attributes.longitude) });
 
@@ -23,6 +27,16 @@ const haversine = (a: { latitude: number; longitude: number }, b: { latitude: nu
 };
 
 const distance = (m?: number) => (m === undefined ? '—' : m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`);
+
+function timeAgo(iso?: string) {
+  if (!iso) return '—';
+  const diff = Math.max(0, Date.now() - new Date(iso).getTime());
+  const min = Math.round(diff / 60000);
+  if (min < 1) return i18n.t('justNow');
+  if (min < 60) return `${min} ${i18n.t('minAgo')}`;
+  const hr = Math.round(min / 60);
+  return `${hr} ${i18n.t('hourAgo')}`;
+}
 
 async function avatar(entity: HaEntity, settings: ConnectionSettings) {
   const path = entity.attributes.entity_picture;
@@ -104,56 +118,40 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
 
   return (
     <View style={s.screen}>
-      <View style={s.mapHalf}>
-        <WebView
-          ref={webRef}
-          source={{ html }}
-          originWhitelist={['*']}
-          javaScriptEnabled
-          domStorageEnabled
-          onMessage={e => {
-            if (e.nativeEvent.data === 'MAP_HTML_V2_LOADED') {
-              const g = globalThis as unknown as { __familyHaLog?: (level: string, args: unknown[]) => void };
-              g.__familyHaLog?.('trace', ['Map WebView loaded latest HTML (V2)']);
-              return;
-            }
-            setSelected(people.find(p => p.entity_id === e.nativeEvent.data) ?? null);
-          }}
-          style={s.web}
-        />
-        <View style={s.badge}>
-          <Ionicons name="people" size={19} color={colors.primary} />
-          <Text style={s.badgeText}>{people.length} {i18n.t('people')}</Text>
-        </View>
-        <Pressable style={[s.placesToggle, showPlaces && s.placesToggleActive]} onPress={() => setShowPlaces(v => !v)}>
-          <Ionicons name="storefront" size={18} color={showPlaces ? colors.black : colors.text} />
-          <Text style={[s.placesToggleText, showPlaces && s.placesToggleTextActive]}>{i18n.t('nearbyPlaces')}</Text>
-        </Pressable>
-      </View>
+      <WebView
+        key={`${MAP_TEMPLATE_VERSION}:${points.length}:${home ? '1' : '0'}`}
+        ref={webRef}
+        source={{ html }}
+        originWhitelist={['*']}
+        javaScriptEnabled
+        domStorageEnabled
+        cacheEnabled={false}
+        onMessage={e => {
+          if (e.nativeEvent.data === 'MAP_HTML_V2_LOADED') return;
+          setSelected(people.find(p => p.entity_id === e.nativeEvent.data) ?? null);
+        }}
+        style={s.web}
+      />
 
-      <View style={s.listHalf}>
-        <FlatList
-          data={people}
-          keyExtractor={p => p.entity_id}
-          contentContainerStyle={s.listContent}
-          renderItem={({ item }) => {
-            const isSelected = selected?.entity_id === item.entity_id;
+      <View style={s.topBar} pointerEvents="box-none">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.avatarRow}>
+          <View style={s.avatarPillCount}><Ionicons name="people" size={16} color={colors.primary} /></View>
+          {people.map(p => {
+            const isSelected = selected?.entity_id === p.entity_id;
             return (
-              <Pressable style={[s.row, isSelected && s.rowSelected]} onPress={() => focusPerson(item)}>
-                {avatars[item.entity_id] ? (
-                  <Image source={{ uri: avatars[item.entity_id] }} style={s.rowAvatar} />
+              <Pressable key={p.entity_id} onPress={() => focusPerson(p)} style={[s.avatarWrap, isSelected && s.avatarWrapSelected]}>
+                {avatars[p.entity_id] ? (
+                  <Image source={{ uri: avatars[p.entity_id] }} style={s.avatarImg} />
                 ) : (
-                  <View style={[s.rowAvatar, s.rowAvatarFallback]}><Ionicons name="person" size={20} color={colors.primary} /></View>
+                  <View style={[s.avatarImg, s.avatarFallback]}><Ionicons name="person" size={20} color={colors.primary} /></View>
                 )}
-                <View style={{ flex: 1 }}>
-                  <Text style={s.rowName}>{String(item.attributes.friendly_name ?? item.entity_id)}</Text>
-                  <Text style={s.rowMuted}>{item.state} · {battery(item, states)}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.muted} />
               </Pressable>
             );
-          }}
-        />
+          })}
+          <Pressable style={[s.placesToggle, showPlaces && s.placesToggleActive]} onPress={() => setShowPlaces(v => !v)}>
+            <Ionicons name="storefront" size={16} color={showPlaces ? colors.black : colors.text} />
+          </Pressable>
+        </ScrollView>
       </View>
 
       {selected && me ? (
@@ -162,17 +160,16 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
             {avatars[selected.entity_id] ? (
               <Image source={{ uri: avatars[selected.entity_id] }} style={s.avatar} />
             ) : (
-              <View style={[s.avatar, s.avatarFallback]}><Ionicons name="person" size={28} color={colors.primary} /></View>
+              <View style={[s.avatar, s.avatarFallback]}><Ionicons name="person" size={26} color={colors.primary} /></View>
             )}
             <View style={{ flex: 1 }}>
               <Text style={s.name}>{String(selected.attributes.friendly_name ?? selected.entity_id)}</Text>
-              <Text style={s.muted}>{selected.state}</Text>
+              <Text style={s.muted}>{selected.state} · {timeAgo(selected.last_changed)} · {distance(home ? haversine(coord(selected), coord(home)) : undefined)}</Text>
             </View>
             <Pressable onPress={() => setSelected(null)} style={s.close}><Ionicons name="close" size={20} color={colors.text} /></Pressable>
           </View>
           <View style={s.details}>
             <Box label={i18n.t('battery')} value={battery(selected, states)} />
-            <Box label={i18n.t('fromHome')} value={home ? distance(haversine(coord(selected), coord(home))) : '—'} />
             <Box label={i18n.t('fromMe')} value={distance(selected.entity_id === me.entity_id ? 0 : haversine(coord(selected), coord(me)))} />
             <Box label={i18n.t('locationAccuracy')} value={Number.isFinite(Number(selected.attributes.gps_accuracy)) ? distance(Number(selected.attributes.gps_accuracy)) : '—'} />
           </View>
@@ -193,19 +190,19 @@ function Box({ label, value }: { label: string; value: string }) {
 function mapHtml(points: Point[], home?: { lat: number; lng: number; name: string }) {
   const all = [...points.map(p => [p.lat, p.lng]), ...(home ? [[home.lat, home.lng]] : [])];
   const c = all[0] ?? [52.1, 5.1];
-  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>html,body,#map{height:100%;margin:0;background:#0b1220}.person{width:48px;height:48px;border:3px solid #51c7ff;border-radius:50%;background:#152238;overflow:hidden;box-shadow:0 4px 12px #0008}.person img{width:100%;height:100%;object-fit:cover}.initial{color:#fff;font:700 18px sans-serif;text-align:center;line-height:48px}.home{width:40px;height:40px;border-radius:50%;background:#27c499;color:#fff;text-align:center;line-height:40px;font-size:20px;border:3px solid #fff}.place{width:30px;height:30px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 8px #0007}</style></head><body><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
-const map=L.map('map').setView([${c[0]},${c[1]}],16);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:20,subdomains:'abcd',attribution:'© OpenStreetMap contributors © CARTO'}).addTo(map);
+  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>html,body,#map{height:100%;margin:0;background:#0b1220}.person{width:50px;height:50px;border:3px solid #51c7ff;border-radius:50%;background:#152238;overflow:hidden;box-shadow:0 4px 12px #0008}.person img{width:100%;height:100%;object-fit:cover}.initial{color:#fff;font:700 19px sans-serif;text-align:center;line-height:50px}.home{width:40px;height:40px;border-radius:50%;background:#27c499;color:#fff;text-align:center;line-height:40px;font-size:20px;border:3px solid #fff}.place{width:30px;height:30px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 8px #0007}</style></head><body><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
+const map=L.map('map',{zoomControl:true}).setView([${c[0]},${c[1]}],16);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:20,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'}).addTo(map);
 const b=[];
 const markers={};
 ${home ? `L.marker([${home.lat},${home.lng}],{icon:L.divIcon({className:'',html:'<div class="home">⌂</div>',iconSize:[46,46],iconAnchor:[23,23]})}).addTo(map).bindTooltip(\`${esc(home.name)}\`);b.push([${home.lat},${home.lng}]);` : ''}
 ${points
   .map(
-    p => `(()=>{const i=L.divIcon({className:'',html:\`<div class="person">${p.picture ? `<img src="${p.picture}">` : `<div class="initial">${esc(p.name.slice(0, 1).toUpperCase())}</div>`}</div>\`,iconSize:[54,54],iconAnchor:[27,27]});const m=L.marker([${p.lat},${p.lng}],{icon:i}).addTo(map).bindTooltip(\`${esc(p.name)}\`).on('click',()=>window.ReactNativeWebView.postMessage('${p.id}'));markers['${p.id}']=m;b.push([${p.lat},${p.lng}]);})();`,
+    p => `(()=>{const i=L.divIcon({className:'',html:\`<div class="person">${p.picture ? `<img src="${p.picture}">` : `<div class="initial">${esc(p.name.slice(0, 1).toUpperCase())}</div>`}</div>\`,iconSize:[56,56],iconAnchor:[28,28]});const m=L.marker([${p.lat},${p.lng}],{icon:i}).addTo(map).bindTooltip(\`${esc(p.name)}\`).on('click',()=>window.ReactNativeWebView.postMessage('${p.id}'));markers['${p.id}']=m;b.push([${p.lat},${p.lng}]);})();`,
   )
   .join('')}
-if(b.length>1)map.fitBounds(b,{padding:[50,50]});
-window.focusPerson=function(id){const m=markers[id];if(!m)return;map.setView(m.getLatLng(),16,{animate:true});m.openTooltip();};
+if(b.length>1)map.fitBounds(b,{padding:[60,60]});
+window.focusPerson=function(id){const m=markers[id];if(!m)return;map.setView(m.getLatLng(),17,{animate:true});m.openTooltip();};
 
 const placesLayer=L.layerGroup();
 const placeIcons={restaurant:'🍽️',cafe:'☕',fast_food:'🍔',pharmacy:'💊',hospital:'🏥',bank:'🏦',fuel:'⛽',supermarket:'🛒',school:'🏫',bakery:'🥖',bar:'🍺'};
@@ -236,32 +233,25 @@ window.ReactNativeWebView.postMessage('MAP_HTML_V2_LOADED');
 
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  mapHalf: { flex: 1 },
-  listHalf: { flex: 1, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
-  listContent: { padding: 12, gap: 8 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  rowSelected: { borderColor: colors.primary, backgroundColor: colors.surfaceElevated },
-  rowAvatar: { width: 40, height: 40, borderRadius: 20 },
-  rowAvatarFallback: { backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
-  rowName: { color: colors.text, fontWeight: '800', fontSize: 15 },
-  rowMuted: { color: colors.muted, fontSize: 12, marginTop: 2, textTransform: 'capitalize' },
   web: { flex: 1, backgroundColor: colors.background },
   empty: { padding: 24 },
   muted: { color: colors.muted },
-  badge: { position: 'absolute', top: 14, left: 14, flexDirection: 'row', gap: 8, alignItems: 'center', backgroundColor: 'rgba(16,24,38,.94)', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.border, elevation: 12, zIndex: 12 },
-  badgeText: { color: colors.text, fontWeight: '800' },
-  placesToggle: { position: 'absolute', top: 14, right: 14, flexDirection: 'row', gap: 7, alignItems: 'center', backgroundColor: 'rgba(16,24,38,.94)', paddingHorizontal: 13, paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.border, elevation: 12, zIndex: 12 },
+  topBar: { position: 'absolute', top: 14, left: 0, right: 0 },
+  avatarRow: { paddingHorizontal: 14, gap: 9, alignItems: 'center' },
+  avatarPillCount: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(16,24,38,.94)', borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  avatarWrap: { width: 46, height: 46, borderRadius: 23, borderWidth: 2, borderColor: 'rgba(16,24,38,.5)', padding: 1, backgroundColor: 'rgba(16,24,38,.94)' },
+  avatarWrapSelected: { borderColor: colors.primary },
+  avatarImg: { width: '100%', height: '100%', borderRadius: 20 },
+  avatarFallback: { backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
+  placesToggle: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(16,24,38,.94)', borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   placesToggleActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  placesToggleText: { color: colors.text, fontWeight: '800', fontSize: 12 },
-  placesToggleTextActive: { color: colors.black },
   sheet: { position: 'absolute', left: 14, right: 14, bottom: 14, backgroundColor: colors.surface, borderRadius: 24, borderWidth: 1, borderColor: colors.border, padding: 16, elevation: 8 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
   avatar: { width: 58, height: 58, borderRadius: 29 },
-  avatarFallback: { backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
   name: { color: colors.text, fontSize: 19, fontWeight: '800' },
   close: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
   details: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
-  box: { width: '48%', backgroundColor: colors.surfaceElevated, borderRadius: 14, padding: 11 },
+  box: { width: '31%', backgroundColor: colors.surfaceElevated, borderRadius: 14, padding: 11 },
   boxLabel: { color: colors.muted, fontSize: 11, fontWeight: '700' },
   boxValue: { color: colors.text, fontSize: 15, fontWeight: '800', marginTop: 4 },
   navigate: { marginTop: 14, backgroundColor: colors.primary, borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 },
