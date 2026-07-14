@@ -81,9 +81,10 @@ export async function callAlarmoArm(settings: ConnectionSettings, entityId: stri
   if (settings.alarmCode.trim()) data.code = settings.alarmCode.trim();
   await request(settings, '/api/services/alarmo/arm', { method: 'POST', body: JSON.stringify(data) });
 }
-export async function callAlarmoDisarm(settings: ConnectionSettings, entityId: string): Promise<void> {
+export async function callAlarmoDisarm(settings: ConnectionSettings, entityId: string, codeOverride?: string): Promise<void> {
   const data: Record<string, unknown> = { entity_id: entityId };
-  if (settings.alarmCode.trim()) data.code = settings.alarmCode.trim();
+  const code = codeOverride ?? settings.alarmCode;
+  if (code.trim()) data.code = code.trim();
   await request(settings, '/api/services/alarmo/disarm', { method: 'POST', body: JSON.stringify(data) });
 }
 export async function skipAlarmoDelay(settings: ConnectionSettings, entityId: string): Promise<void> {
