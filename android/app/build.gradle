@@ -112,6 +112,9 @@ dependencies {
     implementation("com.facebook.react:react-android")
     // لخدمة AlarmMonitorService الأصلية (اتصال WebSocket + REST بـ Home Assistant في الخلفية)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // للبصمة في شاشة الإنذار الأصلية (AlarmActivity)
+    implementation("androidx.biometric:biometric:1.1.0")
+    implementation("androidx.fragment:fragment-ktx:1.8.5")
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")

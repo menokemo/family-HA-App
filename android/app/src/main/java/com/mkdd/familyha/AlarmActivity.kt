@@ -1,16 +1,18 @@
 package com.mkdd.familyha
 
-import android.app.Activity
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
 import android.media.MediaPlayer
-import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import android.widget.SeekBar
 import android.widget.TextView
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
@@ -23,12 +25,14 @@ import java.io.IOException
 
 /**
  * شاشة كاملة تظهر فوق أي حاجة (شاشة قفل أو استخدام عادي) لحظة تشغيل
- * الإنذار، زي مكالمة واردة، فيها سبب التريجر وسلايدر للتعطيل.
+ * الإنذار، زي مكالمة واردة، فيها سبب التريجر وسلايدر للتعطيل (بالبصمة
+ * لو مفعّلة في الإعدادات).
  */
-class AlarmActivity : Activity() {
+class AlarmActivity : FragmentActivity() {
   private var mediaPlayer: MediaPlayer? = null
 
-  private fun lang() = getSharedPreferences(AlarmMonitorService.PREFS, Context.MODE_PRIVATE).getString("language", "en")
+  private fun prefs() = getSharedPreferences(AlarmMonitorService.PREFS, Context.MODE_PRIVATE)
+  private fun lang() = prefs().getString("language", "en")
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -53,22 +57,12 @@ class AlarmActivity : Activity() {
     playSiren()
 
     slider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+      var handled = false
       override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-        if (progress >= 85 && fromUser) {
+        if (progress >= 85 && fromUser && !handled) {
+          handled = true
           seekBar.isEnabled = false
-          statusText.text = AlarmStrings.get(lang(), "disarming")
-          disarmAlarm { success ->
-            runOnUiThread {
-              if (success) {
-                stopSiren()
-                finish()
-              } else {
-                statusText.text = AlarmStrings.get(lang(), "disarm_failed")
-                seekBar.isEnabled = true
-                seekBar.progress = 0
-              }
-            }
-          }
+          attemptDisarm(statusText, seekBar) { handled = false }
         }
       }
 
@@ -78,6 +72,59 @@ class AlarmActivity : Activity() {
         if (seekBar.progress < 85) seekBar.progress = 0
       }
     })
+  }
+
+  private fun attemptDisarm(statusText: TextView, seekBar: SeekBar, onReset: () -> Unit) {
+    val biometricEnabled = prefs().getBoolean("biometricEnabled", false)
+    val biometricReady = biometricEnabled &&
+      BiometricManager.from(this).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) == BiometricManager.BIOMETRIC_SUCCESS
+    if (biometricReady) {
+      val prompt = BiometricPrompt(
+        this,
+        ContextCompat.getMainExecutor(this),
+        object : BiometricPrompt.AuthenticationCallback() {
+          override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+            runDisarm(statusText, seekBar, onReset)
+          }
+
+          override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+            seekBar.isEnabled = true
+            seekBar.progress = 0
+            onReset()
+          }
+
+          override fun onAuthenticationFailed() {
+            // سيب المستخدم يعيد المحاولة، الـ prompt بيفضل ظاهر لوحده
+          }
+        },
+      )
+      val info = BiometricPrompt.PromptInfo.Builder()
+        .setTitle(AlarmStrings.get(lang(), "screen_title"))
+        .setSubtitle(AlarmStrings.get(lang(), "disarming"))
+        .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+        .setNegativeButtonText(AlarmStrings.get(lang(), "disarm_failed"))
+        .build()
+      prompt.authenticate(info)
+    } else {
+      runDisarm(statusText, seekBar, onReset)
+    }
+  }
+
+  private fun runDisarm(statusText: TextView, seekBar: SeekBar, onReset: () -> Unit) {
+    statusText.text = AlarmStrings.get(lang(), "disarming")
+    disarmAlarm { success ->
+      runOnUiThread {
+        if (success) {
+          stopSiren()
+          finish()
+        } else {
+          statusText.text = AlarmStrings.get(lang(), "disarm_failed")
+          seekBar.isEnabled = true
+          seekBar.progress = 0
+          onReset()
+        }
+      }
+    }
   }
 
   override fun onNewIntent(intent: Intent) {
@@ -112,12 +159,17 @@ class AlarmActivity : Activity() {
 
   private fun playSiren() {
     try {
-      val uri = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM)
-      mediaPlayer = MediaPlayer.create(this, uri)
+      val tone = prefs().getString("sirenTone", "classic")
+      val resId = when (tone) {
+        "digital" -> R.raw.siren_digital
+        "pulse" -> R.raw.siren_pulse
+        else -> R.raw.siren_classic
+      }
+      mediaPlayer = MediaPlayer.create(this, resId)
       mediaPlayer?.isLooping = true
       mediaPlayer?.start()
     } catch (e: Exception) {
-      // مفيش نغمة إنذار افتراضية على الجهاز، نكمل من غير صوت
+      // فشل تشغيل الصوت لأي سبب - نكمل من غير صوت، مش لازم نوقف الشاشة
     }
   }
 
@@ -130,11 +182,10 @@ class AlarmActivity : Activity() {
   }
 
   private fun disarmAlarm(callback: (Boolean) -> Unit) {
-    val prefs = getSharedPreferences(AlarmMonitorService.PREFS, Context.MODE_PRIVATE)
-    val baseUrl = prefs.getString("baseUrl", null)
-    val token = prefs.getString("token", null)
-    val entityId = prefs.getString("entityId", null)
-    val code = prefs.getString("alarmCode", "") ?: ""
+    val baseUrl = prefs().getString("baseUrl", null)
+    val token = prefs().getString("token", null)
+    val entityId = prefs().getString("entityId", null)
+    val code = prefs().getString("alarmCode", "") ?: ""
     if (baseUrl == null || token == null || entityId == null) {
       callback(false)
       return

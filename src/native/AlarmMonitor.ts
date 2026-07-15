@@ -1,7 +1,7 @@
 import { NativeModules, PermissionsAndroid, Platform } from 'react-native';
 
 type AlarmMonitorNative = {
-  start: (baseUrl: string, token: string, entityId: string, alarmCode: string, language: string) => Promise<boolean>;
+  start: (baseUrl: string, token: string, entityId: string, alarmCode: string, language: string, sirenTone: string, biometricEnabled: boolean) => Promise<boolean>;
   stop: () => Promise<boolean>;
   isRunning: () => Promise<boolean>;
   canUseFullScreenIntent: () => Promise<boolean>;
@@ -28,7 +28,7 @@ export function openOverlaySettings(): Promise<boolean> {
   return native?.openOverlaySettings() ?? Promise.resolve(false);
 }
 
-export async function startAlarmMonitor(baseUrl: string, token: string, entityId: string, alarmCode: string, language: string): Promise<boolean> {
+export async function startAlarmMonitor(baseUrl: string, token: string, entityId: string, alarmCode: string, language: string, sirenTone: string, biometricEnabled: boolean): Promise<boolean> {
   if (!native) return false;
   if (Platform.OS === 'android' && Platform.Version >= 33) {
     try {
@@ -37,7 +37,7 @@ export async function startAlarmMonitor(baseUrl: string, token: string, entityId
       /* المستخدم يقدر يرفض، الخدمة هتشتغل برضو بس من غير تنبيهات ظاهرة */
     }
   }
-  return native.start(baseUrl, token, entityId, alarmCode, language);
+  return native.start(baseUrl, token, entityId, alarmCode, language, sirenTone, biometricEnabled);
 }
 
 export function stopAlarmMonitor(): Promise<boolean> {

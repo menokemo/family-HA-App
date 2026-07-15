@@ -62,7 +62,7 @@ class AlarmMonitorModule(private val reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
-  fun start(baseUrl: String, token: String, entityId: String, alarmCode: String, language: String, promise: Promise) {
+  fun start(baseUrl: String, token: String, entityId: String, alarmCode: String, language: String, sirenTone: String, biometricEnabled: Boolean, promise: Promise) {
     try {
       prefs().edit()
         .putString("baseUrl", baseUrl)
@@ -70,6 +70,8 @@ class AlarmMonitorModule(private val reactContext: ReactApplicationContext) :
         .putString("entityId", entityId)
         .putString("alarmCode", alarmCode)
         .putString("language", language)
+        .putString("sirenTone", sirenTone)
+        .putBoolean("biometricEnabled", biometricEnabled)
         .putBoolean("enabled", true)
         .apply()
       val intent = Intent(reactContext, AlarmMonitorService::class.java)
