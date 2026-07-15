@@ -112,14 +112,16 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
     if (Platform.OS === 'ios') {
       const label = encodeURIComponent(String(p.attributes.friendly_name ?? p.entity_id));
       void Linking.openURL(`maps://?daddr=${c.latitude},${c.longitude}&q=${label}`).catch(() =>
-        Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${c.latitude},${c.longitude}`),
+        Linking.openURL(`geo:${c.latitude},${c.longitude}?q=${c.latitude},${c.longitude}`),
       );
       return;
     }
-    // رابط Google Maps الموحّد للتوجيه: مدعوم بشكل أوسع وأكثر اتساقًا من geo:
-    // بين تطبيقات الخرائط المختلفة (بيبعت وجهة توجيه فعلية، مش بس مركز خريطة)
-    void Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${c.latitude},${c.longitude}`).catch(() =>
-      Linking.openURL(`geo:${c.latitude},${c.longitude}?q=${c.latitude},${c.longitude}`),
+    // geo: (بدون domain مرتبط بتطبيق افتراضي زي https links) بيخلي أندرويد
+    // يعرض مربع اختيار التطبيق دايمًا بدل ما يفتح Google Maps تلقائيًا،
+    // وصيغة بسيطة (إحداثيات بس، من غير label) بتضمن توافق أوسع مع
+    // تطبيقات خرائط مختلفة بدل ما تتفسر غلط وتفتح خريطة فاضية
+    void Linking.openURL(`geo:${c.latitude},${c.longitude}?q=${c.latitude},${c.longitude}`).catch(() =>
+      Linking.openURL(`https://www.openstreetmap.org/?mlat=${c.latitude}&mlon=${c.longitude}#map=17/${c.latitude}/${c.longitude}`),
     );
   };
 
