@@ -28,14 +28,21 @@ import java.io.IOException
 class AlarmActivity : Activity() {
   private var mediaPlayer: MediaPlayer? = null
 
+  private fun lang() = getSharedPreferences(AlarmMonitorService.PREFS, Context.MODE_PRIVATE).getString("language", "en")
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     showOverLockScreen()
     setContentView(R.layout.activity_alarm)
 
+    val titleText = findViewById<TextView>(R.id.titleText)
     val reasonText = findViewById<TextView>(R.id.reasonText)
     val statusText = findViewById<TextView>(R.id.statusText)
+    val hintText = findViewById<TextView>(R.id.swipeHintText)
     val slider = findViewById<SeekBar>(R.id.disarmSlider)
+
+    titleText.text = AlarmStrings.get(lang(), "screen_title")
+    hintText.text = AlarmStrings.get(lang(), "swipe_hint")
 
     val reason = intent.getStringExtra("reason") ?: ""
     if (reason.isNotEmpty()) {
@@ -49,14 +56,14 @@ class AlarmActivity : Activity() {
       override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
         if (progress >= 85 && fromUser) {
           seekBar.isEnabled = false
-          statusText.text = "جاري التعطيل..."
+          statusText.text = AlarmStrings.get(lang(), "disarming")
           disarmAlarm { success ->
             runOnUiThread {
               if (success) {
                 stopSiren()
                 finish()
               } else {
-                statusText.text = "فشل التعطيل، حاول تاني"
+                statusText.text = AlarmStrings.get(lang(), "disarm_failed")
                 seekBar.isEnabled = true
                 seekBar.progress = 0
               }

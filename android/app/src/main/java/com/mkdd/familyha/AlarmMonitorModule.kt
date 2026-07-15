@@ -62,13 +62,14 @@ class AlarmMonitorModule(private val reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
-  fun start(baseUrl: String, token: String, entityId: String, alarmCode: String, promise: Promise) {
+  fun start(baseUrl: String, token: String, entityId: String, alarmCode: String, language: String, promise: Promise) {
     try {
       prefs().edit()
         .putString("baseUrl", baseUrl)
         .putString("token", token)
         .putString("entityId", entityId)
         .putString("alarmCode", alarmCode)
+        .putString("language", language)
         .putBoolean("enabled", true)
         .apply()
       val intent = Intent(reactContext, AlarmMonitorService::class.java)

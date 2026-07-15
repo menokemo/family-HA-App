@@ -144,9 +144,10 @@ class AlarmMonitorService : Service() {
   }
 
   private fun buildMonitorNotification(): Notification {
+    val lang = prefs().getString("language", "en")
     return NotificationCompat.Builder(this, CHANNEL_MONITOR)
-      .setContentTitle("Family HA")
-      .setContentText("مراقبة الإنذار نشطة في الخلفية")
+      .setContentTitle(AlarmStrings.get(lang, "monitor_title"))
+      .setContentText(AlarmStrings.get(lang, "monitor_text"))
       .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
       .setPriority(NotificationCompat.PRIORITY_MIN)
       .setOngoing(true)
@@ -173,6 +174,7 @@ class AlarmMonitorService : Service() {
   }
 
   private fun showFullScreenAlert(reason: String) {
+    val lang = prefs().getString("language", "en")
     val fullScreenIntent = Intent(this, AlarmActivity::class.java).apply {
       flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
       putExtra("reason", reason)
@@ -184,8 +186,8 @@ class AlarmMonitorService : Service() {
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
     val notification = NotificationCompat.Builder(this, CHANNEL_ALERT)
-      .setContentTitle("🚨 تم تشغيل الإنذار")
-      .setContentText(reason.ifEmpty { "افتح للتعطيل" })
+      .setContentTitle(AlarmStrings.get(lang, "alert_title"))
+      .setContentText(reason.ifEmpty { AlarmStrings.get(lang, "alert_default_text") })
       .setSmallIcon(android.R.drawable.ic_dialog_alert)
       .setPriority(NotificationCompat.PRIORITY_HIGH)
       .setCategory(NotificationCompat.CATEGORY_ALARM)

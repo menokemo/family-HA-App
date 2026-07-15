@@ -123,7 +123,7 @@ function AlarmoSettings({draft,setDraft,alarms,sensors,states,onImmediateSave}:{
   }
   setMonitorBusy(true);
   try{
-   if(value)await startAlarmMonitor(draft.baseUrl,draft.token,draft.alarmEntityId,draft.alarmCode);
+   if(value)await startAlarmMonitor(draft.baseUrl,draft.token,draft.alarmEntityId,draft.alarmCode,draft.language??'en');
    else await stopAlarmMonitor();
    setMonitorOn(value);
   }catch(e){
