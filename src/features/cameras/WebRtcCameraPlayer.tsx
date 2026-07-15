@@ -66,8 +66,8 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
       fallbackRef.current(reason);
     };
 
-    const command = (payload: Record<string, unknown>): Promise<unknown> =>
-      new Promise((resolve, reject) => {
+    const command = (payload: Record<string, unknown>): Promise<unknown> => {
+      const request = new Promise((resolve, reject) => {
         if (!socket || socket.readyState !== WebSocket.OPEN) {
           reject(new Error('WebSocket is not connected'));
           return;
@@ -76,13 +76,20 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
         pending.set(id, { resolve, reject });
         socket.send(JSON.stringify({ id, ...payload }));
         setTimeout(() => {
-          const request = pending.get(id);
-          if (request) {
+          const pendingRequest = pending.get(id);
+          if (pendingRequest) {
             pending.delete(id);
-            request.reject(new Error('WebRTC request timed out'));
+            pendingRequest.reject(new Error('WebRTC request timed out'));
           }
         }, 15000);
       });
+      // لو الشاشة اتقفلت واحنا لسه مستنيين رد (كاميرا بطيئة مثلاً)،
+      // بيتم رفض الـ promise في الـ cleanup - الـ catch الفاضي ده بس
+      // بيمنع تحذير "Unhandled Rejection" المزعج، مش بيمنع أي كود
+      // تاني بيستنى نفس الـ promise من إنه ياخد الخطأ الحقيقي عادي.
+      request.catch(() => undefined);
+      return request;
+    };
 
     const sendCandidate = async (candidate: IceCandidateInit) => {
       if (!sessionId) {
