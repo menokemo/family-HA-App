@@ -4,9 +4,19 @@ type AlarmMonitorNative = {
   start: (baseUrl: string, token: string, entityId: string, alarmCode: string) => Promise<boolean>;
   stop: () => Promise<boolean>;
   isRunning: () => Promise<boolean>;
+  canUseFullScreenIntent: () => Promise<boolean>;
+  openFullScreenIntentSettings: () => Promise<boolean>;
 };
 
 const native = NativeModules.AlarmMonitor as AlarmMonitorNative | undefined;
+
+export function canUseFullScreenIntent(): Promise<boolean> {
+  return native?.canUseFullScreenIntent() ?? Promise.resolve(true);
+}
+
+export function openFullScreenIntentSettings(): Promise<boolean> {
+  return native?.openFullScreenIntentSettings() ?? Promise.resolve(false);
+}
 
 export async function startAlarmMonitor(baseUrl: string, token: string, entityId: string, alarmCode: string): Promise<boolean> {
   if (!native) return false;

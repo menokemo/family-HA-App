@@ -170,6 +170,11 @@ class AlarmMonitorService : Service() {
       .build()
     val nm = getSystemService(NotificationManager::class.java)
     nm.notify(NOTIF_ID_ALERT, notification)
-    startActivity(fullScreenIntent)
+    // ملاحظة: ما بنستدعيش startActivity() هنا مباشرة عمدًا - أندرويد
+    // بيمنع إطلاق Activity من خدمة خلفية مباشرة (Background Activity
+    // Launch restrictions). الآلية الصحيحة والموثّقة هي الاعتماد على
+    // setFullScreenIntent فوق بس، والنظام نفسه بيفتح الشاشة تلقائيًا
+    // لو الجهاز مقفول/الشاشة مطفية - بشرط إن صلاحية full-screen intent
+    // ممنوحة فعليًا (راجع canUseFullScreenIntent في AlarmMonitorModule).
   }
 }
