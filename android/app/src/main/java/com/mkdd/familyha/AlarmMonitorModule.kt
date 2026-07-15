@@ -45,6 +45,23 @@ class AlarmMonitorModule(private val reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
+  fun canDrawOverlays(promise: Promise) {
+    promise.resolve(Settings.canDrawOverlays(reactContext))
+  }
+
+  @ReactMethod
+  fun openOverlaySettings(promise: Promise) {
+    try {
+      val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + reactContext.packageName))
+      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      reactContext.startActivity(intent)
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("settings_failed", e.message, e)
+    }
+  }
+
+  @ReactMethod
   fun start(baseUrl: String, token: String, entityId: String, alarmCode: String, promise: Promise) {
     try {
       prefs().edit()

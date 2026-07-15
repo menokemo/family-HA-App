@@ -3,12 +3,13 @@ package com.mkdd.familyha
 import android.app.Activity
 import android.app.KeyguardManager
 import android.content.Context
+import android.content.Intent
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
-import android.widget.Button
+import android.widget.SeekBar
 import android.widget.TextView
 import okhttp3.Call
 import okhttp3.Callback
@@ -20,7 +21,10 @@ import okhttp3.Response
 import org.json.JSONObject
 import java.io.IOException
 
-/** شاشة كاملة تظهر فوق شاشة القفل لحظة تشغيل الإنذار، زي مكالمة واردة. */
+/**
+ * شاشة كاملة تظهر فوق أي حاجة (شاشة قفل أو استخدام عادي) لحظة تشغيل
+ * الإنذار، زي مكالمة واردة، فيها سبب التريجر وسلايدر للتعطيل.
+ */
 class AlarmActivity : Activity() {
   private var mediaPlayer: MediaPlayer? = null
 
@@ -29,26 +33,48 @@ class AlarmActivity : Activity() {
     showOverLockScreen()
     setContentView(R.layout.activity_alarm)
 
-    val disarmButton = findViewById<Button>(R.id.disarmButton)
+    val reasonText = findViewById<TextView>(R.id.reasonText)
     val statusText = findViewById<TextView>(R.id.statusText)
+    val slider = findViewById<SeekBar>(R.id.disarmSlider)
+
+    val reason = intent.getStringExtra("reason") ?: ""
+    reasonText.text = if (reason.isNotEmpty()) reason else "Family HA"
 
     playSiren()
 
-    disarmButton.setOnClickListener {
-      disarmButton.isEnabled = false
-      statusText.text = "جاري التعطيل..."
-      disarmAlarm { success ->
-        runOnUiThread {
-          if (success) {
-            stopSiren()
-            finish()
-          } else {
-            statusText.text = "فشل التعطيل، حاول تاني"
-            disarmButton.isEnabled = true
+    slider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+      override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
+        if (progress >= 85 && fromUser) {
+          seekBar.isEnabled = false
+          statusText.text = "جاري التعطيل..."
+          disarmAlarm { success ->
+            runOnUiThread {
+              if (success) {
+                stopSiren()
+                finish()
+              } else {
+                statusText.text = "فشل التعطيل، حاول تاني"
+                seekBar.isEnabled = true
+                seekBar.progress = 0
+              }
+            }
           }
         }
       }
-    }
+
+      override fun onStartTrackingTouch(seekBar: SeekBar) = Unit
+
+      override fun onStopTrackingTouch(seekBar: SeekBar) {
+        if (seekBar.progress < 85) seekBar.progress = 0
+      }
+    })
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    val reason = intent.getStringExtra("reason") ?: ""
+    findViewById<TextView>(R.id.reasonText)?.text = if (reason.isNotEmpty()) reason else "Family HA"
   }
 
   private fun showOverLockScreen() {

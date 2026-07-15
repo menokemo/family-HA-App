@@ -12,6 +12,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -101,8 +102,11 @@ class AlarmMonitorService : Service() {
                 val entityId = data.optString("entity_id")
                 val watchedEntity = prefs().getString("entityId", "") ?: ""
                 if (entityId.isNotEmpty() && entityId == watchedEntity) {
-                  val newState = data.optJSONObject("new_state")?.optString("state")
-                  if (newState == "triggered") showFullScreenAlert()
+                  val newState = data.optJSONObject("new_state")
+                  if (newState?.optString("state") == "triggered") {
+                    val reason = extractTriggerReason(newState.optJSONObject("attributes"))
+                    showFullScreenAlert(reason)
+                  }
                 }
               }
             }
@@ -149,9 +153,26 @@ class AlarmMonitorService : Service() {
       .build()
   }
 
-  private fun showFullScreenAlert() {
+  private fun extractTriggerReason(attributes: JSONObject?): String {
+    if (attributes == null) return ""
+    val openSensors = attributes.optJSONObject("open_sensors")
+    if (openSensors != null && openSensors.length() > 0) {
+      val names = mutableListOf<String>()
+      val keys = openSensors.keys()
+      while (keys.hasNext()) {
+        val key = keys.next()
+        val value = openSensors.opt(key)
+        names.add(if (value is String) value else key)
+      }
+      return names.joinToString("، ")
+    }
+    return ""
+  }
+
+  private fun showFullScreenAlert(reason: String) {
     val fullScreenIntent = Intent(this, AlarmActivity::class.java).apply {
       flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+      putExtra("reason", reason)
     }
     val fullScreenPendingIntent = PendingIntent.getActivity(
       this,
@@ -161,7 +182,7 @@ class AlarmMonitorService : Service() {
     )
     val notification = NotificationCompat.Builder(this, CHANNEL_ALERT)
       .setContentTitle("🚨 تم تشغيل الإنذار")
-      .setContentText("افتح للتعطيل")
+      .setContentText(reason.ifEmpty { "افتح للتعطيل" })
       .setSmallIcon(android.R.drawable.ic_dialog_alert)
       .setPriority(NotificationCompat.PRIORITY_HIGH)
       .setCategory(NotificationCompat.CATEGORY_ALARM)
@@ -170,11 +191,17 @@ class AlarmMonitorService : Service() {
       .build()
     val nm = getSystemService(NotificationManager::class.java)
     nm.notify(NOTIF_ID_ALERT, notification)
-    // ملاحظة: ما بنستدعيش startActivity() هنا مباشرة عمدًا - أندرويد
-    // بيمنع إطلاق Activity من خدمة خلفية مباشرة (Background Activity
-    // Launch restrictions). الآلية الصحيحة والموثّقة هي الاعتماد على
-    // setFullScreenIntent فوق بس، والنظام نفسه بيفتح الشاشة تلقائيًا
-    // لو الجهاز مقفول/الشاشة مطفية - بشرط إن صلاحية full-screen intent
-    // ممنوحة فعليًا (راجع canUseFullScreenIntent في AlarmMonitorModule).
+    // لو المستخدم منح صلاحية "العرض فوق التطبيقات الأخرى"، أندرويد
+    // بيدّي استثناء (Background Activity Launch exemption) يسمح لنا
+    // نفتح الشاشة فورًا بغض النظر عن حالة القفل أو استخدام الموبايل
+    // دلوقتي - مش بس لما الشاشة مقفولة زي setFullScreenIntent بمفرده.
+    if (Settings.canDrawOverlays(this)) {
+      try {
+        startActivity(fullScreenIntent)
+      } catch (e: Exception) {
+        // لو فشلت لأي سبب، الإشعار بتاع setFullScreenIntent فوق
+        // هيفضل يغطي حالة الشاشة المقفولة على الأقل.
+      }
+    }
   }
 }

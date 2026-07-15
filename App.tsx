@@ -24,7 +24,7 @@ import { i18n } from './src/i18n';
 import { detectDeviceLanguage } from './src/i18n/detectDeviceLanguage';
 import { PinKeypad } from './src/components/PinKeypad';
 import { SwipeToConfirm } from './src/components/SwipeToConfirm';
-import { startAlarmMonitor, stopAlarmMonitor, isAlarmMonitorRunning, canUseFullScreenIntent, openFullScreenIntentSettings } from './src/native/AlarmMonitor';
+import { startAlarmMonitor, stopAlarmMonitor, isAlarmMonitorRunning, canUseFullScreenIntent, openFullScreenIntentSettings, canDrawOverlays, openOverlaySettings } from './src/native/AlarmMonitor';
 import { isBiometricAvailable, enableBiometricDisarm, disableBiometricDisarm, getBiometricCode } from './src/storage/biometric';
 import type { AlarmModeKey, AlarmoEvent, ConnectionSettings, HaEntity, SirenTone } from './src/types/homeAssistant';
 
@@ -104,11 +104,19 @@ function AlarmoSettings({draft,setDraft,alarms,sensors,states,onImmediateSave}:{
  const toggleMonitor=async(value:boolean)=>{
   if(!draft.alarmEntityId){Alert.alert(i18n.t('lockScreenAlert'),i18n.t('selectAlarmFirst'));return;}
   if(value){
-   const allowed=await canUseFullScreenIntent();
-   if(!allowed){
+   const fullScreenOk=await canUseFullScreenIntent();
+   if(!fullScreenOk){
     Alert.alert(i18n.t('lockScreenAlert'),i18n.t('needFullScreenPermission'),[
      {text:i18n.t('cancel'),style:'cancel'},
      {text:i18n.t('openSettings'),onPress:()=>void openFullScreenIntentSettings()},
+    ]);
+    return;
+   }
+   const overlayOk=await canDrawOverlays();
+   if(!overlayOk){
+    Alert.alert(i18n.t('lockScreenAlert'),i18n.t('needOverlayPermission'),[
+     {text:i18n.t('cancel'),style:'cancel'},
+     {text:i18n.t('openSettings'),onPress:()=>void openOverlaySettings()},
     ]);
     return;
    }
