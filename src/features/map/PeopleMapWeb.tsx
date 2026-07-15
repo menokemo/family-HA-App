@@ -109,11 +109,18 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
 
   const navigate = (p: HaEntity) => {
     const c = coord(p);
-    const label = encodeURIComponent(String(p.attributes.friendly_name ?? p.entity_id));
-    const native = Platform.OS === 'ios'
-      ? `maps://?daddr=${c.latitude},${c.longitude}&q=${label}`
-      : `geo:${c.latitude},${c.longitude}?q=${c.latitude},${c.longitude}(${label})`;
-    void Linking.openURL(native).catch(() => Linking.openURL(`https://www.openstreetmap.org/directions?to=${c.latitude},${c.longitude}`));
+    if (Platform.OS === 'ios') {
+      const label = encodeURIComponent(String(p.attributes.friendly_name ?? p.entity_id));
+      void Linking.openURL(`maps://?daddr=${c.latitude},${c.longitude}&q=${label}`).catch(() =>
+        Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${c.latitude},${c.longitude}`),
+      );
+      return;
+    }
+    // رابط Google Maps الموحّد للتوجيه: مدعوم بشكل أوسع وأكثر اتساقًا من geo:
+    // بين تطبيقات الخرائط المختلفة (بيبعت وجهة توجيه فعلية، مش بس مركز خريطة)
+    void Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${c.latitude},${c.longitude}`).catch(() =>
+      Linking.openURL(`geo:${c.latitude},${c.longitude}?q=${c.latitude},${c.longitude}`),
+    );
   };
 
   return (
