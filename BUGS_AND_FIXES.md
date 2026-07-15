@@ -160,36 +160,6 @@ git log --oneline -1   # ولازم يطابق آخر commit على GitHub
 
 ---
 
-### BUG-009 — @react-native-community/geolocation غير متوافقة مع RN 0.83
-**الحالة:** ⛔ تم التراجع (مش محلولة، مؤجَّلة)
-**الوصف:** أضفنا المكتبة عشان "المسافة مني" في الخريطة تتحسب من موقع
-GPS حي بدل آخر موقع مسجّل في HA. الـ build فشل بخطأ CMake:
-`add_subdirectory given source ".../geolocation/android/build/
-generated/source/codegen/jni/" which is not an existing directory`.
-**التشخيص:** اكتشفنا إن `newArchEnabled=false` في `gradle.properties`
-**بقى متجاهَل تمامًا** في نسخة React Native الحالية (0.83) — ظهرت
-رسالة صريحة "The application will run with the New Architecture
-enabled by default" وقت تشغيل أي أمر gradle. بحث فعلي أكّد إن ده
-مشكلة معروفة وواسعة في مجتمع React Native (مش خطأ منا)، والمصادر
-الرسمية بتقول صراحةً: "تعطيل New Architecture مبقاش حل موثوق في
-نسخ RN الحديثة — الحل الصح تحديث المكتبة غير المتوافقة نفسها".
-**محاولات جُرِّبت ولم تنجح:** (1) مسح كامل لكل الـ cache والبناء من
-الصفر. (2) `npx react-native codegen` يدويًا (ولّد الملفات في مكان
-مختلف عن اللي CMake بيدوّر عليه). (3) استدعاء Gradle task
-`generateCodegenArtifactsFromSchema` مباشرة (الاسم مش موجود أصلًا
-بالصيغة دي في هذا الإصدار).
-**القرار:** حذفنا المكتبة والكود المرتبط بيها بالكامل (رجعنا لحساب
-"المسافة مني" من موقع HA بس، زي قبل المحاولة). **خطوة تالية محتملة:**
-تجربة مكتبة GPS بديلة (زي `react-native-geolocation-service`) أو
-انتظار تحديث لـ `@react-native-community/geolocation` يدعم RN 0.83 +
-New Architecture الإجبارية بشكل صحيح.
-**تأثير مهم:** الاكتشاف ده (New Architecture بقت إجبارية) يستاهل
-انتباه لأي مكتبة native جديدة نضيفها مستقبلًا — لازم نتأكد إنها بتدعم
-New Architecture/Codegen قبل ما نضيفها، مش بس نعتمد على تعطيل الفلاج.
-**تم التحقق:** 2026-07-15.
-
----
-
 ## طريقة الإضافة لهذا الملف
 عند اكتشاف مشكلة جديدة: أضفها تحت "مفتوحة" برقم BUG-XXX تسلسلي.
 عند حلها: انقلها تحت "تم حلها" واذكر رقم الـ commit أو التاريخ.
