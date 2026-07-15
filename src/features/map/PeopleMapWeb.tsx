@@ -7,6 +7,7 @@ import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { absoluteHaUrl, authHeaders } from '../../api/homeAssistant';
 import { colors } from '../../theme';
 import { i18n } from '../../i18n';
+import { requestLocationPermission, watchLiveLocation, type LiveLocation } from '../../native/liveLocation';
 
 type Props = { people: HaEntity[]; home?: HaEntity; states: HaEntity[]; selectedPersonId?: string; settings: ConnectionSettings };
 type Point = { id: string; name: string; lat: number; lng: number; picture?: string };
@@ -80,6 +81,15 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
   }, [people.map(p => `${p.entity_id}:${String(p.attributes.entity_picture ?? '')}`).join('|'), settings.baseUrl, settings.token]);
 
   const me = people.find(p => p.entity_id === selectedPersonId) ?? people[0];
+  const [liveLocation, setLiveLocation] = useState<LiveLocation | null>(null);
+  useEffect(() => {
+    let stopWatch: (() => void) | undefined;
+    void requestLocationPermission().then(granted => {
+      if (granted) stopWatch = watchLiveLocation(setLiveLocation);
+    });
+    return () => stopWatch?.();
+  }, []);
+  const myCoord = liveLocation ?? (me ? coord(me) : undefined);
   const points: Point[] = people.map(p => ({
     id: p.entity_id,
     name: String(p.attributes.friendly_name ?? p.entity_id),
@@ -184,7 +194,7 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
           </View>
           <View style={s.details}>
             <Box label={i18n.t('battery')} value={battery(selected, states)} />
-            <Box label={i18n.t('fromMe')} value={distance(selected.entity_id === me.entity_id ? 0 : haversine(coord(selected), coord(me)))} />
+            <Box label={i18n.t('fromMe')} value={distance(!myCoord ? undefined : me && selected.entity_id === me.entity_id ? 0 : haversine(coord(selected), myCoord))} />
             <Box label={i18n.t('locationAccuracy')} value={Number.isFinite(Number(selected.attributes.gps_accuracy)) ? distance(Number(selected.attributes.gps_accuracy)) : '—'} />
           </View>
           <Pressable style={s.navigate} onPress={() => navigate(selected)}>
