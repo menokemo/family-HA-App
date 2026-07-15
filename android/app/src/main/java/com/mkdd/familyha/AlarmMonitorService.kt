@@ -154,19 +154,22 @@ class AlarmMonitorService : Service() {
   }
 
   private fun extractTriggerReason(attributes: JSONObject?): String {
-    if (attributes == null) return ""
-    val openSensors = attributes.optJSONObject("open_sensors")
-    if (openSensors != null && openSensors.length() > 0) {
-      val names = mutableListOf<String>()
-      val keys = openSensors.keys()
-      while (keys.hasNext()) {
-        val key = keys.next()
-        val value = openSensors.opt(key)
-        names.add(if (value is String) value else key)
-      }
-      return names.joinToString("، ")
+    val openSensors = attributes?.optJSONObject("open_sensors") ?: return ""
+    if (openSensors.length() == 0) return ""
+    val names = mutableListOf<String>()
+    val keys = openSensors.keys()
+    while (keys.hasNext()) {
+      // مفاتيح open_sensors هي entity_id (زي binary_sensor.front_door)
+      // والقيم هي حالة المستشعر ("open") مش اسمه - عشان كده بنحوّل
+      // الـ entity_id نفسه لاسم مقروء بدل ما نعرض الحالة الخام.
+      names.add(formatEntityName(keys.next()))
     }
-    return ""
+    return names.joinToString("، ")
+  }
+
+  private fun formatEntityName(entityId: String): String {
+    val part = entityId.substringAfter('.', entityId)
+    return part.split('_').joinToString(" ") { word -> word.replaceFirstChar { it.uppercaseChar() } }
   }
 
   private fun showFullScreenAlert(reason: String) {

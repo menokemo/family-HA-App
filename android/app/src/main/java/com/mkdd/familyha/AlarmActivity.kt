@@ -38,7 +38,10 @@ class AlarmActivity : Activity() {
     val slider = findViewById<SeekBar>(R.id.disarmSlider)
 
     val reason = intent.getStringExtra("reason") ?: ""
-    reasonText.text = if (reason.isNotEmpty()) reason else "Family HA"
+    if (reason.isNotEmpty()) {
+      reasonText.text = reason
+      reasonText.visibility = android.view.View.VISIBLE
+    }
 
     playSiren()
 
@@ -74,7 +77,13 @@ class AlarmActivity : Activity() {
     super.onNewIntent(intent)
     setIntent(intent)
     val reason = intent.getStringExtra("reason") ?: ""
-    findViewById<TextView>(R.id.reasonText)?.text = if (reason.isNotEmpty()) reason else "Family HA"
+    val reasonView = findViewById<TextView>(R.id.reasonText)
+    if (reason.isNotEmpty()) {
+      reasonView?.text = reason
+      reasonView?.visibility = android.view.View.VISIBLE
+    } else {
+      reasonView?.visibility = android.view.View.GONE
+    }
   }
 
   private fun showOverLockScreen() {
