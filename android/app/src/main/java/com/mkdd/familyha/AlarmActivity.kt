@@ -1,18 +1,20 @@
 package com.mkdd.familyha
 
+import android.app.Activity
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
+import android.hardware.biometrics.BiometricPrompt
 import android.media.MediaPlayer
+import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
+import android.os.CancellationSignal
+import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
-import android.widget.SeekBar
+import android.widget.FrameLayout
 import android.widget.TextView
-import androidx.biometric.BiometricManager
-import androidx.biometric.BiometricPrompt
-import androidx.core.content.ContextCompat
-import androidx.fragment.app.FragmentActivity
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
@@ -22,17 +24,20 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONObject
 import java.io.IOException
+import java.util.concurrent.Executor
 
 /**
  * شاشة كاملة تظهر فوق أي حاجة (شاشة قفل أو استخدام عادي) لحظة تشغيل
- * الإنذار، زي مكالمة واردة، فيها سبب التريجر وسلايدر للتعطيل (بالبصمة
- * لو مفعّلة في الإعدادات).
+ * الإنذار، زي مكالمة واردة، فيها سبب التريجر وسحب مباشر (View قابل
+ * للسحب، مش SeekBar) للتعطيل، وطلب بصمة/رقم الجهاز قبل التنفيذ فعليًا.
  */
-class AlarmActivity : FragmentActivity() {
+class AlarmActivity : Activity() {
   private var mediaPlayer: MediaPlayer? = null
+  private var dX = 0f
+  private var maxTranslation = 0f
+  private var slideTriggered = false
 
-  private fun prefs() = getSharedPreferences(AlarmMonitorService.PREFS, Context.MODE_PRIVATE)
-  private fun lang() = prefs().getString("language", "en")
+  private fun lang() = getSharedPreferences(AlarmMonitorService.PREFS, Context.MODE_PRIVATE).getString("language", "en")
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -43,7 +48,8 @@ class AlarmActivity : FragmentActivity() {
     val reasonText = findViewById<TextView>(R.id.reasonText)
     val statusText = findViewById<TextView>(R.id.statusText)
     val hintText = findViewById<TextView>(R.id.swipeHintText)
-    val slider = findViewById<SeekBar>(R.id.disarmSlider)
+    val track = findViewById<FrameLayout>(R.id.sliderTrack)
+    val knob = findViewById<View>(R.id.disarmKnob)
 
     titleText.text = AlarmStrings.get(lang(), "screen_title")
     hintText.text = AlarmStrings.get(lang(), "swipe_hint")
@@ -51,78 +57,39 @@ class AlarmActivity : FragmentActivity() {
     val reason = intent.getStringExtra("reason") ?: ""
     if (reason.isNotEmpty()) {
       reasonText.text = reason
-      reasonText.visibility = android.view.View.VISIBLE
+      reasonText.visibility = View.VISIBLE
     }
 
     playSiren()
 
-    slider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-      var handled = false
-      override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-        if (progress >= 85 && fromUser && !handled) {
-          handled = true
-          seekBar.isEnabled = false
-          attemptDisarm(statusText, seekBar) { handled = false }
-        }
-      }
-
-      override fun onStartTrackingTouch(seekBar: SeekBar) = Unit
-
-      override fun onStopTrackingTouch(seekBar: SeekBar) {
-        if (seekBar.progress < 85) seekBar.progress = 0
-      }
-    })
-  }
-
-  private fun attemptDisarm(statusText: TextView, seekBar: SeekBar, onReset: () -> Unit) {
-    val biometricEnabled = prefs().getBoolean("biometricEnabled", false)
-    val biometricReady = biometricEnabled &&
-      BiometricManager.from(this).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) == BiometricManager.BIOMETRIC_SUCCESS
-    if (biometricReady) {
-      val prompt = BiometricPrompt(
-        this,
-        ContextCompat.getMainExecutor(this),
-        object : BiometricPrompt.AuthenticationCallback() {
-          override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-            runDisarm(statusText, seekBar, onReset)
-          }
-
-          override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-            seekBar.isEnabled = true
-            seekBar.progress = 0
-            onReset()
-          }
-
-          override fun onAuthenticationFailed() {
-            // سيب المستخدم يعيد المحاولة، الـ prompt بيفضل ظاهر لوحده
-          }
-        },
-      )
-      val info = BiometricPrompt.PromptInfo.Builder()
-        .setTitle(AlarmStrings.get(lang(), "screen_title"))
-        .setSubtitle(AlarmStrings.get(lang(), "disarming"))
-        .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
-        .setNegativeButtonText(AlarmStrings.get(lang(), "disarm_failed"))
-        .build()
-      prompt.authenticate(info)
-    } else {
-      runDisarm(statusText, seekBar, onReset)
+    track.post {
+      val marginPx = (7 * resources.displayMetrics.density)
+      maxTranslation = (track.width - knob.width - marginPx * 2)
     }
-  }
 
-  private fun runDisarm(statusText: TextView, seekBar: SeekBar, onReset: () -> Unit) {
-    statusText.text = AlarmStrings.get(lang(), "disarming")
-    disarmAlarm { success ->
-      runOnUiThread {
-        if (success) {
-          stopSiren()
-          finish()
-        } else {
-          statusText.text = AlarmStrings.get(lang(), "disarm_failed")
-          seekBar.isEnabled = true
-          seekBar.progress = 0
-          onReset()
+    knob.setOnTouchListener { view, event ->
+      when (event.action) {
+        MotionEvent.ACTION_DOWN -> {
+          dX = view.translationX - event.rawX
+          true
         }
+        MotionEvent.ACTION_MOVE -> {
+          if (slideTriggered) return@setOnTouchListener true
+          var newX = event.rawX + dX
+          newX = newX.coerceIn(0f, maxTranslation)
+          view.translationX = newX
+          if (maxTranslation > 0 && newX >= maxTranslation * 0.82f) {
+            slideTriggered = true
+            view.translationX = maxTranslation
+            confirmAndDisarm(statusText, view, knob)
+          }
+          true
+        }
+        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+          if (!slideTriggered) view.animate().translationX(0f).setDuration(160).start()
+          true
+        }
+        else -> false
       }
     }
   }
@@ -134,9 +101,59 @@ class AlarmActivity : FragmentActivity() {
     val reasonView = findViewById<TextView>(R.id.reasonText)
     if (reason.isNotEmpty()) {
       reasonView?.text = reason
-      reasonView?.visibility = android.view.View.VISIBLE
+      reasonView?.visibility = View.VISIBLE
     } else {
-      reasonView?.visibility = android.view.View.GONE
+      reasonView?.visibility = View.GONE
+    }
+  }
+
+  private fun confirmAndDisarm(statusText: TextView, knobView: View, knob: View) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+      val executor = Executor { command -> runOnUiThread(command) }
+      val prompt = BiometricPrompt.Builder(this)
+        .setTitle(AlarmStrings.get(lang(), "screen_title"))
+        .setSubtitle(AlarmStrings.get(lang(), "disarming"))
+        .setAllowedAuthenticators(BiometricPrompt.Authenticators.BIOMETRIC_WEAK or BiometricPrompt.Authenticators.DEVICE_CREDENTIAL)
+        .build()
+      try {
+        prompt.authenticate(
+          CancellationSignal(),
+          executor,
+          object : BiometricPrompt.AuthenticationCallback() {
+            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+              performDisarm(statusText, knobView)
+            }
+            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+              resetSlider(knobView, statusText)
+            }
+          },
+        )
+        return
+      } catch (e: Exception) {
+        // مفيش بصمة/قفل شاشة مُعرَّف على الجهاز - نكمل بدون مصادقة إضافية
+      }
+    }
+    performDisarm(statusText, knobView)
+  }
+
+  private fun resetSlider(knobView: View, statusText: TextView) {
+    slideTriggered = false
+    statusText.text = ""
+    knobView.animate().translationX(0f).setDuration(160).start()
+  }
+
+  private fun performDisarm(statusText: TextView, knobView: View) {
+    statusText.text = AlarmStrings.get(lang(), "disarming")
+    disarmAlarm { success ->
+      runOnUiThread {
+        if (success) {
+          stopSiren()
+          finish()
+        } else {
+          statusText.text = AlarmStrings.get(lang(), "disarm_failed")
+          resetSlider(knobView, statusText)
+        }
+      }
     }
   }
 
@@ -159,17 +176,12 @@ class AlarmActivity : FragmentActivity() {
 
   private fun playSiren() {
     try {
-      val tone = prefs().getString("sirenTone", "classic")
-      val resId = when (tone) {
-        "digital" -> R.raw.siren_digital
-        "pulse" -> R.raw.siren_pulse
-        else -> R.raw.siren_classic
-      }
-      mediaPlayer = MediaPlayer.create(this, resId)
+      val uri = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM)
+      mediaPlayer = MediaPlayer.create(this, uri)
       mediaPlayer?.isLooping = true
       mediaPlayer?.start()
     } catch (e: Exception) {
-      // فشل تشغيل الصوت لأي سبب - نكمل من غير صوت، مش لازم نوقف الشاشة
+      // مفيش نغمة إنذار افتراضية على الجهاز، نكمل من غير صوت
     }
   }
 
@@ -182,10 +194,11 @@ class AlarmActivity : FragmentActivity() {
   }
 
   private fun disarmAlarm(callback: (Boolean) -> Unit) {
-    val baseUrl = prefs().getString("baseUrl", null)
-    val token = prefs().getString("token", null)
-    val entityId = prefs().getString("entityId", null)
-    val code = prefs().getString("alarmCode", "") ?: ""
+    val prefs = getSharedPreferences(AlarmMonitorService.PREFS, Context.MODE_PRIVATE)
+    val baseUrl = prefs.getString("baseUrl", null)
+    val token = prefs.getString("token", null)
+    val entityId = prefs.getString("entityId", null)
+    val code = prefs.getString("alarmCode", "") ?: ""
     if (baseUrl == null || token == null || entityId == null) {
       callback(false)
       return
