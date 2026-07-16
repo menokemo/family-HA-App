@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
+import android.hardware.biometrics.BiometricManager
 import android.hardware.biometrics.BiometricPrompt
 import android.media.MediaPlayer
 import android.media.RingtoneManager
@@ -113,7 +114,7 @@ class AlarmActivity : Activity() {
       val prompt = BiometricPrompt.Builder(this)
         .setTitle(AlarmStrings.get(lang(), "screen_title"))
         .setSubtitle(AlarmStrings.get(lang(), "disarming"))
-        .setAllowedAuthenticators(BiometricPrompt.Authenticators.BIOMETRIC_WEAK or BiometricPrompt.Authenticators.DEVICE_CREDENTIAL)
+        .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
         .build()
       try {
         prompt.authenticate(
