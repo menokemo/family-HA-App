@@ -41,18 +41,35 @@ export function DashboardView({ settings, dashboardPath }: Props) {
     return `try { window.localStorage.setItem('hassTokens', ${JSON.stringify(JSON.stringify(tokens))}); } catch (e) {} true;`;
   }, [settings.authMethod, settings.accessToken, settings.token, settings.refreshToken, settings.tokenExpiresAt, baseUrl]);
 
+  // بنراقب فعليًا لحظة ما Kiosk Mode يخفي القائمة الجانبية (بدل ما
+  // نستنى وقت ثابت مخمّن) - بنبعت رسالة للتطبيق أول ما نلاحظها
+  // مختفية، مع سقف أقصى 3 ثواني كحماية لو الانتظار طال لأي سبب.
+  const kioskWatcherJS = `
+    (function () {
+      var start = Date.now();
+      var check = function () {
+        var sidebar = document.querySelector('ha-sidebar') || document.querySelector('app-drawer');
+        var hidden = !sidebar || getComputedStyle(sidebar).display === 'none' || sidebar.hasAttribute('hidden');
+        if (hidden || Date.now() - start > 3000) {
+          window.ReactNativeWebView.postMessage('kiosk-ready');
+        } else {
+          setTimeout(check, 80);
+        }
+      };
+      check();
+    })();
+    true;
+  `;
+
   return (
     <View style={s.container}>
       <WebView
         source={{ uri: url }}
         injectedJavaScriptBeforeContentLoaded={injectedJS}
+        injectedJavaScript={kioskWatcherJS}
+        onMessage={event => { if (event.nativeEvent.data === 'kiosk-ready') setReady(true); }}
         startInLoadingState
-        onLoadEnd={() => {
-          // نديله فترة صغيرة كمان بعد ما الصفحة تخلص تحميل عشان
-          // Kiosk Mode (module بيشتغل بعد الترسيم، مش قبله) ياخد وقته
-          // يخفي القائمة/الشريط قبل ما نكشف المحتوى للمستخدم.
-          setTimeout(() => setReady(true), 900);
-        }}
+        onLoadEnd={() => setTimeout(() => setReady(true), 3200)}
         style={{ backgroundColor: colors.background }}
       />
       {!ready ? (
