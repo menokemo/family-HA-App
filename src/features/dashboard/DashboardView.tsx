@@ -70,6 +70,7 @@ export function DashboardView({ settings, dashboardPath }: Props) {
         onMessage={event => { if (event.nativeEvent.data === 'kiosk-ready') setReady(true); }}
         startInLoadingState
         onLoadEnd={() => setTimeout(() => setReady(true), 3200)}
+        cacheEnabled={false}
         style={{ backgroundColor: colors.background }}
       />
       {!ready ? (
