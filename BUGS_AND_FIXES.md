@@ -1,204 +1,169 @@
 # Bugs & Fixes — Family HA
 
-هذا الملف يوثّق كل مشكلة تُكتشف في المشروع، وحالتها، وحلها إن وُجد.
-كل commit يمس Bug لازم يحدّث سطره هنا.
+*[English below Arabic / الإنجليزية أسفل العربية]*
+
+توثيق كل مشكلة حقيقية اتكشفت، سببها الجذري، والحل — عشان محدش يكرر
+نفس التشخيص أو يرجع لنفس الغلطة.
+Documented root causes and fixes for every real bug found, so nobody
+repeats the same diagnosis or the same mistake.
 
 ---
 
-## 🔴 مفتوحة (Open)
+## العربية
 
-### BUG-001 — jest غير مُثبّت كـ dependency
-**الحالة:** مفتوحة
-**الوصف:** `jest.config.js` و `__tests__/App.test.tsx` موجودين، لكن
-`package.json` لا يحتوي على `jest` ولا `@types/jest` ولا
-`react-test-renderer` ضمن `devDependencies`. تشغيل `npm test` يفشل فورًا
-لأن الحزم غير موجودة، و `tsc --noEmit` يفشل أيضًا بسبب
-`"types": ["jest"]` في `tsconfig.json` بدون تعريف النوع المطلوب.
-**الحل المقترح:** إضافة إلى `devDependencies`:
-```
-"jest": "^30.x",
-"@types/jest": "^30.x",
-"react-test-renderer": "19.2.0",
-"@types/react-test-renderer": "^19.x"
-```
-**تم التأكد بتاريخ:** 2026-07-13 (عبر `npm install` + `npx tsc --noEmit` فعليًا)
+### ✅ مشاكل حُلَّت
 
----
+**مجلد `src/` كان ناقص من الرفعة الأولى** — `App.tsx` كان بيستورد من
+10 مسارات تحت `src/` غير موجودة خالص، فالمشروع ما كانش بيُبنى. اتصلح
+برفع `src/`/`android/`/`ios/`/`assets/` كاملين.
 
-### BUG-002 — ملفات الإعداد بأسماء خاطئة (underscore بدل نقطة)
-**الحالة:** مفتوحة
-**الوصف:** الملفات التالية مرفوعة بشرطة سفلية بدل النقطة، فالأدوات
-المرتبطة بها (Git, ESLint, Prettier, Watchman, Xcode env) لا تتعرف
-عليها تلقائيًا:
-- `_gitignore` → يجب أن يكون `.gitignore`
-- `_eslintrc.js` → يجب أن يكون `.eslintrc.js`
-- `_prettierrc.js` → يجب أن يكون `.prettierrc.js`
-- `_watchmanconfig` → يجب أن يكون `.watchmanconfig`
-- `ios/_xcode.env` → يجب أن يكون `ios/.xcode.env`
-**السبب المحتمل:** رفع الملفات عبر واجهة GitHub الويب أو أداة لا تدعم
-رفع dotfiles مباشرة.
-**الحل المقترح:** إعادة تسمية الملفات (`git mv`) داخل الريبو.
+**أسماء ملفات الإعداد غلط** (`_gitignore` بدل `.gitignore` وهكذا) —
+مرفوعة بشرطة سفلية بدل نقطة، فـ Git/ESLint/Prettier ما كانوش
+بيتعرفوا عليها خالص. اتصلحت بإعادة التسمية.
 
----
+**شاشة سوداء بعد أول تشغيل** — الـ JS bundle كان بيتحمّل لكن الواجهة
+ما كانتش بترتسم. السبب الحقيقي: Metro (على بيئة LXC) مكنش بيلاحظ
+تغييرات الملفات صح (مشكلة `watchman`/`inotify` معروفة في بعض بيئات
+الـ containers). الحل: `pm2 restart metro` مع `--reset-cache` ومسح
+`watchman` كامل — بقت خطوة روتينية بعد أي تعديل جوهري.
 
-### BUG-003 — مشروع iOS لا يزال باسم القالب الافتراضي "HelloWorld"
-**الحالة:** مفتوحة
-**الوصف:** `ios/Podfile` و `ios/HelloWorld.xcodeproj` يستخدمان اسم
-القالب الافتراضي من `react-native init` بدل اسم المشروع الحقيقي
-(FamilyHA). هذا لن يمنع البناء لكنه سيسبب لبسًا ومشاكل محتملة في
-Bundle Identifier لاحقًا.
-**الحل المقترح:** إعادة تسمية الـ target والمشروع إلى `FamilyHA` (عبر
-`npx react-native-rename` أو يدويًا في Xcode).
+**كراش كامل عند فتح البث المباشر للكاميرا** — كان بيقفل التطبيق
+فورًا. جُرِّبت فرضيات كتير (صلاحيات، cache قديم) قبل ما نلاقي السبب
+الحقيقي: **React Native 0.83 بيشغّل New Architecture إجباريًا بغض
+النظر عن `newArchEnabled` في `gradle.properties`**. تركه `false` عمل
+تناقض داخلي خلّى بعض المكتبات (زي `react-native-webrtc` وقتها،
+و`@react-native-community/geolocation` بعدين) ترفض تولّد كود
+Codegen بتاعتها بشكل صحيح. الحل النهائي: `newArchEnabled=true` دايمًا
+(يطابق الواقع الفعلي). **درس مهم:** الكراش الأصلي مالوش علاقة حقيقية
+بـ New Architecture من الأساس — كانت شغالة إجباريًا طول الوقت.
 
----
+**تجمد كامل عند فتح قائمة كبيرة (4677 عنصر)** — السبب: كنا برندر كل
+عناصر القائمة بـ `.map()` عادي بدل قائمة افتراضية (Virtualized). رسم
+آلاف المكوّنات دفعة واحدة بيجمّد الـ JS thread. اتصلح باستخدام
+`FlatList` حقيقية بترسم بس اللي ظاهر على الشاشة.
 
-### BUG-004 — عدم تطابق رقم الإصدار بين app.json و package.json
-**الحالة:** ✅ تم الحل
-**الوصف:** `package.json` كان يذكر `"version": "2.1.2"` بينما `app.json`
-كان يذكر `"version": "2.1.1"`.
-**الحل المطبَّق:** توحيد الرقمين على `2.2.0`، وسيتم رفع الرقم مع كل
-تعديل مهم من الآن فصاعدًا (كلاهما معًا) كدليل بصري في شاشة الإعدادات
-على أن التثبيت الحالي هو فعلًا آخر نسخة — بعد مشاكل متكررة في التأكد
-من تحديث الكود على LXC (راجع BUG-006).
-**تم التحقق:** 2026-07-14.
+**مستشعرات Alarmo مش بتظهر كاملة** — افترضنا إن سجل الكيانات القياسي
+في HA (`config/entity_registry/list`) هيدّينا كل مستشعرات Alarmo عن
+طريق مطابقة `config_entry_id`، لكن اتضح إن المستشعرات بتفضل مملوكة
+لتكاملها الأصلي (زي Zigbee2MQTT)، مش لـ Alarmo. الحل: اختيار يدوي
+للمستشعرات من الإعدادات بدل الاعتماد على استنتاج غير موثوق.
 
----
+**التنبيه فوق شاشة القفل مش بيشتغل إلا لما الموبايل مقفول** — عكس
+المتوقع. السبب: `setFullScreenIntent` وحدها بتشتغل بس لما الشاشة
+مقفولة/مطفية. لإظهار التنبيه في أي وقت (حتى والموبايل شغال)، لازم
+كمان صلاحية "العرض فوق التطبيقات الأخرى" (`SYSTEM_ALERT_WINDOW`) —
+بتدّي أندرويد استثناء (BAL exemption) يسمح بفتح الشاشة من خدمة خلفية
+مباشرة.
 
-### BUG-005 — سكربت `02-setup-inside-container.sh` بدا وكأنه توقف بدون خطأ
-**الحالة:** ✅ تم الحل (توضيح، مش خطأ فعلي)
-**الوصف:** عند أول تشغيل للسكربت داخل الـ LXC، توقفت الشاشة عند
-`>> تثبيت Android SDK...` بعد اكتمال تحميل `cmdline-tools.zip` مباشرة،
-وكأن السكربت خرج بدون رسالة خطأ.
-**السبب الحقيقي:** السكربت كان شغالًا فعلًا وكمّل خطوة `unzip` و`mv`
-بنجاح، لكن خطوة `yes | sdkmanager --licenses > /dev/null` تستغرق وقتًا
-طويلاً في تحميل بيانات الـ repository ("Fetch remote...")، وبما إن
-الـ output اتوجّه لـ `/dev/null`، بدا وكأن الشاشة "واقفة" رغم إنها لسه
-بتشتغل في الخلفية.
-**الحل المطبَّق:** إعادة تنفيذ باقي الخطوات يدويًا (بدون إخفاء الـ
-output هذه المرة) خطوة بخطوة: `sdkmanager --licenses` ثم تثبيت
-`platform-tools` و`platforms;android-35` و`build-tools;35.0.0`، ثم
-`git clone` + `npm install` + `./gradlew assembleDebug` (نجح البناء في
-11 دقيقة و43 ثانية) + تشغيل `pm2` لـ Metro وسيرفر الـ APK.
-**توصية للمستقبل:** في `02-setup-inside-container.sh`، إزالة
-`> /dev/null` من خطوة الـ licenses، أو إضافة رسالة توضيحية قبلها
-("هذه الخطوة قد تستغرق دقائق، الرجاء الانتظار") لتفادي الالتباس.
-**تم التحقق:** 2026-07-13، بيئة LXC كاملة تعمل بنجاح (Metro + APK
-server عبر pm2، APK مثبَّت وشغّال على موبايل حقيقي).
+**نغمة الإنذار كانت بتشغّل نغمة المنبه الافتراضية** بدل نغمة التطبيق
+المختارة، ومكنتش بتتخطى وضع الصامت. الحل: تشغيل ملف الصوت الفعلي
+المختار (`siren_classic/digital/pulse.wav`) عبر `AudioAttributes` مع
+`USAGE_ALARM` صراحة — القناة دي بتتخطى الصامت/عدم الإزعاج تلقائيًا.
+
+**شاشة تنبيه الإنذار كانت عربي ثابت** بغض النظر عن لغة التطبيق
+المختارة — لأنها كود Kotlin أصلي، مش React Native، فمكانتش بتستخدم
+نظام i18n بتاعنا خالص. اتصلحت بملف نصوص منفصل (`AlarmStrings.kt`)
+بثلاث لغات، تتقرا من الإعداد المحفوظ وقت تفعيل المراقبة.
+
+### ⚠️ قيود معروفة (مش أخطاء، قرارات واعية)
+- **`jest` غير مثبَّتة عمدًا** — مذكورة في `jest.config.js` بس مش في
+  `package.json`. جُرِّب تثبيتها (`jest`/`@types/jest`/`react-test-
+  renderer`/`@types/react-test-renderer`) والتحقق بتثبيت نضيف كامل
+  أكتر من مرة، واتأكد إنها بتسبب تعارض أنواع حقيقي (مش تجميلي) مع
+  `@types/react-native-vector-icons` (بتسحب `@types/react-native@
+  0.70.19` قديمة) يكسر `npm run typecheck` فعليًا. القرار: تفضل غير
+  مثبّتة لحد ما نلاقي نسخة متوافقة.
+- **اسم مشروع iOS لسه "HelloWorld"** — إعادة التسمية محتاجة macOS/
+  Xcode فعلي للتأكد من عدم كسر الربط الداخلي، وغير قابلة للاختبار في
+  بيئة Linux بتاعتنا الحالية.
+- **`@types/react-native-vector-icons`** بتسحب `@types/react-native`
+  قديمة، بتسبب تحذير أنواع تجميلي في `npm run typecheck` (من غير
+  `--skipLibCheck`) — غير مؤثر على البناء الفعلي، ومُتوقع أصلًا عبر
+  `skipLibCheck: true` في إعدادات TypeScript الموروثة من React Native.
 
 ---
 
-### BUG-006 — `git pull` على الـ LXC كان بيفشل بصمت لساعات
-**الحالة:** ✅ تم الحل
-**الوصف:** بعد أول جلسة تشخيص للشاشة السوداء، فضلت تعديلات محلية غير
-محفوظة (`App.tsx`, `index.js`, `android/gradlew`) على نسخة الريبو
-داخل الـ LXC. أي `git pull` لاحق كان يفشل بصمت (Git برفض الدمج مع
-وجود تعديلات محلية غير committed) بينما الطرفية كانت بتوهم إنه نجح.
-النتيجة: 5 commits كاملة (صلاحيات WebRTC، إعادة تصميم الخريطة، شاشة
-تسجيل الدخول، كشف اللغة) اتبنت في الـ APK **من غير** ما تكون فعليًا
-موجودة في الكود، فبدا وكأن كل التعديلات "مبتعملش حاجة".
-**الحل المطبَّق:** `git stash` لإزالة التعديلات المحلية، ثم `git pull`
-نجح كـ Fast-forward كامل.
-**توصية للمستقبل:** قبل أي build، التأكد دايمًا من:
-```
-git status   # لازم يكون "nothing to commit, working tree clean"
-git log --oneline -1   # ولازم يطابق آخر commit على GitHub
-```
-ورفع رقم الإصدار مع كل تغيير مهم (انظر BUG-004) كطبقة تأكيد بصرية
-إضافية داخل التطبيق نفسه.
-**تم التحقق:** 2026-07-14.
+## English
 
-### BUG-000 — مجلد src/ والمجلدات الأصلية (android/ios) غير مرفوعة
-**الحالة:** ✅ تم الحل
-**الوصف:** في أول رفعة للمشروع، كان `App.tsx` يستورد من 10 مسارات تحت
-`./src/...` (api, features, storage, theme, i18n...) لكن مجلد `src/`
-لم يكن موجودًا في الريبو إطلاقًا، وكذلك `android/` و `ios/` كانا
-غائبين. النتيجة: المشروع لا يُبنى ولا حتى يمر بـ typecheck.
-**الحل المطبَّق:** تم رفع مجلد `src/` كاملًا (14 ملف) بالإضافة إلى
-`android/` و `ios/` و `assets/` في commit "2ed upload".
-**تم التحقق:** `npm install` + `npx tsc --noEmit` نجحا بدون أي خطأ على
-كود المشروع الفعلي (App.tsx + src/**) بتاريخ 2026-07-13.
+### ✅ Resolved
 
----
+**`src/` folder missing from the first upload** — `App.tsx` imported
+from 10 paths under `src/` that didn't exist, so the project couldn't
+build at all. Fixed by uploading the complete `src/`/`android/`/
+`ios/`/`assets/` folders.
 
-### BUG-007 — كراش كامل للتطبيق عند تشغيل بث الكاميرا المباشر (WebRTC)
-**الحالة:** ✅ تم الحل
-**الوصف:** فتح أي كاميرا لتشغيل البث المباشر كان يقفل التطبيق بالكامل
-فورًا (native crash، بدون أي أثر في سجلات JS).
-**التشخيص:** جُرِّبت فرضيات صلاحيات الكاميرا/الميكروفون أولًا (لم تحل
-المشكلة بمفردها). الفرضية الصحيحة: مكتبة `react-native-webrtc`
-(v124.0.7) بدون `codegenConfig` (لا تدعم Fabric/New Architecture)،
-بينما المشروع كان بـ `newArchEnabled=true`. أول محاولة لإيقافها فشلت
-بسبب ملفات cache قديمة (`.cxx`, autolinking)، ما أعطى انطباعًا خاطئًا
-بعدم إمكانية التعطيل. بعد مسح الـ cache بالكامل والبناء من الصفر، نجح
-البناء وثبت البث بدون كراش.
-**الحل المطبَّق:** `newArchEnabled=false` بشكل دائم في
-`android/gradle.properties`.
-**تم التحقق:** 2026-07-14، بث كاميرا مباشر يعمل فعليًا على جهاز حقيقي.
+**Wrong config file names** (`_gitignore` instead of `.gitignore`,
+etc.) — uploaded with an underscore instead of a dot, so Git/ESLint/
+Prettier never recognized them. Fixed by renaming.
 
----
+**Black screen after first launch** — the JS bundle loaded but the UI
+never rendered. Root cause: Metro (on the LXC dev environment) wasn't
+detecting file changes correctly (a known `watchman`/`inotify` issue
+in some container environments). Fix: `pm2 restart metro` with
+`--reset-cache` plus a full `watchman` cache wipe — now a routine step
+after any significant change.
 
-### BUG-008 — تجمد كامل عند فتح قائمة كبيرة (4677 عنصر)
-**الحالة:** ✅ تم الحل
-**الوصف:** فتح قائمة "Mealie Test" (4677 عنصر) كان بيجمّد التطبيق
-بالكامل بلا استجابة، محتاج قفل وإعادة فتح.
-**محاولات تشخيص فاشلة (بالترتيب):** (1) افتراض حلقة WebSocket لا
-نهائية بسبب تحديثات state متكررة — أُصلحت فعلًا كتحسين لكنها لم تكن
-السبب الحقيقي. (2) لم نلاحظ الرقم الظاهر فعليًا في واجهة الـ Hub
-("4677 items left") إلا بعد ما المستخدم أرسل سكرين شوت.
-**السبب الحقيقي:** `ListsView` كانت بترسم كل عناصر القائمة بـ `.map()`
-عادي جوه `ScrollView`/`Card` — رسم 4677 مكوّن React Native (Pressable
-+ View + Text لكل عنصر) بشكل متزامن دفعة واحدة يجمّد الـ JS thread
-تمامًا. **الدرس المستفاد:** لازم نسأل عن/نتحقق من حجم البيانات الفعلي
-قبل افتراض المشكلة كود منطقي، مش بس نخمّن من وصف السلوك.
-**الحل المطبَّق:** استبدال الـ `.map()` بـ `FlatList` حقيقية
-(Virtualized — بترسم بس العناصر الظاهرة على الشاشة فعليًا، بغض النظر
-عن العدد الكلي)، مع دمج المعلّق والمكتمل في مصفوفة صفوف واحدة
-(`Row[]`) بدل عنصرين منفصلين. أُزيلت الـ `ScrollView` اللي كانت لافة
-حول `ListsView` في `FamilyTab.tsx` (كانت هتلغي فايدة الـ Virtualization
-لو فضلت).
-**تم التحقق:** 2026-07-14 (بناءً على سكرين شوت المستخدم).
+**Full crash on opening a camera's live stream** — closed the app
+instantly. Several hypotheses were tried (permissions, stale cache)
+before finding the real cause: **React Native 0.83 forces the New
+Architecture on regardless of `newArchEnabled` in
+`gradle.properties`**. Leaving it `false` created an internal
+contradiction that made some libraries (`react-native-webrtc` at the
+time, later `@react-native-community/geolocation`) refuse to generate
+their Codegen output correctly. Final fix: `newArchEnabled=true`,
+always (matching what's actually happening). **Key lesson:** the
+original crash was never really about the New Architecture — it had
+been forced on the whole time.
 
----
+**Total freeze opening a large list (4,677 items)** — caused by
+rendering every list item with a plain `.map()` instead of a
+virtualized list. Rendering thousands of components synchronously
+froze the JS thread. Fixed with a real `FlatList`, which only renders
+what's actually visible on screen.
 
-### BUG-009 — @react-native-community/geolocation فشل البناء (رحلة تشخيص طويلة)
-**الحالة:** ✅ تم الحل نهائيًا
-**الوصف:** إضافة المكتبة لحساب "المسافة مني" بموقع GPS حي بدل موقع HA
-القديم سببت فشل build بخطأ CMake متكرر (`react_codegen_
-RNCGeolocationSpec` مش موجود).
-**رحلة التشخيص (بالترتيب، عشان الدرس يتوضح):**
-1. ظنّينا الأول إنها مشكلة cache قديم → مسح كامل ومحلش.
-2. ظنّينا إنها عدم توافق حقيقي في المكتبة → تراجعنا عنها بالكامل.
-3. المستخدم لاحظ وجود جلسات `tmux` مكررة شغالة بالتوازي وقت التجربة
-   الأولى، فاقترح إن ده كان السبب الحقيقي مش المكتبة → رجّعناها
-   وجربنا في جلسة نضيفة واحدة → **نفس الخطأ بالظبط**، يعني نظرية
-   الـ tmux كانت غلط (مفيدة كخطوة تشخيص، بس مش هي السبب).
-4. **السبب الحقيقي:** فحصنا `build.gradle` بتاع المكتبة نفسها،
-   ولقينا كود صريح: `if(isNewArchitectureEnabled()) { react {...} }`
-   — المكتبة بترفض تولّد ملفات codegen بتاعتها لو `newArchEnabled`
-   في `gradle.properties` مكتوب `false`. وكان عندنا `false` (من وقت
-   حل كراش الكاميرا القديم BUG-007). لكن React Native نفسه بيتجاهل
-   القيمة دي فعليًا ويشغّل New Architecture إجباريًا (رسالة "will run
-   with the New Architecture enabled by default" ظهرت رغم `false`) —
-   يعني كان عندنا **تناقض داخلي**: الإعداد المكتوب يقول حاجة، والتشغيل
-   الفعلي يعمل حاجة تانية، والمكتبة صدّقت الإعداد المكتوب.
-**الحل المطبَّق:** `newArchEnabled=true` (يطابق الواقع الفعلي).
-**نتيجة جانبية مهمة:** كراش الكاميرا القديم (BUG-007) على الأغلب
-مالوش علاقة حقيقية بـ New Architecture من الأساس — كانت شغالة
-إجباريًا وقتها كمان، فالإصلاح الحقيقي كان غالبًا صلاحيات الكاميرا/
-الميكروفون. **تم التحقق فعليًا بعد رفع newArchEnabled=true:** البث
-المباشر للكاميرات لسه شغال تمام، مفيش كراش. اتصلحت كمان مشكلة تانية
-صغيرة بعد كده: خطأ "Unhandled Rejection: WebRTC player closed" كان
-بيظهر لو قفلت شاشة كاميرا بطيئة قبل ما ترد على طلب WebRTC معلّق -
-اتصلح بإضافة `.catch()` صامت يمنع التحذير من غير ما يأثر على أي
-معالجة أخطاء حقيقية.
-**الدرس الأهم:** لما فحص الكود المصدري نفسه بيدّي إجابة قاطعة (زي
-شرط `isNewArchitectureEnabled()` هنا)، ده أقوى بكتير من التخمين أو
-حتى من تكرار نفس التجربة بظروف مختلفة (tmux). كان المفروض نقرا كود
-المكتبة من الأول قبل ما نجرب حلول تانية.
-**تم التحقق:** 2026-07-15.
+**Alarmo sensors not showing completely** — we assumed HA's standard
+entity registry (`config/entity_registry/list`) would return all of
+Alarmo's sensors via a shared `config_entry_id`, but sensors actually
+stay owned by their original integration (e.g. Zigbee2MQTT), not by
+Alarmo. Fixed with manual sensor selection in settings instead of
+relying on an unreliable inference.
 
----
+**Lock-screen alert only worked when the phone was locked** — the
+opposite of intended. Cause: `setFullScreenIntent` alone only fires
+when the screen is locked/off. To show the alert at any time (even
+while the phone is actively in use), the app also needs the "display
+over other apps" (`SYSTEM_ALERT_WINDOW`) permission — which grants
+Android a background-activity-launch exemption allowing the screen to
+be opened directly from a background service.
 
-## طريقة الإضافة لهذا الملف
-عند اكتشاف مشكلة جديدة: أضفها تحت "مفتوحة" برقم BUG-XXX تسلسلي.
-عند حلها: انقلها تحت "تم حلها" واذكر رقم الـ commit أو التاريخ.
+**Alarm siren played the phone's default alarm tone** instead of the
+app's chosen tone, and didn't bypass silent mode. Fixed by playing the
+actual selected sound file (`siren_classic/digital/pulse.wav`) via
+`AudioAttributes` with `USAGE_ALARM` explicitly set — that channel
+bypasses silent/DND mode automatically.
+
+**Alarm alert screen was always in Arabic** regardless of the app's
+chosen language — because it's native Kotlin code, not React Native,
+so it never used our i18n system at all. Fixed with a separate
+strings file (`AlarmStrings.kt`) covering all three languages, read
+from the saved preference when monitoring is enabled.
+
+### ⚠️ Known limitations (deliberate decisions, not bugs)
+- **`jest` is deliberately not installed** — referenced in
+  `jest.config.js` but missing from `package.json`. Installing it
+  (`jest`/`@types/jest`/`react-test-renderer`/`@types/react-test-
+  renderer`) was tried and verified, more than once, with a fully
+  clean reinstall — it causes a real (not cosmetic) type conflict with
+  `@types/react-native-vector-icons` (which pulls in an old
+  `@types/react-native@0.70.19`) that actually breaks
+  `npm run typecheck`. Decision: leave it uninstalled until a
+  compatible version is available.
+- **iOS project is still named "HelloWorld"** — renaming it safely
+  needs a real macOS/Xcode environment to verify nothing internal
+  breaks, and isn't testable in our current Linux-only environment.
+- **`@types/react-native-vector-icons`** pulls in an old
+  `@types/react-native` as a transitive dependency, causing a cosmetic
+  type-checking warning under `npm run typecheck` (without the
+  implicit `--skipLibCheck`) — doesn't affect the real build, and is
+  already handled by `skipLibCheck: true` in the TypeScript config
+  inherited from React Native.

@@ -1,164 +1,128 @@
 # Project Summary — Family HA (MKDD)
 
-آخر تحديث: 2026-07-13
+*[English below Arabic / الإنجليزية أسفل العربية]*
 
-## الفكرة
-تطبيق Android (React Native CLI) للتحكم في Home Assistant، بتركيز على:
-Alarmo (نظام الإنذار)، إدارة أفراد العائلة على خريطة، وعرض الكاميرات.
-المطور: **MKDD**. لا يعتمد على Expo/EAS ولا أي خدمة مدفوعة أو مفتاح API.
+آخر تحديث: 2026-07-16 · Last updated: 2026-07-16
 
-## التقنيات
-- React Native CLI 0.83 + TypeScript
-- Home Assistant REST API + WebSocket API
-- Alarmo services/events
-- `react-native-webrtc` (بث الكاميرات)
-- `react-native-webview` + Leaflet + OpenStreetMap (الخريطة، بدون Google Maps)
-- `react-native-fs`, AsyncStorage, Android Keystore (تخزين آمن)
+---
 
-## الأولويات المتفق عليها (من README الأصلي)
-1. استقرار الاتصال بـ Home Assistant
-2. Alarmo
-3. الإشعارات
-4. الخرائط
-5. الكاميرات
-6. Widget
+## العربية
 
-## حالة الكود الحالية (بعد فحص فعلي بتاريخ 2026-07-13)
-- ✅ مجلد `src/` كامل ومطابق لكل الـ imports في `App.tsx`.
-- ✅ `npm install` + `npx tsc --noEmit` ناجحان بدون أخطاء على الكود الفعلي.
-- ✅ `android/` و `ios/` موجودان، وحزمة Android صحيحة (`com.mkdd.familyha`).
-- ⚠️ 4 مشاكل مفتوحة موثّقة بالتفصيل في `BUGS_AND_FIXES.md`:
-  jest غير مثبَّت، أسماء dotfiles خاطئة، iOS باسم "HelloWorld"، تعارض
-  رقم الإصدار بين app.json وpackage.json.
-- مصدر الحقيقة الكامل للتغييرات: `CHANGELOG.md`.
+### الفكرة والفلسفة
+تطبيق Android (React Native CLI، **مش** Expo) بيدّي عائلة MKDD واجهة
+تحكم مخصصة فوق Home Assistant بتاعتهم — إنذار Alarmo، كاميرات، مواقع،
+تقويم/قوائم — من غير أي backend إضافي أو خدمة مدفوعة. كل قرار تقني في
+المشروع بيتبع نفس القاعدة: **لو HA بيوفرها، استخدمها بدل ما تبنيها.**
 
-## ما لم يُبنَ بعد / أفكار قيد النقاش
-- **تعطيل بالبصمة**: ✅ مُنفَّذ (2026-07-14) عبر `react-native-keychain`
-  الموجودة أصلاً (بدون مكتبة native جديدة). كود Alarmo مخزّن في
-  Keychain entry منفصل بـ `BIOMETRY_ANY_OR_DEVICE_PASSCODE`.
-- **تعطيل بـ NFC**: ❌ لسه مش مُنفَّذ — محتاج مكتبة native جديدة
-  (`react-native-nfc-manager` غالبًا) + صلاحية `NFC` + تصميم تدفق
-  "تسجيل كارت NFC" (scan أول مرة لحفظه) و"مطابقة" (scan وقت التعطيل)
-  + احتمالية دعمه في شاشة قفل التنبيه الأصلية كمان لو المستخدم عايز
-  تناسق. حجم شغل مشابه للتنبيه فوق شاشة القفل تقريبًا — يحتاج جلسة
-  عمل منفصلة مركّزة لو المستخدم قرر يكمّله.
-- **خطة عمل متفَّق عليها (2026-07-14)، بالترتيب:**
-  1. إعدادات لامركزية لكل تاب: بدل تاب "إعدادات" واحد فيه كل حاجة،
-     كل تاب (Alarmo, كاميرات, خريطة) يبقى فيه زرار **⋮** فوق يمين
-     بيفتح إعداداته الخاصة بيه بس. الإعدادات العامة (رابط HA، التوكن،
-     اللغة، المظهر) تفضل في تاب إعدادات مركزي منفصل. **لم يُنفَّذ بعد.**
-  2. **Week View حقيقي للتقويم** (شبكة ساعات، أعمدة أيام، مربعات
-     أحداث بارتفاع متناسب مع المدة — زي Google Calendar) كإضافة
-     لأجندة/شهر الموجودين حاليًا. **لم يُنفَّذ بعد** — تقرر الاكتفاء
-     بأجندة+شهر مبدئيًا، والـ Week View مرحلة تالية.
-  3. **Widget على شاشة الموبايل** (حالة Alarmo + أزرار Arm/Disarm
-     سريعة). **لم يُنفَّذ بعد.** ملاحظة تقنية مهمة: الودجت مش React
-     Native، محتاج إما مكتبة `react-native-android-widget` (أسهل، لكن
-     مكتبة native جديدة = مخاطرة تعارض زي اللي حصلت مع WebRTC) أو
-     كود Kotlin يدوي كامل (أدق لكن أبطأ). يحتاج جلسة عمل منفصلة
-     مركّزة بسبب التعقيد.
-- **تركيز حالي (2026-07-14):** تحسين تاب Alarmo تحديدًا بالمقارنة مع
-  AlarmoGuard، بعد ما اتعمل منه الأسهل (Keypad + Swipe-to-Disarm).
-  الفجوة الأكبر المتبقية: تنبيه فوق شاشة القفل عبر Foreground Service
-  + Full-Screen Intent (راجع القسم اللي فوق).
-- **نظام الثيمات (Light/Dark/Auto)**: ✅ مُنفَّذ (2026-07-14) للشاشات
-  الرئيسية في `App.tsx` (Alarmo, الإعدادات, تسجيل الدخول, الأحداث)
-  و`Card.tsx`. إعداد قابل للتغيير من الإعدادات → التطبيق → المظهر،
-  ووضع "تلقائي" بيتبع إعداد نظام الموبايل عبر `useColorScheme()`.
-  **ملاحظة تقنية مهمة:** `App.tsx` بيستخدم حيلة عملية (مش الطريقة
-  المثالية 100%) — متغيرات `colors`/`styles` على مستوى الملف (`let`
-  بدل `const`) بيتم تحديثها في أول كل render لـ `AppContent` حسب
-  الثيم الحالي، بدل ما نلف على كل الـ 12 كومبوننت الفرعي في الملف
-  ونضيف `useTheme()` لكل واحد فيهم لوحده. الحيلة شغالة لأن React
-  بيرندر الشجرة بشكل متزامن. `Card.tsx` اتعمل بالطريقة الصح
-  (`useTheme()` مباشر) كمرجع نضيف.
-  **لسه مش Theme-reactive:** `PeopleMapWeb.tsx`, `CameraPlayer.tsx`,
-  `WebRtcCameraPlayer.tsx`, `src/features/family/*`, `PinKeypad.tsx`,
-  `SwipeToDisarm.tsx` — لسه بتاخد الألوان الغامقة الثابتة بغض النظر
-  عن الثيم المختار. تحويلهم فيتشر منفصل لو حبيت نكمله.
-- **أيقونة التطبيق**: ✅ اتعملت (درع أزرق + رمز منزل أبيض، متوافقة مع
-  ألوان التطبيق) بدل أيقونة React Native الافتراضية، في كل الكثافات
-  (`mipmap-mdpi` حتى `xxxhdpi`). اسم العرض تحت الأيقونة اتصلح من
-  "Hello App Display Name" الافتراضي إلى "Family HA". **يحتاج build
-  جديد** ليظهر (تغيير native حقيقي، عكس نظام الثيمات اللي JS بحت).
-- **تاب "العائلة" (تقويم + قوائم)**: ✅ مُنفَّذ (2026-07-14) — بناءً على
-  مقارنة مع FamilyWall. يستخدم كيانات HA الجاهزة (`calendar.*` عبر
-  REST، `todo.*` عبر WebSocket لأن HA ما بيوفرش REST GET للعناصر).
-  - التقويم: أجندة 14 يوم + شبكة شهر مع زرار تبديل، لون مختلف لكل
-    تقويم، تفاصيل الأحداث. **لم يُنفَّذ:** إضافة حدث جديد من التطبيق
-    (الـ API متاح `calendar.create_event` بس الواجهة لسه مش مبنية).
-  - القوائم: قوائم متعددة (تسوق/مهام/مشاوير) كل واحدة كيان `todo.*`
-    منفصل في HA، إضافة/تحديد/حذف عناصر، فصل بصري بين المعلّق والمكتمل.
-  - **حد معروف:** لازم يكون عند المستخدم كيانات `calendar.*`/`todo.*`
-    مُعرَّفة في HA أصلاً (زي Local Calendar / Local To-do integration)
-    عشان التاب يبقى مفيد — التطبيق مش بيُنشئهم تلقائيًا.
-  - **قرار استراتيجي موثّق:** رسائل عائلية/معرض صور/ميزانية (باقي
-    مميزات FamilyWall) اتأجلوا عمدًا لأنهم محتاجين backend/تخزين
-    منفصل عن HA بالكامل، يخالف فلسفة "عميل خفيف فوق HA فقط".
-- **WebRTC**: مؤجَّل عمدًا حتى يستقر باقي التطبيق (Expo Go لا يدعمه
-  Native، ولذلك اختير React Native CLI من البداية).
-- **دعم 3 لغات (عربي/إنجليزي/هولندي)**: ✅ مُنفَّذ بالكامل الآن — يشمل
-  كشف لغة الجهاز تلقائيًا (`src/i18n/detectDeviceLanguage.ts`) عند أول
-  تشغيل، مع افتراضي إنجليزي لأي لغة غير مدعومة.
-- **شاشة تسجيل دخول أولى**: ✅ مُنفَّذة — تظهر تلقائيًا قبل أي إعدادات
-  محفوظة، تطلب رابط HA والتوكن فقط، وتنتقل للواجهة الرئيسية بعد نجاح
-  الاتصال.
-- **لوحة أرقام (PIN Keypad) + سحب للتعطيل (Swipe-to-Disarm)**: ✅
-  مُنفَّذة — `src/components/PinKeypad.tsx` و`src/components/
-  SwipeToDisarm.tsx`. لو مفيش كود محفوظ في الإعدادات، تظهر لوحة أرقام
-  لإدخال PIN لحظيًا (بدعم أكواد مختلفة لكل فرد من العائلة، بدل الاعتماد
-  على كود واحد محفوظ فقط) — تحقيقًا لهدف README الأصلي "استخدام PIN
-  الخاص بكل مستخدم". التعطيل بقى سحب بدل ضغطة واحدة لتقليل التعطيل
-  بالغلط، ومتاح فقط لما الإنذار يكون مسلّح فعليًا.
-- **مقارنة مع تطبيق AlarmoGuard (مرجعي، native Kotlin/Compose)**:
-  فحصناه بتاريخ 2026-07-14. أهم فجوة لسه مفتوحة: AlarmoGuard بيستخدم
-  `Foreground Service` + `USE_FULL_SCREEN_INTENT` عشان يفتح شاشة إنذار
-  كاملة **فوق شاشة القفل نفسها** حتى لو التطبيق مقفول تمامًا، بينما
-  عندنا التنبيه بيشتغل بس والتطبيق مفتوح فعليًا. ده تغيير معماري حقيقي
-  (خدمة خلفية دائمة + صلاحيات جديدة) لسه معلّق، المستخدم أعطى الأولوية
-  للتحسينات الأسهل (Keypad/Swipe) الأول.
-- **تحسينات الكاميرا**: ✅ تكبير/تصغير الشاشة (إخفاء الواجهة)، ✅ مؤشر
-  وجود صوت حقيقي (🔊/🔇) من مسار الفيديو، ✅ لوحة تحكم PTZ (تجرب
-  `onvif.ptz` أولًا ثم أزرار Reolink `button.*_ptz_*` بالاسم كبديل).
-  **لم يُنفَّذ:** pinch-to-zoom حقيقي على صورة الفيديو نفسها (المستخدم
-  طلب تكبير بالإصبعين، اللي اتعمل كان بس إخفاء الواجهة — يحتاج عمل
-  منفصل لاحقًا).
-- **أماكن قريبة على الخريطة (بديل Google Find Hub)**: ✅ مُنفَّذة —
-  زرار يفعّل طبقة تعرض مطاعم/كافيهات/صيدليات/محلات... عبر Overpass API
-  (OpenStreetMap، مجاني تمامًا بدون مفتاح API). **حد معروف:** خادم
-  Overpass العام (`overpass-api.de`) أحيانًا بطيء أو محدود وقت الضغط؛
-  لو الاستخدام كبير مستقبلًا، الحل الأفضل تشغيل خادم Overpass خاص أو
-  التبديل لخدمة بديلة. الميزة الأوسع (تصنيفات قابلة للفلترة، بحث نصي
-  عن أماكن، تفاصيل كاملة لكل مكان زي ساعات العمل) لسه مش مُنفَّذة —
-  النسخة الحالية عرض بصري بسيط بس.
-- **⚠️ مشكلة مفتوحة غير محلولة:** زرار "أماكن قريبة" وتغيير نمط
-  الخريطة (CARTO Voyager) لسه مش شغالين على جهاز حقيقي رغم التأكد
-  المتكرر من وصول الكود الصحيح للـ LXC. إشارة `MAP_HTML_V2_LOADED`
-  المضافة للتشخيص **لم تظهر في السجل حتى بعد تأكيد فتح تاب الخريطة** —
-  السبب الحقيقي غير معروف بعد ويحتاج متابعة (WebView قد لا يعيد تحميل
-  الـ HTML، أو مشكلة تسجيل غير مكتشفة).
-- **بيئة تطوير على LXC (Proxmox) — ✅ منفَّذة وتعمل فعليًا (2026-07-13):**
-  - LXC (Ubuntu 24.04، IP: `192.168.2.10` داخل الشبكة المحلية) فيه
-    Node 20، JDK 17، Android SDK كامل.
-  - أول build ناجح (`./gradlew assembleDebug`، 11 دقيقة و43 ثانية).
-  - `pm2` يشغّل `metro` (بورت 8081) و`apk-server` (بورت 8080) دائمًا،
-    مع تفعيل الإقلاع التلقائي بعد أي reboot.
-  - تثبيت APK على الموبايل عبر متصفح الهاتف مباشرة من
-    `http://192.168.2.10:8080/family-ha.apk` بدون USB/ADB، ثم توجيه
-    Metro dev server من داخل التطبيق (Dev Menu → Debug server host).
-  - **لم يُنفَّذ بعد:** سكربت المزامنة التلقائية (`git pull` الدوري +
-    إعادة بناء APK تلقائيًا عند تغيّر `android/`) لسه مُعطى للمستخدم
-    كملف منفصل ولم يُفعَّل كـ cron job داخل الكونتينر بعد. كذلك
-    السكربتات الثلاثة (إنشاء الكونتينر، تجهيزه، المزامنة) لم تُدمج
-    داخل الريبو نفسه — يمكن إضافتها كمجلد `devops/` أو `scripts/`
-    إذا رغب المستخدم.
+### حالة كل ميزة (كاملة ✅ / جزئية ⚠️ / مؤجلة ❌)
 
-## قواعد العمل على هذا المشروع (متفق عليها)
-- أي طلب غامض → يُسأل عنه أولًا قبل التنفيذ.
-- أي حل فاشل لمشكلة → يُلغى بالكامل قبل تجربة حل بديل (لا تراكم حلول
-  فاشلة في الكود).
-- الكود يجب أن يكون خاليًا من الأخطاء، منظمًا، وبدون تكرار غير ضروري.
-- كل commit مهم يُوثَّق في الملف المناسب:
-  `BUGS_AND_FIXES.md` للأخطاء وحلولها، `CHANGELOG.md` للتغييرات،
-  `PROJECT_SUMMARY.md` لهذا الملخص العام (يُحدَّث عند أي قرار أو ميزة
-  جديدة تُناقش، سواء نُفذت أو أُجِّلت).
+| الميزة | الحالة | ملاحظات |
+|---|---|---|
+| اتصال HA + تسجيل دخول أولي | ✅ | شاشة دخول تظهر تلقائي قبل أي إعدادات محفوظة |
+| كشف لغة الجهاز تلقائيًا | ✅ | عربي/إنجليزي/هولندي، افتراضي إنجليزي لأي حاجة تانية |
+| نظام الثيمات (فاتح/غامق/تلقائي) | ⚠️ | شغال في الشاشات الرئيسية، بعض الملفات الفرعية (الخريطة، الكاميرا، العائلة) لسه بتاخد الثيم الغامق ثابت |
+| Alarmo: تسليح/تعطيل ببادجات + سحب للتأكيد | ✅ | |
+| Alarmo: بصمة/رقم للتأكيد | ✅ | داخل التطبيق وفي شاشة التنبيه الخارجية |
+| Alarmo: تنبيه فوق شاشة القفل (أي وقت) | ✅ | Foreground Service + Full-Screen Intent + Display-over-apps؛ نغمة مخصصة على قناة الإنذار (بتتخطى الصامت)؛ سبب التريجر؛ مترجمة native |
+| Alarmo: اختيار المستشعرات | ✅ | يدوي (Alarmo مفيهوش API موثّق لجلب قائمته الكاملة) |
+| الكاميرات: WebRTC + Snapshot fallback | ✅ | |
+| الكاميرات: تكبير/صوت/PTZ | ✅ | PTZ يجرب ONVIF ثم Reolink buttons كبديل |
+| الخريطة: OpenStreetMap + صف صور العائلة | ✅ | تصميم مستوحى من Life360 |
+| الخريطة: أماكن قريبة (Overpass API) | ✅ | مجاني، بدون مفتاح |
+| الخريطة: مسافة بـ GPS حي | ✅ | `@react-native-community/geolocation`، بديل عن موقع HA المخزَّن (ممكن يكون قديم) |
+| تاب العائلة: تقويم (أجندة+شهر) | ✅ | عبر `calendar.*`، بما فيها إضافة حدث |
+| تاب العائلة: قوائم تسوق/مهام | ✅ | عبر `todo.*`، قوائم متعددة، virtualized |
+| إعدادات لامركزية لكل تاب | ✅ | زرار `⋮` جمب مؤشر LIVE |
+| Widget على شاشة الموبايل | ❌ | يحتاج مكتبة native جديدة (`react-native-android-widget`) أو Kotlin يدوي كامل — جلسة عمل منفصلة |
+| Week View حقيقي للتقويم (شبكة ساعات) | ❌ | الأجندة والشهر موجودين، الأسبوع لسه لأ |
+| تعطيل بـ NFC | ❌ | البصمة موجودة، NFC محتاج مكتبة native جديدة + تصميم تسجيل كارت |
+| اسم مشروع iOS ("HelloWorld") | ❌ | تعديل محفوظ عمدًا — محتاج macOS/Xcode فعلي للتأكد، غير قابل للاختبار في بيئتنا الحالية |
+
+### قرارات تقنية مهمة (وليه)
+- **newArchEnabled=true دايمًا.** React Native 0.83 بيشغّل New
+  Architecture إجباريًا بغض النظر عن القيمة المكتوبة في
+  `gradle.properties` — تركه `false` بيعمل تناقض بيخلي بعض المكتبات
+  (زي `@react-native-community/geolocation`) ترفض تولّد كود Codegen
+  بتاعتها. اتأكد إن كراش الكاميرا القديم (كان سبب تعطيلها الأول) مالوش
+  علاقة حقيقية بـ New Architecture من الأساس.
+- **مستشعرات Alarmo مُختارة يدويًا**، مش مجلوبة تلقائيًا — Alarmo
+  بيخزّن قائمته الكاملة في ملف تخزين داخلي (`alarmo.storage`) من غير
+  WebSocket command موثّق ومستقر لقراءتها.
+- **شاشة تنبيه الإنذار كود Kotlin أصلي بالكامل**، مش React Native —
+  عشان تشتغل حتى لو JS مش شغال أو الخدمة استُدعيت وقت التطبيق مقفول
+  تمامًا.
+- **الترجمة في شاشة الإنذار الأصلية منفصلة عن i18n بتاع RN**
+  (`AlarmStrings.kt`) لنفس السبب — الكود ده لازم يشتغل من غير أي
+  اعتماد على JS.
+
+### القيود المعروفة (موثّقة بالتفصيل في `BUGS_AND_FIXES.md`)
+- بيئة التطوير (LXC/Metro) حساسة لتشغيل أكتر من عملية `git pull`/
+  `gradle` في نفس الوقت — دايمًا اتأكد من جلسة `tmux` واحدة نضيفة.
+- `@types/react-native-vector-icons` بيسحب نسخة قديمة من
+  `@types/react-native` كـ dependency، بيسبب تحذير أنواع تجميلي في
+  `npm run typecheck` (من غير `--skipLibCheck` الصريح) — مش مؤثر على
+  البناء الفعلي.
+
+---
+
+## English
+
+### Idea and philosophy
+An Android app (React Native CLI, **not** Expo) giving the MKDD family
+a purpose-built control panel on top of their own Home Assistant —
+Alarmo alarm, cameras, locations, calendar/lists — with no extra
+backend or paid service. Every technical decision follows one rule:
+**if Home Assistant already provides it, use that instead of building
+it ourselves.**
+
+### Feature status (Done ✅ / Partial ⚠️ / Deferred ❌)
+
+| Feature | Status | Notes |
+|---|---|---|
+| HA connection + first-run login | ✅ | Login screen shows automatically before any saved settings |
+| Automatic device-language detection | ✅ | Arabic/English/Dutch, defaults to English for anything else |
+| Theme system (Light/Dark/Auto) | ⚠️ | Works on the main screens; some sub-files (map, camera, family) are still hard-coded dark |
+| Alarmo: arm/disarm via badges + swipe-to-confirm | ✅ | |
+| Alarmo: biometric/PIN confirmation | ✅ | Both in-app and on the native lock-screen alert |
+| Alarmo: lock-screen alert (any time) | ✅ | Foreground Service + Full-Screen Intent + Display-over-other-apps; custom siren on the alarm audio channel (bypasses silent mode); shows trigger reason; natively localized |
+| Alarmo: sensor selection | ✅ | Manual (Alarmo has no documented API for its full sensor list) |
+| Cameras: WebRTC + snapshot fallback | ✅ | |
+| Cameras: fullscreen/audio indicator/PTZ | ✅ | PTZ tries ONVIF, then falls back to Reolink-style buttons |
+| Map: OpenStreetMap + family avatar row | ✅ | Life360-inspired layout |
+| Map: nearby places (Overpass API) | ✅ | Free, no API key |
+| Map: live-GPS distance | ✅ | `@react-native-community/geolocation`, replacing the potentially-stale HA-reported location |
+| Family tab: calendar (agenda + month) | ✅ | Via `calendar.*`, including adding events |
+| Family tab: shopping/task lists | ✅ | Via `todo.*`, multiple lists, virtualized rendering |
+| Decentralized per-tab settings | ✅ | `⋮` button next to the LIVE indicator |
+| Home-screen widget | ❌ | Needs a new native library (`react-native-android-widget`) or fully manual Kotlin — a separate work session |
+| True week view for the calendar | ❌ | Agenda and month exist; week view doesn't yet |
+| NFC disarm | ❌ | Biometric exists; NFC needs a new native library + a tag-enrollment flow |
+| iOS project name ("HelloWorld") | ❌ | Deliberately left as-is — needs real macOS/Xcode to rename safely, untestable in our current environment |
+
+### Key technical decisions (and why)
+- **`newArchEnabled=true`, always.** React Native 0.83 forces the New
+  Architecture on regardless of what's written in `gradle.properties`
+  — leaving it `false` created a real contradiction that made some
+  libraries (like `@react-native-community/geolocation`) refuse to
+  generate their Codegen output. We also confirmed the old camera
+  crash was never actually about the New Architecture in the first
+  place.
+- **Alarmo sensors are picked manually**, not auto-fetched — Alarmo
+  stores its full sensor list in its own internal storage
+  (`alarmo.storage`), with no stable, documented WebSocket command to
+  read it.
+- **The alarm alert screen is 100% native Kotlin**, not React Native —
+  so it still works even if the JS side isn't running, or the service
+  is triggered while the app is fully closed.
+- **The alert screen's translations live in their own file**
+  (`AlarmStrings.kt`), separate from RN's i18n, for the same reason —
+  that code must not depend on JS being alive at all.
+
+### Known limitations (fully documented in `BUGS_AND_FIXES.md`)
+- The dev environment (LXC/Metro) is sensitive to running more than
+  one `git pull`/`gradle` process at the same time — always confirm a
+  single, clean `tmux` session first.
+- `@types/react-native-vector-icons` pulls in an old
+  `@types/react-native` as a transitive dependency, causing a cosmetic
+  type-checking warning under `npm run typecheck` (without the
+  implicit `--skipLibCheck`) — it does not affect the actual build.
