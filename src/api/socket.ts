@@ -1,8 +1,11 @@
 import type { AlarmoEvent, ConnectionSettings, HaEntity } from '../types/homeAssistant';
 import { absoluteHaUrl } from './homeAssistant';
+import { refreshAccessToken } from './oauth';
+import { getLiveSettings, updateLiveSettings } from '../storage/liveSettings';
 
 const wsUrl = (url: string) => `${url.trim().replace(/\/+$/, '').replace(/^http:/i,'ws:').replace(/^https:/i,'wss:')}/api/websocket`;
 interface Pending { resolve: (value: unknown) => void; reject: (error: Error) => void }
+const REFRESH_MARGIN_MS = 60_000;
 
 export class HomeAssistantSocket {
   private socket: WebSocket | null = null;
@@ -10,18 +13,38 @@ export class HomeAssistantSocket {
   private pending = new Map<number, Pending>();
   private stopped = false;
   private retry?: ReturnType<typeof setTimeout>;
+  private authToken = '';
   constructor(private settings: ConnectionSettings, private onEntity: (entity: HaEntity) => void, private onAlarmoEvent: (event: AlarmoEvent) => void, private onConnection: (ok: boolean) => void) {}
-  start(): () => void { this.connect(); return () => this.stop(); }
+  start(): () => void { void this.connect(); return () => this.stop(); }
   stop(): void { this.stopped = true; if (this.retry) clearTimeout(this.retry); this.socket?.close(); this.pending.forEach(x => x.reject(new Error('Connection closed'))); this.pending.clear(); }
-  private connect(): void {
+  private async ensureFreshToken(): Promise<string> {
+    if (this.settings.authMethod !== 'oauth' || !this.settings.refreshToken) return this.settings.token;
+    const expiresAt = this.settings.tokenExpiresAt ?? 0;
+    if (Date.now() < expiresAt - REFRESH_MARGIN_MS && this.settings.accessToken) return this.settings.accessToken;
+    const fresh = await refreshAccessToken(this.settings.baseUrl, this.settings.refreshToken);
+    const patch = { accessToken: fresh.access_token, tokenExpiresAt: Date.now() + fresh.expires_in * 1000 };
+    this.settings = { ...this.settings, ...patch };
+    const live = getLiveSettings();
+    if (live && live.baseUrl === this.settings.baseUrl) await updateLiveSettings(patch);
+    return fresh.access_token;
+  }
+  private async connect(): Promise<void> {
+    if (this.stopped) return;
+    try {
+      this.authToken = await this.ensureFreshToken();
+    } catch {
+      this.onConnection(false);
+      if (!this.stopped) this.retry = setTimeout(() => void this.connect(), 2500);
+      return;
+    }
     if (this.stopped) return;
     const socket = new WebSocket(wsUrl(this.settings.baseUrl)); this.socket = socket;
     socket.onmessage = event => this.handle(JSON.parse(String(event.data)) as Record<string, unknown>);
     socket.onerror = () => this.onConnection(false);
-    socket.onclose = () => { this.onConnection(false); if (!this.stopped) this.retry = setTimeout(() => this.connect(), 2500); };
+    socket.onclose = () => { this.onConnection(false); if (!this.stopped) this.retry = setTimeout(() => void this.connect(), 2500); };
   }
   private handle(message: Record<string, unknown>): void {
-    if (message.type === 'auth_required') this.socket?.send(JSON.stringify({ type:'auth', access_token:this.settings.token }));
+    if (message.type === 'auth_required') this.socket?.send(JSON.stringify({ type:'auth', access_token:this.authToken }));
     if (message.type === 'auth_ok') { this.onConnection(true); void this.subscribe('state_changed'); void this.subscribe('alarmo_failed_to_arm'); void this.subscribe('alarmo_command_success'); void this.subscribe('alarmo_ready_to_arm_modes_updated'); }
     if (message.type === 'result' && typeof message.id === 'number') {
       const pending = this.pending.get(message.id); if (!pending) return; this.pending.delete(message.id);

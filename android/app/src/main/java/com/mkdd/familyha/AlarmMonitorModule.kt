@@ -62,6 +62,12 @@ class AlarmMonitorModule(private val reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
+  fun updateToken(token: String, promise: Promise) {
+    prefs().edit().putString("token", token).apply()
+    promise.resolve(true)
+  }
+
+  @ReactMethod
   fun start(baseUrl: String, token: String, entityId: String, alarmCode: String, language: String, sirenTone: String, biometricEnabled: Boolean, promise: Promise) {
     try {
       prefs().edit()

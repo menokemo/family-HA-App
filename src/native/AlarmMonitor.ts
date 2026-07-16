@@ -12,6 +12,11 @@ type AlarmMonitorNative = {
 
 const native = NativeModules.AlarmMonitor as AlarmMonitorNative | undefined;
 
+export function updateAlarmMonitorToken(token: string): Promise<boolean> {
+  const native = NativeModules.AlarmMonitor as AlarmMonitorNative & { updateToken: (t: string) => Promise<boolean> } | undefined;
+  return native?.updateToken(token) ?? Promise.resolve(false);
+}
+
 export function canUseFullScreenIntent(): Promise<boolean> {
   return native?.canUseFullScreenIntent() ?? Promise.resolve(true);
 }

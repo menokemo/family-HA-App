@@ -1,4 +1,6 @@
 import type { ConnectionSettings, HaEntity } from '../types/homeAssistant';
+import { refreshAccessToken } from './oauth';
+import { getLiveSettings, updateLiveSettings } from '../storage/liveSettings';
 
 export const normalizeUrl = (url: string) => url.trim().replace(/\/+$/, '');
 const headers = (token: string) => ({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' });
@@ -12,10 +14,35 @@ async function readError(response: Response): Promise<string> {
   } catch { return `HTTP ${response.status}: ${text.slice(0, 500)}`; }
 }
 
+const REFRESH_MARGIN_MS = 60_000; // نجدد قبل الانتهاء بدقيقة، تجنبًا لسباق الوقت أثناء الطلب نفسه
+let refreshInFlight: Promise<string> | null = null;
+
+/** بترجع توكن صالح للاستخدام - لو الإعدادات OAuth والتوكن قرّب ينتهي، تجدده تلقائيًا أولًا. */
+async function ensureFreshToken(settings: ConnectionSettings): Promise<string> {
+  if (settings.authMethod !== 'oauth' || !settings.refreshToken) return settings.token;
+  const expiresAt = settings.tokenExpiresAt ?? 0;
+  if (Date.now() < expiresAt - REFRESH_MARGIN_MS && settings.accessToken) return settings.accessToken;
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      try {
+        const fresh = await refreshAccessToken(settings.baseUrl, settings.refreshToken!);
+        const patch = { accessToken: fresh.access_token, tokenExpiresAt: Date.now() + fresh.expires_in * 1000 };
+        const live = getLiveSettings();
+        if (live && live.baseUrl === settings.baseUrl) await updateLiveSettings(patch);
+        return fresh.access_token;
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
+  }
+  return refreshInFlight;
+}
+
 async function request(settings: ConnectionSettings, path: string, init?: RequestInit): Promise<Response> {
+  const token = await ensureFreshToken(settings);
   const response = await fetch(`${normalizeUrl(settings.baseUrl)}${path}`, {
     ...init,
-    headers: { ...headers(settings.token), ...(init?.headers ?? {}) },
+    headers: { ...headers(token), ...(init?.headers ?? {}) },
   });
   if (!response.ok) throw new Error(await readError(response));
   return response;
@@ -100,7 +127,8 @@ function wsUrl(baseUrl: string) {
   return `${normalizeUrl(baseUrl).replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:')}/api/websocket`;
 }
 
-export function wsCommand(settings: ConnectionSettings, payload: Record<string, unknown>): Promise<unknown> {
+export async function wsCommand(settings: ConnectionSettings, payload: Record<string, unknown>): Promise<unknown> {
+  const token = await ensureFreshToken(settings);
   return new Promise((resolve, reject) => {
     let settled = false;
     const finish = (fn: () => void) => { if (settled) return; settled = true; fn(); };
@@ -118,7 +146,7 @@ export function wsCommand(settings: ConnectionSettings, payload: Record<string, 
     socket.onmessage = event => {
       try {
         const message = JSON.parse(String(event.data)) as Record<string, unknown>;
-        if (message.type === 'auth_required') { socket.send(JSON.stringify({ type: 'auth', access_token: settings.token })); return; }
+        if (message.type === 'auth_required') { socket.send(JSON.stringify({ type: 'auth', access_token: token })); return; }
         if (message.type === 'auth_ok') { id = Math.floor(Math.random() * 1000000) + 1; socket.send(JSON.stringify({ id, ...payload })); return; }
         if (message.type === 'auth_invalid') { clearTimeout(timer); finish(() => { socket.close(); reject(new Error('Authentication failed')); }); return; }
         if (message.type === 'result' && message.id === id) {
@@ -172,7 +200,12 @@ export async function callAlarmoDisarm(settings: ConnectionSettings, entityId: s
 export async function skipAlarmoDelay(settings: ConnectionSettings, entityId: string): Promise<void> {
   await request(settings, '/api/services/alarmo/skip_delay', { method: 'POST', body: JSON.stringify({ entity_id: entityId }) });
 }
-export const authHeaders = (settings: ConnectionSettings) => ({ Authorization: `Bearer ${settings.token}` });
+export const authHeaders = (settings: ConnectionSettings) => {
+  const live = getLiveSettings();
+  const effective = live && live.baseUrl === settings.baseUrl ? live : settings;
+  const token = effective.authMethod === 'oauth' && effective.accessToken ? effective.accessToken : effective.token;
+  return { Authorization: `Bearer ${token}` };
+};
 export const cameraSnapshotUrl = (settings: ConnectionSettings, entityId: string, nonce: number, cameraToken?: string) => {
   const query = new URLSearchParams({ _: String(nonce) });
   if (cameraToken) query.set('token', cameraToken);

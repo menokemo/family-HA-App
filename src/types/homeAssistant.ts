@@ -5,6 +5,10 @@ export type SirenTone = 'classic'|'digital'|'pulse';
 export interface ConnectionSettings {
   baseUrl: string;
   token: string;
+  authMethod?: 'token' | 'oauth';
+  refreshToken?: string;
+  accessToken?: string;
+  tokenExpiresAt?: number;
   alarmCode: string;
   alarmEntityId?: string;
   language?: 'ar' | 'en' | 'nl';
