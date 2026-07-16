@@ -71,6 +71,7 @@ export function DashboardView({ settings, dashboardPath }: Props) {
         startInLoadingState
         onLoadEnd={() => setTimeout(() => setReady(true), 3200)}
         cacheEnabled={false}
+        incognito
         style={{ backgroundColor: colors.background }}
       />
       {!ready ? (
