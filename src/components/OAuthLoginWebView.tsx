@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -15,20 +15,19 @@ type Props = {
 };
 
 export function OAuthLoginWebView({ visible, baseUrl, onClose, onSuccess, onError }: Props) {
-  const [handled, setHandled] = useState(false);
+  // ref مش state عمدًا - لازم يتحدّث فورًا (متزامن) عشان يمنع تبديل
+  // نفس كود OAuth مرتين لو onShouldStartLoadWithRequest وonNavigation
+  // StateChange اتنينهم لقطوا نفس الرابط قبل ما أي re-render يحصل.
+  // أكواد OAuth بتُستخدم مرة واحدة بس - تبديلها مرتين يفشل بـ 401 في
+  // المحاولة التانية حتى لو الأولى نجحت فعليًا.
+  const handledRef = useRef(false);
   const [loading, setLoading] = useState(false);
 
   if (!visible) return null;
 
-  // بنعترض أي محاولة تنقّل لرابط الرجوع (redirect_uri) قبل ما الـ
-  // WebView يحاول يفتحه فعليًا - الرابط ده مش موقع حقيقي، هو مجرد
-  // "اسم متفق عليه" بيننا وبين نفسنا، فمفيش داعي (ولا مفروض) نسيبه
-  // يتحمّل. لما نلاقي الكود، بنستخدمه فورًا ونقفل الشاشة.
-  const onNavigationChange = (nav: WebViewNavigation) => {
-    if (handled) return;
-    const code = extractAuthCode(nav.url);
-    if (!code) return;
-    setHandled(true);
+  const handleCode = (code: string) => {
+    if (handledRef.current) return;
+    handledRef.current = true;
     setLoading(true);
     void exchangeCodeForTokens(baseUrl, code)
       .then(tokens => {
@@ -55,10 +54,9 @@ export function OAuthLoginWebView({ visible, baseUrl, onClose, onSuccess, onErro
       ) : (
         <WebView
           source={{ uri: buildAuthorizeUrl(baseUrl) }}
-          onNavigationStateChange={onNavigationChange}
           onShouldStartLoadWithRequest={request => {
             const code = extractAuthCode(request.url);
-            if (code) { onNavigationChange({ url: request.url } as WebViewNavigation); return false; }
+            if (code) { handleCode(code); return false; }
             return true;
           }}
           startInLoadingState
