@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { normalizeUrl } from '../../api/homeAssistant';
 import { colors } from '../../theme';
@@ -8,6 +8,8 @@ import type { ConnectionSettings } from '../../types/homeAssistant';
 type Props = { settings: ConnectionSettings; dashboardPath: string };
 
 export function DashboardView({ settings, dashboardPath }: Props) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => { setReady(false); }, [dashboardPath, settings.baseUrl]);
   const baseUrl = normalizeUrl(settings.baseUrl);
   // ?kiosk بيتطلب إضافة Kiosk Mode متثبتة في HA (المستخدم ثبّتها
   // بنفسه مرة واحدة) - بتخفي القائمة الجانبية وشريط العنوان بتاعت HA
@@ -45,10 +47,24 @@ export function DashboardView({ settings, dashboardPath }: Props) {
         source={{ uri: url }}
         injectedJavaScriptBeforeContentLoaded={injectedJS}
         startInLoadingState
+        onLoadEnd={() => {
+          // نديله فترة صغيرة كمان بعد ما الصفحة تخلص تحميل عشان
+          // Kiosk Mode (module بيشتغل بعد الترسيم، مش قبله) ياخد وقته
+          // يخفي القائمة/الشريط قبل ما نكشف المحتوى للمستخدم.
+          setTimeout(() => setReady(true), 900);
+        }}
         style={{ backgroundColor: colors.background }}
       />
+      {!ready ? (
+        <View style={s.overlay}>
+          <ActivityIndicator color={colors.primary} size="large" />
+        </View>
+      ) : null}
     </View>
   );
 }
 
-const s = StyleSheet.create({ container: { flex: 1, backgroundColor: colors.background } });
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
+});
