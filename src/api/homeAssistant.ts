@@ -219,6 +219,23 @@ export const cameraStreamUrl = (settings: ConnectionSettings, entityId: string, 
   return `${normalizeUrl(settings.baseUrl)}/api/camera_proxy_stream/${encodeURIComponent(entityId)}${suffix}`;
 };
 export function absoluteHaUrl(settings: ConnectionSettings, path: string): string { return /^https?:\/\//i.test(path) ? path : `${normalizeUrl(settings.baseUrl)}${path.startsWith('/') ? '' : '/'}${path}`; }
+export type DashboardInfo = { urlPath: string; title: string };
+
+export async function listDashboards(settings: ConnectionSettings): Promise<DashboardInfo[]> {
+  const defaultDashboard: DashboardInfo = { urlPath: 'lovelace', title: 'Overview' };
+  try {
+    const result = (await wsCommand(settings, { type: 'lovelace/dashboards/list' })) as Array<{ url_path?: string; title?: string }>;
+    const extra = (Array.isArray(result) ? result : [])
+      .filter(d => typeof d.url_path === 'string')
+      .map(d => ({ urlPath: d.url_path as string, title: d.title ?? d.url_path ?? '' }));
+    return [defaultDashboard, ...extra];
+  } catch {
+    // لو الأمر فشل لأي سبب (نسخة HA قديمة، صلاحيات، إلخ)، منوقفش
+    // المعالج - نرجع الداشبورد الافتراضي بس كخيار وحيد
+    return [defaultDashboard];
+  }
+}
+
 export function findAlarmoEntities(states: HaEntity[]): HaEntity[] {
   return states.filter(x => x.entity_id.startsWith('alarm_control_panel.')).sort((a,b) => Number(isAlarmo(b))-Number(isAlarmo(a)));
 }

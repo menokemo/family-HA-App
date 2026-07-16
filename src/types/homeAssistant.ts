@@ -22,6 +22,7 @@ export interface ConnectionSettings {
   selectedCameraIds?: string[];
   selectedSensorIds?: string[];
   biometricDisarmEnabled?: boolean;
+  selectedDashboardPath?: string;
   selectedPersonId?: string;
 }
 export interface AlarmoEvent {
