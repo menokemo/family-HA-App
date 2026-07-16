@@ -9,7 +9,10 @@ type Props = { settings: ConnectionSettings; dashboardPath: string };
 
 export function DashboardView({ settings, dashboardPath }: Props) {
   const baseUrl = normalizeUrl(settings.baseUrl);
-  const url = `${baseUrl}/${dashboardPath.replace(/^\/+/, '')}`;
+  // ?kiosk بيتطلب إضافة Kiosk Mode متثبتة في HA (المستخدم ثبّتها
+  // بنفسه مرة واحدة) - بتخفي القائمة الجانبية وشريط العنوان بتاعت HA
+  // نفسه، فيبقى المعروض هو محتوى الداشبورد بس.
+  const url = `${baseUrl}/${dashboardPath.replace(/^\/+/, '')}?kiosk`;
 
   // بنحقن hassTokens جوه localStorage قبل ما أي كود بتاع صفحة HA
   // يشتغل، فواجهة HA بتتعامل مع الجلسة وكأن المستخدم مسجّل دخول
