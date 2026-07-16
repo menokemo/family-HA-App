@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.hardware.biometrics.BiometricManager
 import android.hardware.biometrics.BiometricPrompt
+import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.os.Build
@@ -176,13 +177,42 @@ class AlarmActivity : Activity() {
   }
 
   private fun playSiren() {
+    val prefs = getSharedPreferences(AlarmMonitorService.PREFS, Context.MODE_PRIVATE)
+    val tone = prefs.getString("sirenTone", "classic") ?: "classic"
+    val resId = when (tone) {
+      "digital" -> R.raw.siren_digital
+      "pulse" -> R.raw.siren_pulse
+      else -> R.raw.siren_classic
+    }
+    val attrs = AudioAttributes.Builder()
+      .setUsage(AudioAttributes.USAGE_ALARM) // قناة الإنذار بتتخطى وضع الصامت/عدم الإزعاج
+      .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+      .build()
     try {
-      val uri = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM)
-      mediaPlayer = MediaPlayer.create(this, uri)
-      mediaPlayer?.isLooping = true
-      mediaPlayer?.start()
+      val afd = resources.openRawResourceFd(resId)
+      mediaPlayer = MediaPlayer().apply {
+        setAudioAttributes(attrs)
+        setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+        afd.close()
+        isLooping = true
+        prepare()
+        start()
+      }
     } catch (e: Exception) {
-      // مفيش نغمة إنذار افتراضية على الجهاز، نكمل من غير صوت
+      // فشل تحميل نغمة التطبيق لأي سبب - نرجع لنغمة المنبه الافتراضية
+      // كحل احتياطي، برضو على قناة الإنذار
+      try {
+        val uri = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM)
+        mediaPlayer = MediaPlayer().apply {
+          setAudioAttributes(attrs)
+          setDataSource(this@AlarmActivity, uri)
+          isLooping = true
+          prepare()
+          start()
+        }
+      } catch (e2: Exception) {
+        // مفيش أي نغمة متاحة - نكمل من غير صوت
+      }
     }
   }
 
