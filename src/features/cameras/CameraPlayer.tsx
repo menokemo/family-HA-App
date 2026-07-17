@@ -42,12 +42,14 @@ function PtzPad({ camera, settings, states }: { camera: HaEntity; settings: Conn
 }
 
 /** بتدير سحب/تكبير بإصبعين على الفيديو - من غير أي مكتبة إيماءات
- * خارجية، بس PanResponder المدمجة في React Native. */
-function usePinchPan() {
+ * خارجية، بس PanResponder المدمجة في React Native. بتستقبل onTap
+ * عشان تكتشف الضغطة العادية (من غير ما تتعارض مع Pressable منفصلة -
+ * الاتنين على نفس العنصر بيتعارضوا وبيمنعوا الزوم من الاشتغال). */
+function usePinchPan(onTap: () => void) {
   const scale = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
-  const state = useRef({ baseScale: 1, baseX: 0, baseY: 0, startDistance: 0, startX: 0, startY: 0, touches: 0 });
+  const state = useRef({ baseScale: 1, baseX: 0, baseY: 0, startDistance: 0, startX: 0, startY: 0, moved: 0 });
 
   const distance = (touches: { pageX: number; pageY: number }[]) => {
     const [a, b] = touches;
@@ -60,12 +62,13 @@ function usePinchPan() {
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: e => {
         const touches = e.nativeEvent.touches;
-        state.current.touches = touches.length;
+        state.current.moved = 0;
         if (touches.length === 2) state.current.startDistance = distance(touches as unknown as { pageX: number; pageY: number }[]);
         state.current.startX = e.nativeEvent.pageX;
         state.current.startY = e.nativeEvent.pageY;
       },
       onPanResponderMove: (e, gesture) => {
+        state.current.moved = Math.max(state.current.moved, Math.abs(gesture.dx) + Math.abs(gesture.dy));
         const touches = e.nativeEvent.touches;
         if (touches.length === 2) {
           if (!state.current.startDistance) state.current.startDistance = distance(touches as unknown as { pageX: number; pageY: number }[]);
@@ -78,6 +81,7 @@ function usePinchPan() {
         }
       },
       onPanResponderRelease: () => {
+        if (state.current.moved < 8 && state.current.baseScale <= 1) onTap();
         scale.stopAnimation(v => { state.current.baseScale = v; });
         translateX.stopAnimation(v => { state.current.baseX = v; });
         translateY.stopAnimation(v => { state.current.baseY = v; });
@@ -105,7 +109,8 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
   const [showPtz, setShowPtz] = useState(false);
   const [debugLog, setDebugLog] = useState<string[]>([]);
   const [showDebug, setShowDebug] = useState(false);
-  const { scale, translateX, translateY, panHandlers } = usePinchPan();
+  const [isLandscape, setIsLandscape] = useState(false);
+  const { scale, translateX, translateY, panHandlers } = usePinchPan(() => setChromeVisible(v => !v));
   const token = typeof camera.attributes.access_token === 'string' ? camera.attributes.access_token : undefined;
   const snapshotUrl = useMemo(
     () => cameraSnapshotUrl(settings, camera.entity_id, nonce, token),
@@ -113,11 +118,17 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
   );
 
   useEffect(() => {
-    // تدوير الشاشة الحقيقي (مش حيلة CSS) - أنضف وأدق، النظام والمشغّل
-    // بيتعاملوا مع الأبعاد صح تلقائيًا من غير أي حسابات نسب يدوية.
-    Orientation.lockToLandscape();
+    // التدوير هنا اختياري بزرار المستخدم (toggleLandscape) بس - مش
+    // تلقائي عند فتح الكاميرا. هنا بس بنضمن الرجوع لوضع عمودي لو
+    // المستخدم قفل الشاشة وهو مكبّر أفقيًا.
     return () => Orientation.lockToPortrait();
   }, []);
+
+  const toggleLandscape = () => {
+    if (isLandscape) Orientation.lockToPortrait();
+    else Orientation.lockToLandscape();
+    setIsLandscape(v => !v);
+  };
 
   const closeAndUnlock = () => {
     Orientation.lockToPortrait();
@@ -136,21 +147,25 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
   );
 
   return <View style={styles.container}>
-    <Pressable style={styles.mediaWrap} onPress={() => setChromeVisible(v => !v)} {...panHandlers}>
+    <View style={styles.mediaWrap} {...panHandlers}>
       <Animated.View style={{ width: '100%', height: '100%', transform: [{ scale }, { translateX }, { translateY }] }}>
         {video}
       </Animated.View>
-    </Pressable>
-
-    <Pressable style={styles.closeButton} onPress={closeAndUnlock} hitSlop={10}>
-      <Ionicons name="close" size={20} color="#fff" />
-    </Pressable>
+    </View>
 
     {chromeVisible ? (
       <>
-        <View style={styles.header}>
-          <View style={[styles.liveDot, { backgroundColor: mode === 'webrtc' ? colors.danger : colors.warning }]} />
-          <Text style={styles.badge} numberOfLines={1}>{title}</Text>
+        <View style={styles.topBar}>
+          <Pressable style={styles.closeButton} onPress={closeAndUnlock} hitSlop={10}>
+            <Ionicons name="close" size={20} color="#fff" />
+          </Pressable>
+          <View style={styles.header}>
+            <View style={[styles.liveDot, { backgroundColor: mode === 'webrtc' ? colors.danger : colors.warning }]} />
+            <Text style={styles.badge} numberOfLines={1}>{title}</Text>
+          </View>
+          <Pressable style={styles.rotateButton} onPress={toggleLandscape}>
+            <Ionicons name={isLandscape ? 'phone-portrait-outline' : 'phone-landscape-outline'} size={18} color="#fff" />
+          </Pressable>
         </View>
 
         <Pressable style={[styles.ptzToggle, showPtz && styles.ptzToggleActive]} onPress={() => setShowPtz(v => !v)}>
@@ -196,14 +211,16 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.black },
   mediaWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   media: { width: '100%', height: '100%' },
-  header: { position: 'absolute', zIndex: 2, top: 50, left: 60, right: 60, flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: 'rgba(0,0,0,.58)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18, alignSelf: 'center' },
+  topBar: { position: 'absolute', zIndex: 2, top: 14, left: 14, right: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  header: { flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: 'rgba(0,0,0,.58)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18 },
   liveDot: { width: 8, height: 8, borderRadius: 4 },
   badge: { color: '#fff', fontSize: 12, fontWeight: '800', flexShrink: 1 },
   error: { position: 'absolute', bottom: 90, alignSelf: 'center', color: colors.warning, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: 'rgba(0,0,0,.7)', borderRadius: 12 },
   actions: { position: 'absolute', bottom: 24, left: 14, right: 14, flexDirection: 'row', gap: 10 },
   button: { flex: 1, borderWidth: 1, borderColor: 'rgba(255,255,255,.4)', backgroundColor: 'rgba(0,0,0,.5)', borderRadius: 13, padding: 12, alignItems: 'center' },
   buttonText: { color: '#fff', fontWeight: '800' },
-  closeButton: { position: 'absolute', zIndex: 3, top: 50, left: 14, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,.58)', alignItems: 'center', justifyContent: 'center' },
+  closeButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,.58)', alignItems: 'center', justifyContent: 'center' },
+  rotateButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,.58)', alignItems: 'center', justifyContent: 'center' },
   ptzToggle: { position: 'absolute', zIndex: 2, bottom: 90, left: 14, width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(0,0,0,.58)', alignItems: 'center', justifyContent: 'center' },
   ptzToggleActive: { backgroundColor: colors.primary },
   debugToggle: { position: 'absolute', zIndex: 2, bottom: 90, right: 14, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(0,0,0,.6)', alignItems: 'center', justifyContent: 'center' },
