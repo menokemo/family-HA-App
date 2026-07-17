@@ -43,7 +43,7 @@ function AppContent({themeMode,onThemeModeChange}:{themeMode:ThemeMode;onThemeMo
  useEffect(()=>{setLiveSettings(settings);},[settings]);
  useEffect(()=>onLiveSettingsChange(fresh=>{
   setSettings(cur=>cur.baseUrl===fresh.baseUrl&&cur.accessToken!==fresh.accessToken?fresh:cur);
-  if(backgroundMonitorActive&&fresh.authMethod==='oauth'&&fresh.accessToken)void updateAlarmMonitorToken(fresh.accessToken);
+  if(backgroundMonitorActive&&fresh.authMethod==='oauth'&&fresh.accessToken)updateAlarmMonitorToken(fresh.accessToken).catch(()=>undefined);
  }),[backgroundMonitorActive]);
  const {classic,digital,pulse}=useSirenPlayers();
  i18n.locale=settings.language ?? detectDeviceLanguage();

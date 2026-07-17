@@ -12,9 +12,16 @@ type AlarmMonitorNative = {
 
 const native = NativeModules.AlarmMonitor as AlarmMonitorNative | undefined;
 
-export function updateAlarmMonitorToken(token: string): Promise<boolean> {
-  const native = NativeModules.AlarmMonitor as AlarmMonitorNative & { updateToken: (t: string) => Promise<boolean> } | undefined;
-  return native?.updateToken(token) ?? Promise.resolve(false);
+export async function updateAlarmMonitorToken(token: string): Promise<boolean> {
+  try {
+    const native = NativeModules.AlarmMonitor as AlarmMonitorNative & { updateToken: (t: string) => Promise<boolean> } | undefined;
+    return (await native?.updateToken(token)) ?? false;
+  } catch {
+    // مزامنة توكن الخدمة الخلفية عملية "أفضل جهد" - أي فشل هنا (زي
+    // تثبيت قديم للتطبيق مفيهوش الدالة الأصلية بعد) متسببش أبدًا في
+    // مقاطعة أي إجراء تاني بيحصل في التطبيق (زي حفظ إعدادات الكاميرا)
+    return false;
+  }
 }
 
 export function canUseFullScreenIntent(): Promise<boolean> {
