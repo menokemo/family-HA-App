@@ -17,6 +17,7 @@ type Props = {
   settings: ConnectionSettings;
   onUnavailable: (reason: string) => void;
   onLog?: (line: string) => void;
+  onAudioChange?: (hasAudio: boolean) => void;
 };
 
 type WsMessage = {
@@ -44,14 +45,15 @@ type ClientConfiguration = {
 const websocketUrl = (baseUrl: string) =>
   `${baseUrl.trim().replace(/\/+$/, '').replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:')}/api/websocket`;
 
-export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onLog }: Props) {
+export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onLog, onAudioChange }: Props) {
   const [streamUrl, setStreamUrl] = useState<string>();
   const [status, setStatus] = useState(i18n.t('connecting'));
-  const [hasAudio, setHasAudio] = useState(false);
   const fallbackRef = useRef(onUnavailable);
   fallbackRef.current = onUnavailable;
   const onLogRef = useRef(onLog);
   onLogRef.current = onLog;
+  const onAudioChangeRef = useRef(onAudioChange);
+  onAudioChangeRef.current = onAudioChange;
 
   useEffect(() => {
     let disposed = false;
@@ -186,7 +188,7 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onLog }: P
           const kind = (event.track as unknown as { kind?: string }).kind;
           log(`🎥 ontrack: ${kind}`);
           remoteStream.addTrack(event.track as never);
-          if (kind === 'audio') setHasAudio(true);
+          if (kind === 'audio') onAudioChangeRef.current?.(true);
           setStreamUrl(remoteStream.toURL());
           setStatus(i18n.t('liveStream'));
         };
@@ -307,12 +309,7 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onLog }: P
   return (
     <View style={styles.container}>
       {streamUrl ? (
-        <>
-          <RTCView streamURL={streamUrl} style={styles.video} objectFit="contain" mirror={false} />
-          <View style={styles.audioBadge}>
-            <Text style={styles.audioBadgeText}>{hasAudio ? '🔊' : '🔇 ' + i18n.t('noAudioSource')}</Text>
-          </View>
-        </>
+        <RTCView streamURL={streamUrl} style={styles.video} objectFit="contain" mirror={false} />
       ) : (
         <View style={styles.loading}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -328,6 +325,4 @@ const styles = StyleSheet.create({
   video: { flex: 1, backgroundColor: colors.black },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
   status: { color: '#fff', textAlign: 'center', paddingHorizontal: 24 },
-  audioBadge: { position: 'absolute', bottom: 12, left: 12, backgroundColor: 'rgba(0,0,0,.6)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
-  audioBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
 });

@@ -110,6 +110,7 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
   const [debugLog, setDebugLog] = useState<string[]>([]);
   const [showDebug, setShowDebug] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
+  const [hasAudio, setHasAudio] = useState(false);
   const { scale, translateX, translateY, panHandlers } = usePinchPan(() => setChromeVisible(v => !v));
   const token = typeof camera.attributes.access_token === 'string' ? camera.attributes.access_token : undefined;
   const snapshotUrl = useMemo(
@@ -136,7 +137,13 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
   };
 
   const video = mode === 'webrtc' ? (
-    <WebRtcCameraPlayer camera={camera} settings={settings} onUnavailable={reason => { setError(reason); setMode('snapshot'); }} onLog={line => setDebugLog(prev => [...prev.slice(-60), line])} />
+    <WebRtcCameraPlayer
+      camera={camera}
+      settings={settings}
+      onUnavailable={reason => { setError(reason); setMode('snapshot'); }}
+      onLog={line => setDebugLog(prev => [...prev.slice(-60), line])}
+      onAudioChange={setHasAudio}
+    />
   ) : (
     <Image
       source={{ uri: snapshotUrl, headers: token ? undefined : authHeaders(settings) }}
@@ -156,21 +163,31 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
     {chromeVisible ? (
       <>
         <View style={styles.topBar}>
-          <Pressable style={styles.closeButton} onPress={closeAndUnlock} hitSlop={10}>
-            <Ionicons name="close" size={20} color="#fff" />
+          <Pressable style={styles.iconBtn} onPress={closeAndUnlock} hitSlop={10}>
+            <Ionicons name="close" size={19} color="#fff" />
           </Pressable>
           <View style={styles.header}>
             <View style={[styles.liveDot, { backgroundColor: mode === 'webrtc' ? colors.danger : colors.warning }]} />
             <Text style={styles.badge} numberOfLines={1}>{title}</Text>
           </View>
-          <Pressable style={styles.rotateButton} onPress={toggleLandscape}>
-            <Ionicons name={isLandscape ? 'phone-portrait-outline' : 'phone-landscape-outline'} size={18} color="#fff" />
-          </Pressable>
+          <View style={{ flex: 1 }} />
+          <View style={styles.toolbar}>
+            {mode === 'webrtc' ? (
+              <View style={styles.iconBtn}>
+                <Text style={styles.audioIcon}>{hasAudio ? '🔊' : '🔇'}</Text>
+              </View>
+            ) : null}
+            <Pressable style={[styles.iconBtn, showPtz && styles.iconBtnActive]} onPress={() => setShowPtz(v => !v)}>
+              <Ionicons name="videocam" size={17} color="#fff" />
+            </Pressable>
+            <Pressable style={[styles.iconBtn, isLandscape && styles.iconBtnActive]} onPress={toggleLandscape}>
+              <Ionicons name="expand" size={17} color="#fff" />
+            </Pressable>
+            <Pressable style={[styles.iconBtn, showDebug && styles.iconBtnActive]} onPress={() => setShowDebug(v => !v)}>
+              <Text style={styles.debugToggleText}>🐛</Text>
+            </Pressable>
+          </View>
         </View>
-
-        <Pressable style={[styles.ptzToggle, showPtz && styles.ptzToggleActive]} onPress={() => setShowPtz(v => !v)}>
-          <Ionicons name="videocam" size={18} color="#fff" />
-        </Pressable>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <View style={styles.actions}>
@@ -186,9 +203,6 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
 
     {showPtz ? <PtzPad camera={camera} settings={settings} states={states} /> : null}
 
-    <Pressable style={styles.debugToggle} onPress={() => setShowDebug(v => !v)}>
-      <Text style={styles.debugToggleText}>🐛</Text>
-    </Pressable>
     {showDebug ? (
       <ScrollView style={styles.debugPanel} contentContainerStyle={{ padding: 10 }}>
         <Text style={styles.debugLine}>وضع البث الحالي: {mode}</Text>
@@ -211,20 +225,19 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.black },
   mediaWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   media: { width: '100%', height: '100%' },
-  topBar: { position: 'absolute', zIndex: 2, top: 14, left: 14, right: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  header: { flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: 'rgba(0,0,0,.58)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18 },
-  liveDot: { width: 8, height: 8, borderRadius: 4 },
-  badge: { color: '#fff', fontSize: 12, fontWeight: '800', flexShrink: 1 },
+  topBar: { position: 'absolute', zIndex: 2, top: 14, left: 14, right: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  header: { flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,.58)', paddingHorizontal: 10, paddingVertical: 7, borderRadius: 16 },
+  liveDot: { width: 7, height: 7, borderRadius: 3.5 },
+  badge: { color: '#fff', fontSize: 11, fontWeight: '700', flexShrink: 1 },
+  toolbar: { flexDirection: 'row', gap: 6, backgroundColor: 'rgba(0,0,0,.58)', borderRadius: 16, padding: 3 },
+  iconBtn: { width: 32, height: 32, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  iconBtnActive: { backgroundColor: colors.primary },
+  audioIcon: { fontSize: 14 },
   error: { position: 'absolute', bottom: 90, alignSelf: 'center', color: colors.warning, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: 'rgba(0,0,0,.7)', borderRadius: 12 },
   actions: { position: 'absolute', bottom: 24, left: 14, right: 14, flexDirection: 'row', gap: 10 },
   button: { flex: 1, borderWidth: 1, borderColor: 'rgba(255,255,255,.4)', backgroundColor: 'rgba(0,0,0,.5)', borderRadius: 13, padding: 12, alignItems: 'center' },
   buttonText: { color: '#fff', fontWeight: '800' },
-  closeButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,.58)', alignItems: 'center', justifyContent: 'center' },
-  rotateButton: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,.58)', alignItems: 'center', justifyContent: 'center' },
-  ptzToggle: { position: 'absolute', zIndex: 2, bottom: 90, left: 14, width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(0,0,0,.58)', alignItems: 'center', justifyContent: 'center' },
-  ptzToggleActive: { backgroundColor: colors.primary },
-  debugToggle: { position: 'absolute', zIndex: 2, bottom: 90, right: 14, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(0,0,0,.6)', alignItems: 'center', justifyContent: 'center' },
-  debugToggleText: { fontSize: 15 },
-  debugPanel: { position: 'absolute', zIndex: 3, top: 96, left: 8, right: 8, bottom: 8, backgroundColor: 'rgba(0,0,0,.9)', borderRadius: 10 },
+  debugToggleText: { fontSize: 14 },
+  debugPanel: { position: 'absolute', zIndex: 3, top: 60, left: 8, right: 8, bottom: 8, backgroundColor: 'rgba(0,0,0,.9)', borderRadius: 10 },
   debugLine: { color: '#8FE388', fontSize: 10, fontFamily: 'monospace', marginBottom: 3 },
 });
