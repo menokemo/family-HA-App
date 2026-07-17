@@ -139,6 +139,7 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
     };
 
     let triedWithoutAudio = false;
+    let retryAttempt = 0;
     const startWebRtc = async (includeAudio = true) => {
       try {
         const capabilities = (await command({
@@ -201,8 +202,22 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
     };
 
     const retryWithoutAudioOrFail = (message?: string) => {
-      if (!triedWithoutAudio && !disposed) {
+      if (disposed) return;
+      // بعض المصادر (زي Frigate) بتجهّز مسار البث الداخلي بتاعها عند
+      // الطلب (lazy) مش دايمًا جاهز فورًا - أول محاولة ممكن توصل
+      // قبل ما يتجهّز. بنعيد المحاولة بعد تأخير بسيط قبل ما نستسلم،
+      // وده منفصل عن محاولة إلغاء الصوت.
+      if (retryAttempt < 2) {
+        retryAttempt++;
+        setStatus(i18n.t('connecting'));
+        try { peer?.close(); } catch { /* ignore */ }
+        peer = undefined;
+        setTimeout(() => { if (!disposed) void startWebRtc(!triedWithoutAudio); }, 1200);
+        return;
+      }
+      if (!triedWithoutAudio) {
         triedWithoutAudio = true;
+        retryAttempt = 0;
         try { peer?.close(); } catch { /* ignore */ }
         peer = undefined;
         void startWebRtc(false);
