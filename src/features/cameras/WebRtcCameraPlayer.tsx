@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, PermissionsAndroid, Platform, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, PermissionsAndroid, Platform, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import {
   MediaStream,
   RTCPeerConnection,
@@ -47,6 +47,8 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
   const [streamUrl, setStreamUrl] = useState<string>();
   const [status, setStatus] = useState(i18n.t('connecting'));
   const [hasAudio, setHasAudio] = useState(false);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const [showDebug, setShowDebug] = useState(false);
   const fallbackRef = useRef(onUnavailable);
   fallbackRef.current = onUnavailable;
 
@@ -61,13 +63,22 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
     const queuedCandidates: IceCandidateInit[] = [];
     const pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
 
+    const log = (message: string) => {
+      const line = `${new Date().toLocaleTimeString()} — ${message}`;
+      // eslint-disable-next-line no-console
+      console.log('[WebRTC]', camera.entity_id, line);
+      setDebugLog(prev => [...prev.slice(-40), line]);
+    };
+
     const fail = (reason: string) => {
+      log(`❌ fail: ${reason}`);
       if (disposed) return;
       setStatus(reason);
       fallbackRef.current(reason);
     };
 
     const command = (payload: Record<string, unknown>): Promise<unknown> => {
+      log(`→ command: ${String(payload.type)}`);
       const request = new Promise((resolve, reject) => {
         if (!socket || socket.readyState !== WebSocket.OPEN) {
           reject(new Error('WebSocket is not connected'));
@@ -140,19 +151,23 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
 
     const startWebRtc = async () => {
       try {
+        log('طلب camera/capabilities...');
         const capabilities = (await command({
           type: 'camera/capabilities',
           entity_id: camera.entity_id,
         })) as { frontend_stream_types?: string[] };
+        log(`capabilities: ${JSON.stringify(capabilities.frontend_stream_types)}`);
         if (!capabilities.frontend_stream_types?.includes('web_rtc')) {
           fail(i18n.t('webrtcUnavailable'));
           return;
         }
 
+        log('طلب camera/webrtc/get_client_config...');
         const clientConfig = (await command({
           type: 'camera/webrtc/get_client_config',
           entity_id: camera.entity_id,
         })) as ClientConfiguration;
+        log(`client config: ${JSON.stringify(clientConfig).slice(0, 200)}`);
 
         peer = new RTCPeerConnection((clientConfig.configuration ?? {}) as never);
         remoteStream = new MediaStream();
@@ -167,8 +182,9 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
         };
         peerEvents.ontrack = event => {
           if (!remoteStream || disposed) return;
-          remoteStream.addTrack(event.track as never);
           const kind = (event.track as unknown as { kind?: string }).kind;
+          log(`🎥 ontrack: ${kind}`);
+          remoteStream.addTrack(event.track as never);
           if (kind === 'audio') setHasAudio(true);
           setStreamUrl(remoteStream.toURL());
           setStatus(i18n.t('liveStream'));
@@ -178,11 +194,13 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
           if (candidate?.candidate) void sendCandidate(candidate);
         };
         peerEvents.oniceconnectionstatechange = () => {
+          log(`ICE state: ${peer?.iceConnectionState}`);
           if (peer?.iceConnectionState === 'failed') fail(i18n.t('webrtcConnectionFailed'));
         };
 
         const offer = await peer.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
         await peer.setLocalDescription(offer);
+        log('SDP offer جاهز، بيتبعت...');
         offerSubscriptionId = nextId++;
         socket?.send(JSON.stringify({
           id: offerSubscriptionId,
@@ -191,44 +209,61 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
           offer: offer.sdp ?? '',
         }));
       } catch (error) {
+        log(`❌ خطأ في startWebRtc: ${error instanceof Error ? error.message : String(error)}`);
         fail(error instanceof Error ? error.message : i18n.t('cameraPlaybackFailed'));
       }
     };
 
     let authToken = settings.token;
     const openSocket = () => {
+      log('فتح اتصال WebSocket...');
       socket = new WebSocket(websocketUrl(settings.baseUrl));
       socket.onmessage = raw => {
         const message = JSON.parse(String(raw.data)) as WsMessage;
         if (message.type === 'auth_required') {
+          log('auth_required → بعتنا التوكن');
           socket?.send(JSON.stringify({ type: 'auth', access_token: authToken }));
           return;
         }
         if (message.type === 'auth_invalid') {
+        log('❌ auth_invalid');
         fail('Home Assistant authentication failed');
         return;
       }
       if (message.type === 'auth_ok') {
+        log('✅ auth_ok → بدء عرض الكاميرا');
         void startWebRtc();
         return;
       }
       if (message.type === 'result' && typeof message.id === 'number') {
         if (message.id === offerSubscriptionId) {
-          if (message.success === false) fail(message.error?.message ?? i18n.t('cameraPlaybackFailed'));
+          if (message.success === false) {
+            log(`❌ فشل الـ offer: ${message.error?.message ?? 'غير معروف'}`);
+            fail(message.error?.message ?? i18n.t('cameraPlaybackFailed'));
+          } else {
+            log('✅ الـ offer اتقبل، مستنيين event');
+          }
           return;
         }
         const request = pending.get(message.id);
         if (!request) return;
         pending.delete(message.id);
-        if (message.success === false) request.reject(new Error(message.error?.message ?? 'Home Assistant request failed'));
-        else request.resolve(message.result);
+        if (message.success === false) {
+          log(`❌ نتيجة سلبية للأمر #${message.id}: ${message.error?.message ?? ''}`);
+          request.reject(new Error(message.error?.message ?? 'Home Assistant request failed'));
+        } else {
+          log(`✅ رد للأمر #${message.id}`);
+          request.resolve(message.result);
+        }
         return;
       }
       if (message.type === 'event' && message.id === offerSubscriptionId && message.event) {
+        log(`⚡ event: ${message.event.type}`);
         void handleOfferEvent(message.event);
       }
       };
-      socket.onerror = () => fail(i18n.t('webrtcConnectionFailed'));
+      socket.onerror = () => { log('❌ socket.onerror'); fail(i18n.t('webrtcConnectionFailed')); };
+      socket.onclose = event => log(`socket.onclose (code ${event.code})`);
     };
 
     const requestMediaPermissions = async () => {
@@ -244,13 +279,15 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
       }
     };
 
-    void requestMediaPermissions().then(async () => {
+    log('بدء تشغيل الكاميرا...');
+    void requestMediaPermissions().then(async granted => {
+      log(`صلاحيات الكاميرا/الميكروفون: ${granted ? 'ممنوحة' : 'مرفوضة/جزئية'}`);
       if (disposed) return;
       try {
         authToken = await ensureFreshToken(settings);
-      } catch {
-        // فشل التجديد لأي سبب - نكمل بالتوكن الموجود، وأي فشل مصادقة
-        // فعلي هيتلقط عادي في auth_invalid تحت
+        log('توكن جاهز');
+      } catch (e) {
+        log(`⚠️ فشل تجديد التوكن، هنكمل بالتوكن الحالي: ${e instanceof Error ? e.message : String(e)}`);
       }
       if (disposed) return;
       openSocket();
@@ -281,6 +318,15 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
           <Text style={styles.status}>{status}</Text>
         </View>
       )}
+      <Pressable style={styles.debugToggle} onPress={() => setShowDebug(v => !v)}>
+        <Text style={styles.debugToggleText}>🐛</Text>
+      </Pressable>
+      {showDebug ? (
+        <ScrollView style={styles.debugPanel} contentContainerStyle={{ padding: 10 }}>
+          {debugLog.length === 0 ? <Text style={styles.debugLine}>...</Text> : null}
+          {debugLog.map((line, i) => <Text key={i} style={styles.debugLine} selectable>{line}</Text>)}
+        </ScrollView>
+      ) : null}
     </View>
   );
 }
@@ -292,4 +338,8 @@ const styles = StyleSheet.create({
   status: { color: '#fff', textAlign: 'center', paddingHorizontal: 24 },
   audioBadge: { position: 'absolute', bottom: 12, left: 12, backgroundColor: 'rgba(0,0,0,.6)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
   audioBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  debugToggle: { position: 'absolute', top: 12, right: 12, width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(0,0,0,.6)', alignItems: 'center', justifyContent: 'center' },
+  debugToggleText: { fontSize: 15 },
+  debugPanel: { position: 'absolute', top: 50, left: 8, right: 8, bottom: 8, backgroundColor: 'rgba(0,0,0,.88)', borderRadius: 10 },
+  debugLine: { color: '#8FE388', fontSize: 10, fontFamily: 'monospace', marginBottom: 3 },
 });
