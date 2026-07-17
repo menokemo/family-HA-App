@@ -97,36 +97,45 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
         queuedCandidates.push(candidate);
         return;
       }
-      await command({
-        type: 'camera/webrtc/candidate',
-        entity_id: camera.entity_id,
-        session_id: sessionId,
-        candidate,
-      });
+      try {
+        await command({
+          type: 'camera/webrtc/candidate',
+          entity_id: camera.entity_id,
+          session_id: sessionId,
+          candidate,
+        });
+      } catch {
+        // لو الشاشة اتقفلت أثناء إرسال الـ candidate، تجاهل الخطأ -
+        // مفيش داعي نظهره للمستخدم، والاتصال أصلًا بيتقفل في الـ cleanup
+      }
     };
 
     const handleOfferEvent = async (event: WebRtcEvent) => {
-      if (event.type === 'session') {
-        sessionId = event.session_id;
-        while (queuedCandidates.length) {
-          const candidate = queuedCandidates.shift();
-          if (candidate) await sendCandidate(candidate);
+      try {
+        if (event.type === 'session') {
+          sessionId = event.session_id;
+          while (queuedCandidates.length) {
+            const candidate = queuedCandidates.shift();
+            if (candidate) await sendCandidate(candidate);
+          }
+          return;
         }
-        return;
+        if (event.type === 'answer') {
+          await peer?.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: event.answer }));
+          setStatus(i18n.t('liveStream'));
+          return;
+        }
+        if (event.type === 'candidate') {
+          const candidate = event.candidate.sdpMid || event.candidate.sdpMLineIndex != null
+            ? event.candidate
+            : { ...event.candidate, sdpMid: '0' };
+          await peer?.addIceCandidate(new RTCIceCandidate(candidate));
+          return;
+        }
+        fail(event.message || i18n.t('cameraPlaybackFailed'));
+      } catch (error) {
+        if (!disposed) fail(error instanceof Error ? error.message : i18n.t('cameraPlaybackFailed'));
       }
-      if (event.type === 'answer') {
-        await peer?.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: event.answer }));
-        setStatus(i18n.t('liveStream'));
-        return;
-      }
-      if (event.type === 'candidate') {
-        const candidate = event.candidate.sdpMid || event.candidate.sdpMLineIndex != null
-          ? event.candidate
-          : { ...event.candidate, sdpMid: '0' };
-        await peer?.addIceCandidate(new RTCIceCandidate(candidate));
-        return;
-      }
-      fail(event.message || i18n.t('cameraPlaybackFailed'));
     };
 
     const startWebRtc = async () => {
