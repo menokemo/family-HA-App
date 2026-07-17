@@ -58,10 +58,12 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
     let nextId = 1;
     let offerSubscriptionId: number | undefined;
     let sessionId: string | undefined;
+    let connectTimeout: ReturnType<typeof setTimeout> | undefined;
     const queuedCandidates: IceCandidateInit[] = [];
     const pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
 
     const fail = (reason: string) => {
+      if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = undefined; }
       if (disposed) return;
       setStatus(reason);
       fallbackRef.current(reason);
@@ -141,6 +143,12 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
     let triedWithoutAudio = false;
     let retryAttempt = 0;
     const startWebRtc = async (includeAudio = true) => {
+      if (connectTimeout) clearTimeout(connectTimeout);
+      // مهلة قصوى شاملة للاتصال كله - لو ICE عالق في 'checking' من غير
+      // ما يوصل لا لنجاح ولا لفشل صريح (شبكة/NAT معينة لكاميرا بعينها
+      // مثلًا)، مكناش هنعرف أبدًا إن فيه مشكلة والشاشة كانت هتفضل
+      // "بتحمّل" للأبد من غير أي تنبيه.
+      connectTimeout = setTimeout(() => retryWithoutAudioOrFail(i18n.t('webrtcConnectionFailed')), 15000);
       try {
         const capabilities = (await command({
           type: 'camera/capabilities',
@@ -173,6 +181,7 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
         };
         peerEvents.ontrack = event => {
           if (!remoteStream || disposed) return;
+          if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = undefined; }
           remoteStream.addTrack(event.track as never);
           const kind = (event.track as unknown as { kind?: string }).kind;
           if (kind === 'audio') setHasAudio(true);
@@ -289,6 +298,7 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
 
     return () => {
       disposed = true;
+      if (connectTimeout) clearTimeout(connectTimeout);
       pending.forEach(request => request.reject(new Error('WebRTC player closed')));
       pending.clear();
       remoteStream?.getTracks().forEach(track => track.stop());
