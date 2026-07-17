@@ -58,12 +58,10 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
     let nextId = 1;
     let offerSubscriptionId: number | undefined;
     let sessionId: string | undefined;
-    let connectTimeout: ReturnType<typeof setTimeout> | undefined;
     const queuedCandidates: IceCandidateInit[] = [];
     const pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
 
     const fail = (reason: string) => {
-      if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = undefined; }
       if (disposed) return;
       setStatus(reason);
       fallbackRef.current(reason);
@@ -140,15 +138,7 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
       }
     };
 
-    let triedWithoutAudio = false;
-    let retryAttempt = 0;
-    const startWebRtc = async (includeAudio = true) => {
-      if (connectTimeout) clearTimeout(connectTimeout);
-      // مهلة قصوى شاملة للاتصال كله - لو ICE عالق في 'checking' من غير
-      // ما يوصل لا لنجاح ولا لفشل صريح (شبكة/NAT معينة لكاميرا بعينها
-      // مثلًا)، مكناش هنعرف أبدًا إن فيه مشكلة والشاشة كانت هتفضل
-      // "بتحمّل" للأبد من غير أي تنبيه.
-      connectTimeout = setTimeout(() => retryWithoutAudioOrFail(i18n.t('webrtcConnectionFailed')), 15000);
+    const startWebRtc = async () => {
       try {
         const capabilities = (await command({
           type: 'camera/capabilities',
@@ -168,11 +158,7 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
         remoteStream = new MediaStream();
         if (clientConfig.dataChannel) peer.createDataChannel(clientConfig.dataChannel);
 
-        // بعض إعدادات Frigate/go2rtc مفيهاش صوت مُفعَّل لكل كاميرا -
-        // طلب مسار صوتي لكاميرا زي دي بيكسّر التفاوض كله (404 عند
-        // go2rtc). لو المحاولة الأولى بصوت فشلت، بنعيد المحاولة
-        // فيديو بس تلقائيًا قبل ما نستسلم للـ snapshot.
-        if (includeAudio) peer.addTransceiver('audio', { direction: 'recvonly' });
+        peer.addTransceiver('audio', { direction: 'recvonly' });
         peer.addTransceiver('video', { direction: 'recvonly' });
         const peerEvents = peer as unknown as {
           ontrack?: (event: { track: { stop: () => void } }) => void;
@@ -181,7 +167,6 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
         };
         peerEvents.ontrack = event => {
           if (!remoteStream || disposed) return;
-          if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = undefined; }
           remoteStream.addTrack(event.track as never);
           const kind = (event.track as unknown as { kind?: string }).kind;
           if (kind === 'audio') setHasAudio(true);
@@ -196,7 +181,7 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
           if (peer?.iceConnectionState === 'failed') fail(i18n.t('webrtcConnectionFailed'));
         };
 
-        const offer = await peer.createOffer({ offerToReceiveAudio: includeAudio, offerToReceiveVideo: true });
+        const offer = await peer.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
         await peer.setLocalDescription(offer);
         offerSubscriptionId = nextId++;
         socket?.send(JSON.stringify({
@@ -208,31 +193,6 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
       } catch (error) {
         fail(error instanceof Error ? error.message : i18n.t('cameraPlaybackFailed'));
       }
-    };
-
-    const retryWithoutAudioOrFail = (message?: string) => {
-      if (disposed) return;
-      // بعض المصادر (زي Frigate) بتجهّز مسار البث الداخلي بتاعها عند
-      // الطلب (lazy) مش دايمًا جاهز فورًا - أول محاولة ممكن توصل
-      // قبل ما يتجهّز. بنعيد المحاولة بعد تأخير بسيط قبل ما نستسلم،
-      // وده منفصل عن محاولة إلغاء الصوت.
-      if (retryAttempt < 2) {
-        retryAttempt++;
-        setStatus(i18n.t('connecting'));
-        try { peer?.close(); } catch { /* ignore */ }
-        peer = undefined;
-        setTimeout(() => { if (!disposed) void startWebRtc(!triedWithoutAudio); }, 1200);
-        return;
-      }
-      if (!triedWithoutAudio) {
-        triedWithoutAudio = true;
-        retryAttempt = 0;
-        try { peer?.close(); } catch { /* ignore */ }
-        peer = undefined;
-        void startWebRtc(false);
-        return;
-      }
-      fail(message ?? i18n.t('cameraPlaybackFailed'));
     };
 
     let authToken = settings.token;
@@ -254,7 +214,7 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
       }
       if (message.type === 'result' && typeof message.id === 'number') {
         if (message.id === offerSubscriptionId) {
-          if (message.success === false) retryWithoutAudioOrFail(message.error?.message);
+          if (message.success === false) fail(message.error?.message ?? i18n.t('cameraPlaybackFailed'));
           return;
         }
         const request = pending.get(message.id);
@@ -298,7 +258,6 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
 
     return () => {
       disposed = true;
-      if (connectTimeout) clearTimeout(connectTimeout);
       pending.forEach(request => request.reject(new Error('WebRTC player closed')));
       pending.clear();
       remoteStream?.getTracks().forEach(track => track.stop());
