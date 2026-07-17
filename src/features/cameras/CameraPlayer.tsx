@@ -1,5 +1,6 @@
-import { useMemo, useRef, useState } from 'react';
-import { Animated, Dimensions, Image, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Image, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Orientation from 'react-native-orientation-locker';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { authHeaders, cameraSnapshotUrl, ptzMove, ptzStop, type PtzDirection } from '../../api/homeAssistant';
 import { colors } from '../../theme';
@@ -101,7 +102,6 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
   const [error, setError] = useState<string>();
   const [nonce, setNonce] = useState(Date.now());
   const [chromeVisible, setChromeVisible] = useState(true);
-  const [rotated, setRotated] = useState(true);
   const [showPtz, setShowPtz] = useState(false);
   const [debugLog, setDebugLog] = useState<string[]>([]);
   const [showDebug, setShowDebug] = useState(false);
@@ -111,7 +111,18 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
     () => cameraSnapshotUrl(settings, camera.entity_id, nonce, token),
     [settings.baseUrl, settings.token, camera.entity_id, nonce, token],
   );
-  const { width: screenW, height: screenH } = Dimensions.get('window');
+
+  useEffect(() => {
+    // تدوير الشاشة الحقيقي (مش حيلة CSS) - أنضف وأدق، النظام والمشغّل
+    // بيتعاملوا مع الأبعاد صح تلقائيًا من غير أي حسابات نسب يدوية.
+    Orientation.lockToLandscape();
+    return () => Orientation.lockToPortrait();
+  }, []);
+
+  const closeAndUnlock = () => {
+    Orientation.lockToPortrait();
+    onClose();
+  };
 
   const video = mode === 'webrtc' ? (
     <WebRtcCameraPlayer camera={camera} settings={settings} onUnavailable={reason => { setError(reason); setMode('snapshot'); }} onLog={line => setDebugLog(prev => [...prev.slice(-60), line])} />
@@ -126,16 +137,12 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
 
   return <View style={styles.container}>
     <Pressable style={styles.mediaWrap} onPress={() => setChromeVisible(v => !v)} {...panHandlers}>
-      <Animated.View
-        style={[
-          rotated ? { width: screenH, height: screenW, transform: [{ rotate: '90deg' }, { scale }, { translateX }, { translateY }] } : { width: '100%', height: '100%', transform: [{ scale }, { translateX }, { translateY }] },
-        ]}
-      >
+      <Animated.View style={{ width: '100%', height: '100%', transform: [{ scale }, { translateX }, { translateY }] }}>
         {video}
       </Animated.View>
     </Pressable>
 
-    <Pressable style={styles.closeButton} onPress={onClose} hitSlop={10}>
+    <Pressable style={styles.closeButton} onPress={closeAndUnlock} hitSlop={10}>
       <Ionicons name="close" size={20} color="#fff" />
     </Pressable>
 
@@ -145,10 +152,6 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
           <View style={[styles.liveDot, { backgroundColor: mode === 'webrtc' ? colors.danger : colors.warning }]} />
           <Text style={styles.badge} numberOfLines={1}>{title}</Text>
         </View>
-
-        <Pressable style={styles.rotateButton} onPress={() => setRotated(v => !v)}>
-          <Ionicons name="phone-landscape-outline" size={18} color="#fff" />
-        </Pressable>
 
         <Pressable style={[styles.ptzToggle, showPtz && styles.ptzToggleActive]} onPress={() => setShowPtz(v => !v)}>
           <Ionicons name="videocam" size={18} color="#fff" />
@@ -201,7 +204,6 @@ const styles = StyleSheet.create({
   button: { flex: 1, borderWidth: 1, borderColor: 'rgba(255,255,255,.4)', backgroundColor: 'rgba(0,0,0,.5)', borderRadius: 13, padding: 12, alignItems: 'center' },
   buttonText: { color: '#fff', fontWeight: '800' },
   closeButton: { position: 'absolute', zIndex: 3, top: 50, left: 14, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,.58)', alignItems: 'center', justifyContent: 'center' },
-  rotateButton: { position: 'absolute', zIndex: 2, top: 50, right: 14, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,.58)', alignItems: 'center', justifyContent: 'center' },
   ptzToggle: { position: 'absolute', zIndex: 2, bottom: 90, left: 14, width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(0,0,0,.58)', alignItems: 'center', justifyContent: 'center' },
   ptzToggleActive: { backgroundColor: colors.primary },
   debugToggle: { position: 'absolute', zIndex: 2, bottom: 90, right: 14, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(0,0,0,.6)', alignItems: 'center', justifyContent: 'center' },
