@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { authHeaders, cameraSnapshotUrl, ptzMove, ptzStop, type PtzDirection } from '../../api/homeAssistant';
 import { colors } from '../../theme';
@@ -46,6 +46,8 @@ export function CameraPlayer({ camera, settings, states }: CameraPlayerProps) {
   const [nonce, setNonce] = useState(Date.now());
   const [immersive, setImmersive] = useState(false);
   const [showPtz, setShowPtz] = useState(false);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const [showDebug, setShowDebug] = useState(false);
   const token = typeof camera.attributes.access_token === 'string' ? camera.attributes.access_token : undefined;
   const snapshotUrl = useMemo(
     () => cameraSnapshotUrl(settings, camera.entity_id, nonce, token),
@@ -66,6 +68,7 @@ export function CameraPlayer({ camera, settings, states }: CameraPlayerProps) {
           camera={camera}
           settings={settings}
           onUnavailable={reason => { setError(reason); setMode('snapshot'); }}
+          onLog={line => setDebugLog(prev => [...prev.slice(-60), line])}
         />
       ) : (
         <Image
@@ -92,6 +95,17 @@ export function CameraPlayer({ camera, settings, states }: CameraPlayerProps) {
     <Pressable style={[styles.ptzToggle, showPtz && styles.ptzToggleActive]} onPress={() => setShowPtz(v => !v)}>
       <Ionicons name="videocam" size={18} color="#fff" />
     </Pressable>
+
+    <Pressable style={styles.debugToggle} onPress={() => setShowDebug(v => !v)}>
+      <Text style={styles.debugToggleText}>🐛</Text>
+    </Pressable>
+    {showDebug ? (
+      <ScrollView style={styles.debugPanel} contentContainerStyle={{ padding: 10 }}>
+        <Text style={styles.debugLine}>وضع البث الحالي: {mode}</Text>
+        {debugLog.length === 0 ? <Text style={styles.debugLine}>...</Text> : null}
+        {debugLog.map((line, i) => <Text key={i} style={styles.debugLine} selectable>{line}</Text>)}
+      </ScrollView>
+    ) : null}
 
     {!immersive && error ? <Text style={styles.error}>{error}</Text> : null}
     {!immersive ? (
@@ -129,4 +143,8 @@ const styles = StyleSheet.create({
   collapseButton: { position: 'absolute', zIndex: 2, top: 14, right: 14, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,.58)', alignItems: 'center', justifyContent: 'center' },
   ptzToggle: { position: 'absolute', zIndex: 2, bottom: 90, left: 14, width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(0,0,0,.58)', alignItems: 'center', justifyContent: 'center' },
   ptzToggleActive: { backgroundColor: colors.primary },
+  debugToggle: { position: 'absolute', zIndex: 2, bottom: 90, right: 14, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(0,0,0,.6)', alignItems: 'center', justifyContent: 'center' },
+  debugToggleText: { fontSize: 15 },
+  debugPanel: { position: 'absolute', zIndex: 3, top: 60, left: 8, right: 8, bottom: 8, backgroundColor: 'rgba(0,0,0,.9)', borderRadius: 10 },
+  debugLine: { color: '#8FE388', fontSize: 10, fontFamily: 'monospace', marginBottom: 3 },
 });

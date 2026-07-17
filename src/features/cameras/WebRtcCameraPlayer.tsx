@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, PermissionsAndroid, Platform, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { ActivityIndicator, PermissionsAndroid, Platform, StyleSheet, Text, View } from 'react-native';
 import {
   MediaStream,
   RTCPeerConnection,
@@ -16,6 +16,7 @@ type Props = {
   camera: HaEntity;
   settings: ConnectionSettings;
   onUnavailable: (reason: string) => void;
+  onLog?: (line: string) => void;
 };
 
 type WsMessage = {
@@ -43,14 +44,14 @@ type ClientConfiguration = {
 const websocketUrl = (baseUrl: string) =>
   `${baseUrl.trim().replace(/\/+$/, '').replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:')}/api/websocket`;
 
-export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
+export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onLog }: Props) {
   const [streamUrl, setStreamUrl] = useState<string>();
   const [status, setStatus] = useState(i18n.t('connecting'));
   const [hasAudio, setHasAudio] = useState(false);
-  const [debugLog, setDebugLog] = useState<string[]>([]);
-  const [showDebug, setShowDebug] = useState(false);
   const fallbackRef = useRef(onUnavailable);
   fallbackRef.current = onUnavailable;
+  const onLogRef = useRef(onLog);
+  onLogRef.current = onLog;
 
   useEffect(() => {
     let disposed = false;
@@ -67,7 +68,7 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
       const line = `${new Date().toLocaleTimeString()} — ${message}`;
       // eslint-disable-next-line no-console
       console.log('[WebRTC]', camera.entity_id, line);
-      setDebugLog(prev => [...prev.slice(-40), line]);
+      onLogRef.current?.(line);
     };
 
     const fail = (reason: string) => {
@@ -318,15 +319,6 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
           <Text style={styles.status}>{status}</Text>
         </View>
       )}
-      <Pressable style={styles.debugToggle} onPress={() => setShowDebug(v => !v)}>
-        <Text style={styles.debugToggleText}>🐛</Text>
-      </Pressable>
-      {showDebug ? (
-        <ScrollView style={styles.debugPanel} contentContainerStyle={{ padding: 10 }}>
-          {debugLog.length === 0 ? <Text style={styles.debugLine}>...</Text> : null}
-          {debugLog.map((line, i) => <Text key={i} style={styles.debugLine} selectable>{line}</Text>)}
-        </ScrollView>
-      ) : null}
     </View>
   );
 }
@@ -338,8 +330,4 @@ const styles = StyleSheet.create({
   status: { color: '#fff', textAlign: 'center', paddingHorizontal: 24 },
   audioBadge: { position: 'absolute', bottom: 12, left: 12, backgroundColor: 'rgba(0,0,0,.6)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
   audioBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  debugToggle: { position: 'absolute', bottom: 90, right: 14, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(0,0,0,.6)', alignItems: 'center', justifyContent: 'center' },
-  debugToggleText: { fontSize: 15 },
-  debugPanel: { position: 'absolute', top: 50, left: 8, right: 8, bottom: 8, backgroundColor: 'rgba(0,0,0,.88)', borderRadius: 10 },
-  debugLine: { color: '#8FE388', fontSize: 10, fontFamily: 'monospace', marginBottom: 3 },
 });
