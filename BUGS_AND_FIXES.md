@@ -167,3 +167,28 @@ from the saved preference when monitoring is enabled.
   implicit `--skipLibCheck`) — doesn't affect the real build, and is
   already handled by `skipLibCheck: true` in the TypeScript config
   inherited from React Native.
+
+### ⛔ مفتوحة (لسه بدون حل)
+**تاب الداشبورد: Browser Mod بيوري "version mismatch" ويعمل reload
+تلقائي، بس جوه تطبيقنا بس** — نفس الداشبورد بيشتغل عادي في متصفح
+عادي على نفس الموبايل (اتأكد بالفعل من المستخدم)، يبقى المشكلة خاصة
+بـ WebView بتاعتنا تحديدًا. **محاولات جُرِّبت ولم تنجح:**
+(1) `cacheEnabled={false}` (افترضنا HTTP cache عادي، اتصلح نفس
+المشكلة قبل كده مع خريطة OSM). (2) `incognito` (افترضنا Service
+Worker منفصل بيخزّن نسخة قديمة من ملفات Browser Mod). **الاتنين
+جُرِّبوا وماتغيّرش أي حاجة خالص.** يحتاج تشخيص أعمق بدليل حقيقي (زي
+console logs من جوه الـ WebView نفسها) بدل التخمين - مؤجَّل لحد ما
+نلاقي وسيلة نشوف بيها الخطأ الفعلي بدل ما نجرب حلول عشوائية.
+
+### ⛔ Open (not resolved yet)
+**Dashboard tab: Browser Mod shows "version mismatch" and auto-reloads,
+but only inside our app** — the same dashboard works fine in a regular
+mobile browser on the same phone (confirmed by the user), so this is
+specific to our WebView. **Attempted fixes that didn't work:**
+(1) `cacheEnabled={false}` (assumed regular HTTP cache — this fixed a
+similar issue with the OSM map before). (2) `incognito` (assumed a
+separate Service Worker caching a stale copy of Browser Mod's files).
+**Neither changed anything at all.** Needs deeper diagnosis with real
+evidence (e.g. console logs from inside the WebView) instead of
+guessing — deferred until we have a way to see the actual error
+instead of trying more blind fixes.
