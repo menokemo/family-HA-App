@@ -18,7 +18,7 @@ const REFRESH_MARGIN_MS = 60_000; // نجدد قبل الانتهاء بدقيق
 let refreshInFlight: Promise<string> | null = null;
 
 /** بترجع توكن صالح للاستخدام - لو الإعدادات OAuth والتوكن قرّب ينتهي، تجدده تلقائيًا أولًا. */
-async function ensureFreshToken(settings: ConnectionSettings): Promise<string> {
+export async function ensureFreshToken(settings: ConnectionSettings): Promise<string> {
   if (settings.authMethod !== 'oauth' || !settings.refreshToken) return settings.token;
   const expiresAt = settings.tokenExpiresAt ?? 0;
   if (Date.now() < expiresAt - REFRESH_MARGIN_MS && settings.accessToken) return settings.accessToken;

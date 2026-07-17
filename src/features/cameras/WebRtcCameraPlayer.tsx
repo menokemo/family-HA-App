@@ -8,6 +8,7 @@ import {
   RTCView,
 } from 'react-native-webrtc';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
+import { ensureFreshToken } from '../../api/homeAssistant';
 import { colors } from '../../theme';
 import { i18n } from '../../i18n';
 
@@ -185,12 +186,13 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
       }
     };
 
+    let authToken = settings.token;
     const openSocket = () => {
       socket = new WebSocket(websocketUrl(settings.baseUrl));
       socket.onmessage = raw => {
         const message = JSON.parse(String(raw.data)) as WsMessage;
         if (message.type === 'auth_required') {
-          socket?.send(JSON.stringify({ type: 'auth', access_token: settings.token }));
+          socket?.send(JSON.stringify({ type: 'auth', access_token: authToken }));
           return;
         }
         if (message.type === 'auth_invalid') {
@@ -233,7 +235,14 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
       }
     };
 
-    void requestMediaPermissions().then(() => {
+    void requestMediaPermissions().then(async () => {
+      if (disposed) return;
+      try {
+        authToken = await ensureFreshToken(settings);
+      } catch {
+        // فشل التجديد لأي سبب - نكمل بالتوكن الموجود، وأي فشل مصادقة
+        // فعلي هيتلقط عادي في auth_invalid تحت
+      }
       if (disposed) return;
       openSocket();
     });
