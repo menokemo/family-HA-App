@@ -138,7 +138,8 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
       }
     };
 
-    const startWebRtc = async () => {
+    let triedWithoutAudio = false;
+    const startWebRtc = async (includeAudio = true) => {
       try {
         const capabilities = (await command({
           type: 'camera/capabilities',
@@ -158,7 +159,11 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
         remoteStream = new MediaStream();
         if (clientConfig.dataChannel) peer.createDataChannel(clientConfig.dataChannel);
 
-        peer.addTransceiver('audio', { direction: 'recvonly' });
+        // بعض إعدادات Frigate/go2rtc مفيهاش صوت مُفعَّل لكل كاميرا -
+        // طلب مسار صوتي لكاميرا زي دي بيكسّر التفاوض كله (404 عند
+        // go2rtc). لو المحاولة الأولى بصوت فشلت، بنعيد المحاولة
+        // فيديو بس تلقائيًا قبل ما نستسلم للـ snapshot.
+        if (includeAudio) peer.addTransceiver('audio', { direction: 'recvonly' });
         peer.addTransceiver('video', { direction: 'recvonly' });
         const peerEvents = peer as unknown as {
           ontrack?: (event: { track: { stop: () => void } }) => void;
@@ -181,7 +186,7 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
           if (peer?.iceConnectionState === 'failed') fail(i18n.t('webrtcConnectionFailed'));
         };
 
-        const offer = await peer.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+        const offer = await peer.createOffer({ offerToReceiveAudio: includeAudio, offerToReceiveVideo: true });
         await peer.setLocalDescription(offer);
         offerSubscriptionId = nextId++;
         socket?.send(JSON.stringify({
@@ -193,6 +198,17 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
       } catch (error) {
         fail(error instanceof Error ? error.message : i18n.t('cameraPlaybackFailed'));
       }
+    };
+
+    const retryWithoutAudioOrFail = (message?: string) => {
+      if (!triedWithoutAudio && !disposed) {
+        triedWithoutAudio = true;
+        try { peer?.close(); } catch { /* ignore */ }
+        peer = undefined;
+        void startWebRtc(false);
+        return;
+      }
+      fail(message ?? i18n.t('cameraPlaybackFailed'));
     };
 
     let authToken = settings.token;
@@ -214,7 +230,7 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable }: Props) {
       }
       if (message.type === 'result' && typeof message.id === 'number') {
         if (message.id === offerSubscriptionId) {
-          if (message.success === false) fail(message.error?.message ?? i18n.t('cameraPlaybackFailed'));
+          if (message.success === false) retryWithoutAudioOrFail(message.error?.message);
           return;
         }
         const request = pending.get(message.id);
