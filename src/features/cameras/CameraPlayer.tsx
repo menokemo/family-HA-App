@@ -60,6 +60,11 @@ function usePinchPan(onTap: () => void) {
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
+      // capture بيخلي الحاوية دي تاخد أولوية اللمس قبل ما يوصل لعنصر
+      // الفيديو الأصلي (RTCView) نفسه - من غيرها، عناصر الفيديو
+      // الأصلية بتاخد اللمس الأول وبتمنع الزوم من الاشتغال خالص.
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponderCapture: (_e, gesture) => Math.abs(gesture.dx) > 2 || Math.abs(gesture.dy) > 2 || gesture.numberActiveTouches === 2,
       onPanResponderGrant: e => {
         const touches = e.nativeEvent.touches;
         state.current.moved = 0;

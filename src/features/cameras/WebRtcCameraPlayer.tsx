@@ -9,6 +9,7 @@ import {
 } from 'react-native-webrtc';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { ensureFreshToken } from '../../api/homeAssistant';
+import InCallManager from 'react-native-incall-manager';
 import { colors } from '../../theme';
 import { i18n } from '../../i18n';
 
@@ -56,6 +57,12 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onLog, onA
   onAudioChangeRef.current = onAudioChange;
 
   useEffect(() => {
+    // بدون ده، الصوت بيتوجّه لقناة "مكالمة" هادية وثابتة تقريبًا مش
+    // بتستجيب لزرار الصوت العادي بتاع الموبايل - مشكلة معروفة في
+    // react-native-webrtc. media:'video' بيوجّه الصوت للسماعة بمستوى
+    // صوت الوسائط العادي (بيستجيب لزرار الصوت زي أي فيديو تاني).
+    InCallManager.start({ media: 'video' });
+    InCallManager.setForceSpeakerphoneOn(true);
     let disposed = false;
     let socket: WebSocket | undefined;
     let peer: RTCPeerConnection | undefined;
@@ -298,6 +305,7 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onLog, onA
 
     return () => {
       disposed = true;
+      InCallManager.stop();
       pending.forEach(request => request.reject(new Error('WebRTC player closed')));
       pending.clear();
       remoteStream?.getTracks().forEach(track => track.stop());
