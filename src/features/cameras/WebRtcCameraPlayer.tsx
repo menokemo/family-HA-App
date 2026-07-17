@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   status: { color: '#fff', textAlign: 'center', paddingHorizontal: 24 },
   audioBadge: { position: 'absolute', bottom: 12, left: 12, backgroundColor: 'rgba(0,0,0,.6)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
   audioBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  debugToggle: { position: 'absolute', top: 12, right: 12, width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(0,0,0,.6)', alignItems: 'center', justifyContent: 'center' },
+  debugToggle: { position: 'absolute', bottom: 90, right: 14, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(0,0,0,.6)', alignItems: 'center', justifyContent: 'center' },
   debugToggleText: { fontSize: 15 },
   debugPanel: { position: 'absolute', top: 50, left: 8, right: 8, bottom: 8, backgroundColor: 'rgba(0,0,0,.88)', borderRadius: 10 },
   debugLine: { color: '#8FE388', fontSize: 10, fontFamily: 'monospace', marginBottom: 3 },
