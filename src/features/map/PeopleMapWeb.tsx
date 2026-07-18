@@ -180,6 +180,10 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
             setMapError(e.nativeEvent.data);
             return;
           }
+          if (e.nativeEvent.data.startsWith('MARKER_POS:')) {
+            setMapError(prev => `${prev ? prev + '\n' : ''}${e.nativeEvent.data}`);
+            return;
+          }
           if (e.nativeEvent.data.startsWith('ROUTE_INFO:')) {
             try {
               const info = JSON.parse(e.nativeEvent.data.slice('ROUTE_INFO:'.length)) as { distance: number; duration: number };
@@ -194,7 +198,7 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
 
       {mapError ? (
         <View style={s.errorBanner}>
-          <Text style={s.errorBannerText} selectable numberOfLines={4}>{mapError}</Text>
+          <Text style={s.errorBannerText} selectable numberOfLines={10}>{mapError}</Text>
         </View>
       ) : null}
 
@@ -275,8 +279,8 @@ function mapHtml(points: Point[], home?: { lat: number; lng: number; name: strin
   // OpenFreeMap بيوفّر بلاطات متجهية (vector tiles) مجانية بالكامل
   // ومن غير حد استخدام، بديل مجاني حقيقي لـ Mapbox.
   return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"><style>html,body,#map{height:100%;margin:0;background:#0b1220}.pin{width:44px;height:56px;position:relative}.pin-tail{position:absolute;bottom:6px;left:50%;width:16px;height:16px;background:#3d5fef;transform:translateX(-50%) rotate(45deg);border-radius:0 0 4px 0;box-shadow:1px 1px 3px rgba(0,0,0,.3)}.pin-photo{position:absolute;top:0;left:2px;width:40px;height:40px;border-radius:50%;overflow:hidden;border:3px solid #3d5fef;background:#152238;box-shadow:0 2px 6px rgba(0,0,0,.35);z-index:1;display:flex;align-items:center;justify-content:center}.pin-photo img{width:100%;height:100%;object-fit:cover}.pin-initial{color:#fff;font:700 16px sans-serif}.home{width:40px;height:40px;border-radius:50%;background:#27c499;color:#fff;text-align:center;line-height:40px;font-size:20px;border:3px solid #fff}.place{width:30px;height:30px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 8px #0007}.maplibregl-popup-content{background:#152238;color:#fff;font:600 13px sans-serif;border-radius:8px}.maplibregl-popup-tip{border-top-color:#152238 !important;border-bottom-color:#152238 !important}</style></head><body><div id="map"></div><script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script><script>
-const map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/liberty',center:[${c[1]},${c[0]}],zoom:16,pitch:55,bearing:-10,antialias:true,attributionControl:false});
 window.onerror=function(msg,src,line,col,err){try{window.ReactNativeWebView.postMessage('JS_ERROR:'+msg+' @'+line+':'+col);}catch(e){}};
+const map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/liberty',center:[${c[1]},${c[0]}],zoom:16,pitch:55,bearing:-10,antialias:true,attributionControl:false});
 map.on('error',function(e){try{window.ReactNativeWebView.postMessage('MAP_ERROR:'+(e&&e.error?String(e.error.message||e.error):JSON.stringify(e)));}catch(x){}});
 map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'top-right');
 map.addControl(new maplibregl.AttributionControl({compact:true}));
@@ -287,7 +291,7 @@ try{map.addLayer({id:'housenumbers',type:'symbol',source:'openmaptiles','source-
 ${home ? `{const el=document.createElement('div');el.innerHTML='<div class="home">⌂</div>';new maplibregl.Marker({element:el.firstChild}).setLngLat([${home.lng},${home.lat}]).setPopup(new maplibregl.Popup({offset:24,closeButton:false}).setText(\`${esc(home.name)}\`)).addTo(map);b.extend([${home.lng},${home.lat}]);}` : ''}
 ${points
   .map(
-    p => `{const el=document.createElement('div');el.innerHTML=\`<div class="pin"><div class="pin-tail"></div><div class="pin-photo">${p.picture ? `<img src="${p.picture}">` : `<div class="pin-initial">${esc(p.name.slice(0, 1).toUpperCase())}</div>`}</div></div>\`;const node=el.firstChild;node.addEventListener('click',()=>window.ReactNativeWebView.postMessage('${p.id}'));const m=new maplibregl.Marker({element:node,anchor:'bottom'}).setLngLat([${p.lng},${p.lat}]).setPopup(new maplibregl.Popup({offset:36,closeButton:false}).setText(\`${esc(p.name)}\`)).addTo(map);markers['${p.id}']=m;b.extend([${p.lng},${p.lat}]);}`,
+    p => `{const el=document.createElement('div');el.innerHTML=\`<div class="pin"><div class="pin-tail"></div><div class="pin-photo">${p.picture ? `<img src="${p.picture}">` : `<div class="pin-initial">${esc(p.name.slice(0, 1).toUpperCase())}</div>`}</div></div>\`;const node=el.firstChild;node.addEventListener('click',()=>window.ReactNativeWebView.postMessage('${p.id}'));const m=new maplibregl.Marker({element:node,anchor:'bottom'}).setLngLat([${p.lng},${p.lat}]).setPopup(new maplibregl.Popup({offset:36,closeButton:false}).setText(\`${esc(p.name)}\`)).addTo(map);markers['${p.id}']=m;b.extend([${p.lng},${p.lat}]);window.ReactNativeWebView.postMessage('MARKER_POS:${esc(p.name)}='+JSON.stringify(m.getLngLat()));}`,
   )
   .join('')}
 if(!b.isEmpty())map.fitBounds(b,{padding:70,maxZoom:17,duration:0});
