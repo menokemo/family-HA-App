@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Modal, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { colors } from '../theme';
@@ -39,8 +39,12 @@ export function OAuthLoginWebView({ visible, baseUrl, onClose, onSuccess, onErro
       .finally(() => setLoading(false));
   };
 
+  // شاشة عادية بدل Modal بتاعة React Native عمدًا - Modal على أندرويد
+  // بتفتح في نافذة منفصلة (Dialog) مش بتاخد إعداد adjustResize بتاع
+  // الـ Activity الأساسية، فكان بيظهر فراغ أبيض بين الكيبورد وحقول
+  // الإدخال. الـ View العادية دي بتاخد نفس سلوك الشاشة الأساسية صح.
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <View style={s.fullscreen}>
       <View style={s.header}>
         <PressableScale onPress={onClose} style={s.closeBtn} hitSlop={10}>
           <Ionicons name="close" size={24} color={colors.text} />
@@ -63,11 +67,12 @@ export function OAuthLoginWebView({ visible, baseUrl, onClose, onSuccess, onErro
           startInLoadingState
         />
       )}
-    </Modal>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
+  fullscreen: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.background, zIndex: 20 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, paddingTop: 50, backgroundColor: colors.background },
   closeBtn: { width: 24 },
   title: { color: colors.text, fontWeight: '800', fontSize: 16 },
