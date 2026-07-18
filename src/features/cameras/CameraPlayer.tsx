@@ -41,20 +41,32 @@ function PtzPad({ camera, settings, states }: { camera: HaEntity; settings: Conn
   );
 }
 
-/** بتدير سحب/تكبير بإصبعين على الفيديو - من غير أي مكتبة إيماءات
- * خارجية، بس PanResponder المدمجة في React Native. بتستقبل onTap
- * عشان تكتشف الضغطة العادية (من غير ما تتعارض مع Pressable منفصلة -
- * الاتنين على نفس العنصر بيتعارضوا وبيمنعوا الزوم من الاشتغال). */
-function usePinchPan(onTap: () => void, onDebug?: (touches: number, scaleValue: number) => void) {
+const ZOOM_LEVEL = 2.5;
+
+/** تكبير وتنقل بإصبع واحد بس (زوم بإصبعين مش موثوق مع فيديو WebRTC
+ * على أندرويد - SurfaceView مش بيوصّل اللمسة التانية للتطبيق خالص،
+ * اتأكد بدليل مباشر). دبل تاب يكبّر/يرجّع لحجمه الطبيعي، وسحب بإصبع
+ * واحد بينقّل الصورة وانت مكبّر، وزرار +/- للتحكم الدقيق. */
+function useZoomPan(onTap: () => void) {
   const scale = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
-  const state = useRef({ baseScale: 1, baseX: 0, baseY: 0, startDistance: 0, startX: 0, startY: 0, moved: 0 });
+  const state = useRef({ zoomed: false, baseX: 0, baseY: 0, moved: 0, lastTapAt: 0 });
+  const [zoomed, setZoomed] = useState(false);
 
-  const distance = (touches: { pageX: number; pageY: number }[]) => {
-    const [a, b] = touches;
-    return Math.hypot(a.pageX - b.pageX, a.pageY - b.pageY);
+  const animateTo = (targetScale: number) => {
+    state.current.zoomed = targetScale > 1;
+    setZoomed(state.current.zoomed);
+    Animated.parallel([
+      Animated.spring(scale, { toValue: targetScale, useNativeDriver: true }),
+      Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
+      Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
+    ]).start(() => { state.current.baseX = 0; state.current.baseY = 0; });
   };
+
+  const zoomIn = () => animateTo(ZOOM_LEVEL);
+  const zoomOut = () => animateTo(1);
+  const toggleZoom = () => animateTo(state.current.zoomed ? 1 : ZOOM_LEVEL);
 
   const responder = useRef(
     PanResponder.create({
@@ -62,47 +74,28 @@ function usePinchPan(onTap: () => void, onDebug?: (touches: number, scaleValue: 
       onMoveShouldSetPanResponder: () => true,
       onStartShouldSetPanResponderCapture: () => true,
       onMoveShouldSetPanResponderCapture: () => true,
-      onPanResponderGrant: e => {
-        const touches = e.nativeEvent.touches;
-        state.current.moved = 0;
-        if (touches.length === 2) state.current.startDistance = distance(touches as unknown as { pageX: number; pageY: number }[]);
-        state.current.startX = e.nativeEvent.pageX;
-        state.current.startY = e.nativeEvent.pageY;
-        onDebug?.(touches.length, state.current.baseScale);
-      },
-      onPanResponderMove: (e, gesture) => {
+      onPanResponderGrant: () => { state.current.moved = 0; },
+      onPanResponderMove: (_e, gesture) => {
         state.current.moved = Math.max(state.current.moved, Math.abs(gesture.dx) + Math.abs(gesture.dy));
-        const touches = e.nativeEvent.touches;
-        onDebug?.(touches.length, state.current.baseScale);
-        if (touches.length === 2) {
-          if (!state.current.startDistance) state.current.startDistance = distance(touches as unknown as { pageX: number; pageY: number }[]);
-          const d = distance(touches as unknown as { pageX: number; pageY: number }[]);
-          const nextScale = Math.min(4, Math.max(1, state.current.baseScale * (d / state.current.startDistance)));
-          scale.setValue(nextScale);
-        } else if (touches.length === 1 && state.current.baseScale > 1) {
+        if (state.current.zoomed) {
           translateX.setValue(state.current.baseX + gesture.dx);
           translateY.setValue(state.current.baseY + gesture.dy);
         }
       },
       onPanResponderRelease: () => {
-        if (state.current.moved < 8 && state.current.baseScale <= 1) onTap();
-        scale.stopAnimation(v => { state.current.baseScale = v; });
-        translateX.stopAnimation(v => { state.current.baseX = v; });
-        translateY.stopAnimation(v => { state.current.baseY = v; });
-        state.current.startDistance = 0;
-        if (state.current.baseScale <= 1) {
-          state.current.baseScale = 1;
-          Animated.parallel([
-            Animated.spring(scale, { toValue: 1, useNativeDriver: true }),
-            Animated.spring(translateX, { toValue: 0, useNativeDriver: true }),
-            Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
-          ]).start(() => { state.current.baseX = 0; state.current.baseY = 0; });
+        if (state.current.moved < 8) {
+          const now = Date.now();
+          if (now - state.current.lastTapAt < 300) { toggleZoom(); state.current.lastTapAt = 0; }
+          else { onTap(); state.current.lastTapAt = now; }
+        } else if (state.current.zoomed) {
+          translateX.stopAnimation(v => { state.current.baseX = v; });
+          translateY.stopAnimation(v => { state.current.baseY = v; });
         }
       },
     }),
   ).current;
 
-  return { scale, translateX, translateY, panHandlers: responder.panHandlers };
+  return { scale, translateX, translateY, panHandlers: responder.panHandlers, zoomed, zoomIn, zoomOut };
 }
 
 export function CameraPlayer({ camera, settings, states, title, onClose }: CameraPlayerProps) {
@@ -115,11 +108,7 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
   const [showDebug, setShowDebug] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
   const [hasAudio, setHasAudio] = useState(false);
-  const [touchDebug, setTouchDebug] = useState('');
-  const { scale, translateX, translateY, panHandlers } = usePinchPan(
-    () => setChromeVisible(v => !v),
-    (touches, scaleValue) => setTouchDebug(`لمسات: ${touches} — تكبير: ${scaleValue.toFixed(2)}`),
-  );
+  const { scale, translateX, translateY, panHandlers, zoomed, zoomIn, zoomOut } = useZoomPan(() => setChromeVisible(v => !v));
   const token = typeof camera.attributes.access_token === 'string' ? camera.attributes.access_token : undefined;
   const snapshotUrl = useMemo(
     () => cameraSnapshotUrl(settings, camera.entity_id, nonce, token),
@@ -169,8 +158,6 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
       <View style={StyleSheet.absoluteFill} {...panHandlers} />
     </View>
 
-    {touchDebug ? <Text style={styles.touchDebug}>{touchDebug}</Text> : null}
-
     {chromeVisible ? (
       <>
         <View style={styles.topBar}>
@@ -190,6 +177,12 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
             ) : null}
             <Pressable style={[styles.iconBtn, showPtz && styles.iconBtnActive]} onPress={() => setShowPtz(v => !v)}>
               <Ionicons name="videocam" size={17} color="#fff" />
+            </Pressable>
+            <Pressable style={styles.iconBtn} onPress={zoomOut}>
+              <Ionicons name="remove" size={17} color="#fff" />
+            </Pressable>
+            <Pressable style={[styles.iconBtn, zoomed && styles.iconBtnActive]} onPress={zoomIn}>
+              <Ionicons name="add" size={17} color="#fff" />
             </Pressable>
             <Pressable style={[styles.iconBtn, isLandscape && styles.iconBtnActive]} onPress={toggleLandscape}>
               <Ionicons name="expand" size={17} color="#fff" />
@@ -251,5 +244,4 @@ const styles = StyleSheet.create({
   debugToggleText: { fontSize: 14 },
   debugPanel: { position: 'absolute', zIndex: 3, top: 60, left: 8, right: 8, bottom: 8, backgroundColor: 'rgba(0,0,0,.9)', borderRadius: 10 },
   debugLine: { color: '#8FE388', fontSize: 10, fontFamily: 'monospace', marginBottom: 3 },
-  touchDebug: { position: 'absolute', zIndex: 4, bottom: 90, alignSelf: 'center', color: '#8FE388', backgroundColor: 'rgba(0,0,0,.75)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, fontSize: 13, fontFamily: 'monospace' },
 });
