@@ -58,16 +58,24 @@ export function DashboardView({ settings, dashboardPath }: Props) {
       function handleBusMessage(busMsg) {
         window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: 'bus msg: ' + busMsg.type + ' (id ' + busMsg.id + ')' }));
         if (busMsg.type === 'config/get') {
-          // لازم نرد على الرسالة دي عشان واجهة HA تكمّل تحميلها -
-          // من غيرها بتفضل عالقة على 'Loading data' للأبد. بنرد بإعدادات
-          // بسيطة (مفيش سايدبار خاص بينا، مفيش خصائص متقدمة).
-          respondToBus(busMsg.id, { hasSettingsScreen: false, hasSidebar: false, canWriteTag: false });
+          // نفس الحقول بالظبط اللي تطبيق Home Assistant الرسمي بيرجّعها
+          // (اتأكدنا منها من لوجات حقيقية للتطبيق الرسمي نفسه)
+          respondToBus(busMsg.id, { hasSettingsScreen: true, canWriteTag: true, hasExoPlayer: true });
         } else if (busMsg.id) {
-          // أي رسالة تانية بتتوقع رد ومش عارفينها - نرد نجاح فاضي
-          // بدل ما نسيبها من غير رد وتعلّق التحميل.
           respondToBus(busMsg.id, null);
         }
       }
+
+      // التطبيق الرسمي بيبعت الرسالة دي لواجهة HA بروحه (مش رد على
+      // طلب) فور ما الجسر يتجهّز - بتقول لواجهة HA إن الاتصال شغال.
+      setTimeout(function () {
+        try {
+          window.externalBus(JSON.stringify({ type: 'connection-status', payload: { event: 'connected' } }));
+          window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '✅ بعتنا connection-status:connected' }));
+        } catch (e) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '❌ فشل بعت connection-status: ' + e }));
+        }
+      }, 300);
 
       window.externalAppV2 = {
         postMessage: function (raw) {
