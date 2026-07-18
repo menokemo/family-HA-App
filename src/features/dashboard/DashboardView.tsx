@@ -43,7 +43,16 @@ export function DashboardView({ settings, dashboardPath }: Props) {
       window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: 'bridge injected, page: ' + location.pathname }));
 
       function respondToBus(id, result) {
-        try { window.externalBus(JSON.stringify({ id: id, type: 'result', success: true, result: result })); } catch (e) {}
+        try {
+          if (typeof window.externalBus !== 'function') {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '❌ window.externalBus مش معرّفة كدالة!' }));
+            return;
+          }
+          window.externalBus(JSON.stringify({ id: id, type: 'result', success: true, result: result }));
+          window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '✅ رد اتبعت لـ id ' + id }));
+        } catch (e) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '❌ فشل إرسال الرد: ' + e }));
+        }
       }
 
       function handleBusMessage(busMsg) {
