@@ -29,7 +29,7 @@ export function DashboardView({ settings, dashboardPath }: Props) {
   // يدوي (طلع غير موثوق، بيسبب رجوع لصفحة الدخول أحيانًا)، دلوقتي
   // بنستخدم نفس الآلية اللي تطبيق HA الرسمي بيستخدمها بالظبط.
   // ?kiosk بيتطلب إضافة Kiosk Mode متثبتة في HA لإخفاء القائمة/الشريط.
-  const url = `${baseUrl}/${dashboardPath.replace(/^\/+/, '')}?external_auth=1`;
+  const url = `${baseUrl}/${dashboardPath.replace(/^\/+/, '')}?kiosk&external_auth=1`;
 
   // بروتوكول External Authentication الرسمي بتاع HA:
   // https://developers.home-assistant.io/docs/frontend/external-authentication
@@ -68,14 +68,26 @@ export function DashboardView({ settings, dashboardPath }: Props) {
 
       // التطبيق الرسمي بيبعت الرسالة دي لواجهة HA بروحه (مش رد على
       // طلب) فور ما الجسر يتجهّز - بتقول لواجهة HA إن الاتصال شغال.
-      setTimeout(function () {
+      // window.externalBus بتتعرّف من HA نفسها بعد شوية من تحميل
+      // الصفحة، فبنعيد المحاولة كل 150ms لحد ما تنجح (مش مرة واحدة
+      // بدري ممكن تفشل قبل ما HA تجهّزها).
+      var connSent = false;
+      var connAttempts = 0;
+      var sendConnStatus = function () {
+        if (connSent) return;
+        connAttempts++;
         try {
-          window.externalBus(JSON.stringify({ type: 'connection-status', payload: { event: 'connected' } }));
-          window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '✅ بعتنا connection-status:connected' }));
-        } catch (e) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '❌ فشل بعت connection-status: ' + e }));
-        }
-      }, 300);
+          if (typeof window.externalBus === 'function') {
+            window.externalBus(JSON.stringify({ type: 'connection-status', payload: { event: 'connected' } }));
+            connSent = true;
+            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '✅ بعتنا connection-status:connected (محاولة ' + connAttempts + ')' }));
+            return;
+          }
+        } catch (e) {}
+        if (connAttempts < 40) setTimeout(sendConnStatus, 150);
+        else window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '❌ externalBus مانفعش خلال 6 ثواني' }));
+      };
+      sendConnStatus();
 
       window.externalAppV2 = {
         postMessage: function (raw) {
