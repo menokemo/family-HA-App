@@ -181,7 +181,7 @@ function CameraSettings({draft,setDraft,cameras}:{draft:ConnectionSettings;setDr
 function modeIcon(mode:string){return mode==='home'?'home':mode==='away'?'walk':mode==='night'?'moon':mode==='vacation'?'airplane':'options';}
 
 function ModeBadge({icon,label,color,onPress}:{icon:string;label:string;color:string;onPress:()=>void}){
- return <PressableScale style={styles.badge} onPress={onPress}><View style={[styles.badgeIcon,{backgroundColor:color+'26'}]}><Ionicons name={icon} size={24} color={color}/></View><Text style={styles.badgeLabel} numberOfLines={1}>{label}</Text></PressableScale>;
+ return <PressableScale style={styles.badge} onPress={onPress}><View style={[styles.badgeIcon,{backgroundColor:color}]}><Ionicons name={icon} size={24} color="#fff"/></View><Text style={styles.badgeLabel} numberOfLines={1}>{label}</Text></PressableScale>;
 }
 
 function SummaryCard({icon,title,count,tone,onPress}:{icon:string;title:string;count:number;tone?:string;onPress:()=>void}){
