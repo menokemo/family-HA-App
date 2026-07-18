@@ -41,15 +41,37 @@ export function DashboardView({ settings, dashboardPath }: Props) {
   const bridgeJS = `
     (function () {
       window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: 'bridge injected, page: ' + location.pathname }));
+
+      function respondToBus(id, result) {
+        try { window.externalBus(JSON.stringify({ id: id, type: 'result', success: true, result: result })); } catch (e) {}
+      }
+
+      function handleBusMessage(busMsg) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: 'bus msg: ' + busMsg.type + ' (id ' + busMsg.id + ')' }));
+        if (busMsg.type === 'config/get') {
+          // لازم نرد على الرسالة دي عشان واجهة HA تكمّل تحميلها -
+          // من غيرها بتفضل عالقة على 'Loading data' للأبد. بنرد بإعدادات
+          // بسيطة (مفيش سايدبار خاص بينا، مفيش خصائص متقدمة).
+          respondToBus(busMsg.id, { hasSettingsScreen: false, hasSidebar: false, canWriteTag: false });
+        } else if (busMsg.id) {
+          // أي رسالة تانية بتتوقع رد ومش عارفينها - نرد نجاح فاضي
+          // بدل ما نسيبها من غير رد وتعلّق التحميل.
+          respondToBus(busMsg.id, null);
+        }
+      }
+
       window.externalAppV2 = {
         postMessage: function (raw) {
           try {
             var msg = JSON.parse(raw);
-            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: 'externalAppV2 called: ' + msg.type }));
+            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: 'externalAppV2 raw: ' + raw.slice(0, 300) }));
             if (msg.type === 'getExternalAuth') {
               window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'getExternalAuth', callback: msg.payload.callback }));
             } else if (msg.type === 'revokeExternalAuth') {
               window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'revokeExternalAuth', callback: msg.payload.callback }));
+            } else if (msg.type === 'externalBus') {
+              var inner = typeof msg.payload === 'string' ? JSON.parse(msg.payload) : msg.payload;
+              handleBusMessage(inner);
             }
           } catch (e) {
             window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: 'bridge error: ' + e }));
