@@ -15,7 +15,7 @@ type Point = { id: string; name: string; lat: number; lng: number; picture?: str
 
 // نغيّر الرقم ده لو عملنا تعديل جوهري في mapHtml، عشان نجبر الـ WebView
 // يعمل remount كامل بدل ما يحاول يحدّث المحتوى القديم في مكانه.
-const MAP_TEMPLATE_VERSION = 'v5-maplibre3d';
+const MAP_TEMPLATE_VERSION = 'v6-pins-route';
 
 const coord = (e: HaEntity) => ({ latitude: Number(e.attributes.latitude), longitude: Number(e.attributes.longitude) });
 
@@ -29,6 +29,14 @@ const haversine = (a: { latitude: number; longitude: number }, b: { latitude: nu
 };
 
 const distance = (m?: number) => (m === undefined ? '—' : m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`);
+
+function etaText(seconds: number) {
+  const min = Math.max(1, Math.round(seconds / 60));
+  if (min < 60) return `${min} ${i18n.t('min')}`;
+  const h = Math.floor(min / 60);
+  const rem = min % 60;
+  return `${h}${i18n.t('hourShort')} ${rem}${i18n.t('min')}`;
+}
 
 function timeAgo(iso?: string) {
   if (!iso) return '—';
@@ -67,6 +75,7 @@ function battery(p: HaEntity, states: HaEntity[]) {
 
 export function PeopleMapWeb({ people, home, states, selectedPersonId, settings }: Props) {
   const [selected, setSelected] = useState<HaEntity | null>(null);
+  const [routeInfo, setRouteInfo] = useState<{ distanceMeters: number; durationSeconds: number } | null>(null);
   const [avatars, setAvatars] = useState<Record<string, string>>({});
   const [showPlaces, setShowPlaces] = useState(false);
   const webRef = useRef<WebView>(null);
@@ -91,6 +100,19 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
     return () => stopWatch?.();
   }, []);
   const myCoord = liveLocation ?? (me ? coord(me) : undefined);
+  const selectedCoordKey = selected ? `${selected.attributes.latitude},${selected.attributes.longitude}` : undefined;
+  useEffect(() => {
+    if (!selected || !myCoord || selected.entity_id === me?.entity_id) {
+      webRef.current?.injectJavaScript(`window.hideRoute && window.hideRoute(); true;`);
+      setRouteInfo(null);
+      return;
+    }
+    const target = coord(selected);
+    if (!Number.isFinite(target.latitude) || !Number.isFinite(target.longitude)) return;
+    webRef.current?.injectJavaScript(
+      `window.showRoute && window.showRoute(${myCoord.longitude},${myCoord.latitude},${target.longitude},${target.latitude}); true;`,
+    );
+  }, [selected?.entity_id, selectedCoordKey, myCoord?.latitude, myCoord?.longitude]);
   const points: Point[] = people.map(p => ({
     id: p.entity_id,
     name: String(p.attributes.friendly_name ?? p.entity_id),
@@ -153,6 +175,13 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
             g.__familyHaLog?.('trace', [e.nativeEvent.data]);
             return;
           }
+          if (e.nativeEvent.data.startsWith('ROUTE_INFO:')) {
+            try {
+              const info = JSON.parse(e.nativeEvent.data.slice('ROUTE_INFO:'.length)) as { distance: number; duration: number };
+              setRouteInfo({ distanceMeters: info.distance, durationSeconds: info.duration });
+            } catch { /* ignore */ }
+            return;
+          }
           setSelected(people.find(p => p.entity_id === e.nativeEvent.data) ?? null);
         }}
         style={s.web}
@@ -195,8 +224,23 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
           </View>
           <View style={s.details}>
             <Box label={i18n.t('battery')} value={battery(selected, states)} />
-            <Box label={i18n.t('fromMe')} value={distance(!myCoord ? undefined : me && selected.entity_id === me.entity_id ? 0 : haversine(coord(selected), myCoord))} />
-            <Box label={i18n.t('locationAccuracy')} value={Number.isFinite(Number(selected.attributes.gps_accuracy)) ? distance(Number(selected.attributes.gps_accuracy)) : '—'} />
+            <Box
+              label={i18n.t('fromMe')}
+              value={
+                !myCoord
+                  ? '—'
+                  : me && selected.entity_id === me.entity_id
+                  ? distance(0)
+                  : routeInfo
+                  ? distance(routeInfo.distanceMeters)
+                  : distance(haversine(coord(selected), myCoord))
+              }
+            />
+            {routeInfo && !(me && selected.entity_id === me.entity_id) ? (
+              <Box label={i18n.t('eta')} value={etaText(routeInfo.durationSeconds)} />
+            ) : (
+              <Box label={i18n.t('locationAccuracy')} value={Number.isFinite(Number(selected.attributes.gps_accuracy)) ? distance(Number(selected.attributes.gps_accuracy)) : '—'} />
+            )}
           </View>
           <PressableScale style={s.navigate} onPress={() => navigate(selected)}>
             <Ionicons name="navigate" size={20} color={colors.black} />
@@ -219,7 +263,7 @@ function mapHtml(points: Point[], home?: { lat: number; lng: number; name: strin
   // بارتفاعات، إمالة ودوران بإصبعين) من غير أي مفتاح API مدفوع.
   // OpenFreeMap بيوفّر بلاطات متجهية (vector tiles) مجانية بالكامل
   // ومن غير حد استخدام، بديل مجاني حقيقي لـ Mapbox.
-  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"><style>html,body,#map{height:100%;margin:0;background:#0b1220}.person{width:50px;height:50px;border:3px solid #51c7ff;border-radius:50%;background:#152238;overflow:hidden;box-shadow:0 4px 12px #0008}.person img{width:100%;height:100%;object-fit:cover}.initial{color:#fff;font:700 19px sans-serif;text-align:center;line-height:50px}.home{width:40px;height:40px;border-radius:50%;background:#27c499;color:#fff;text-align:center;line-height:40px;font-size:20px;border:3px solid #fff}.place{width:30px;height:30px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 8px #0007}.maplibregl-popup-content{background:#152238;color:#fff;font:600 13px sans-serif;border-radius:8px}.maplibregl-popup-tip{border-top-color:#152238 !important;border-bottom-color:#152238 !important}</style></head><body><div id="map"></div><script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script><script>
+  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"><style>html,body,#map{height:100%;margin:0;background:#0b1220}.pin{width:46px;height:58px;position:relative}.pin-bg{position:absolute;top:0;left:3px;width:40px;height:40px;border-radius:50% 50% 50% 0;background:#3d5fef;transform:rotate(-45deg);box-shadow:0 3px 8px rgba(0,0,0,.45)}.pin-photo{position:absolute;top:3px;left:6px;width:34px;height:34px;border-radius:50%;overflow:hidden;border:2.5px solid #fff;background:#152238;box-shadow:0 1px 3px rgba(0,0,0,.3)}.pin-photo img{width:100%;height:100%;object-fit:cover}.pin-initial{color:#fff;font:700 15px sans-serif;text-align:center;line-height:34px}.home{width:40px;height:40px;border-radius:50%;background:#27c499;color:#fff;text-align:center;line-height:40px;font-size:20px;border:3px solid #fff}.place{width:30px;height:30px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 8px #0007}.maplibregl-popup-content{background:#152238;color:#fff;font:600 13px sans-serif;border-radius:8px}.maplibregl-popup-tip{border-top-color:#152238 !important;border-bottom-color:#152238 !important}</style></head><body><div id="map"></div><script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script><script>
 const map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/liberty',center:[${c[1]},${c[0]}],zoom:16,pitch:55,bearing:-10,antialias:true,attributionControl:false});
 map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'top-right');
 map.addControl(new maplibregl.AttributionControl({compact:true}));
@@ -230,12 +274,38 @@ map.addLayer({id:'housenumbers',type:'symbol',source:'openmaptiles','source-laye
 ${home ? `{const el=document.createElement('div');el.innerHTML='<div class="home">⌂</div>';new maplibregl.Marker({element:el.firstChild}).setLngLat([${home.lng},${home.lat}]).setPopup(new maplibregl.Popup({offset:24,closeButton:false}).setText(\`${esc(home.name)}\`)).addTo(map);b.extend([${home.lng},${home.lat}]);}` : ''}
 ${points
   .map(
-    p => `{const el=document.createElement('div');el.innerHTML=\`<div class="person">${p.picture ? `<img src="${p.picture}">` : `<div class="initial">${esc(p.name.slice(0, 1).toUpperCase())}</div>`}</div>\`;const node=el.firstChild;node.addEventListener('click',()=>window.ReactNativeWebView.postMessage('${p.id}'));const m=new maplibregl.Marker({element:node}).setLngLat([${p.lng},${p.lat}]).setPopup(new maplibregl.Popup({offset:28,closeButton:false}).setText(\`${esc(p.name)}\`)).addTo(map);markers['${p.id}']=m;b.extend([${p.lng},${p.lat}]);}`,
+    p => `{const el=document.createElement('div');el.innerHTML=\`<div class="pin"><div class="pin-bg"></div><div class="pin-photo">${p.picture ? `<img src="${p.picture}">` : `<div class="pin-initial">${esc(p.name.slice(0, 1).toUpperCase())}</div>`}</div></div>\`;const node=el.firstChild;node.addEventListener('click',()=>window.ReactNativeWebView.postMessage('${p.id}'));const m=new maplibregl.Marker({element:node,anchor:'bottom'}).setLngLat([${p.lng},${p.lat}]).setPopup(new maplibregl.Popup({offset:36,closeButton:false}).setText(\`${esc(p.name)}\`)).addTo(map);markers['${p.id}']=m;b.extend([${p.lng},${p.lat}]);}`,
   )
   .join('')}
 if(!b.isEmpty())map.fitBounds(b,{padding:70,maxZoom:17,duration:0});
 });
 window.focusPerson=function(id){const m=markers[id];if(!m)return;map.flyTo({center:m.getLngLat(),zoom:17,pitch:55,duration:800});m.togglePopup();};
+
+let routeAbort=null;
+window.showRoute=async function(fromLng,fromLat,toLng,toLat){
+  if(routeAbort)routeAbort.abort();
+  routeAbort=new AbortController();
+  try{
+    const url='https://router.project-osrm.org/route/v1/driving/'+fromLng+','+fromLat+';'+toLng+','+toLat+'?overview=full&geometries=geojson';
+    const res=await fetch(url,{signal:routeAbort.signal});
+    const data=await res.json();
+    const route=data.routes&&data.routes[0];
+    if(!route)return;
+    const geojson={type:'Feature',geometry:route.geometry};
+    if(map.getSource('route')){map.getSource('route').setData(geojson);}
+    else{
+      map.addSource('route',{type:'geojson',data:geojson});
+      map.addLayer({id:'route-casing',type:'line',source:'route',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#0a2a4d','line-width':9}});
+      map.addLayer({id:'route-line',type:'line',source:'route',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#5c8dff','line-width':5}});
+    }
+    window.ReactNativeWebView.postMessage('ROUTE_INFO:'+JSON.stringify({distance:route.distance,duration:route.duration}));
+  }catch(e){}
+};
+window.hideRoute=function(){
+  if(routeAbort)routeAbort.abort();
+  ['route-casing','route-line'].forEach(id=>{if(map.getLayer(id))map.removeLayer(id);});
+  if(map.getSource('route'))map.removeSource('route');
+};
 
 const placeIcons={restaurant:'🍽️',cafe:'☕',fast_food:'🍔',pharmacy:'💊',hospital:'🏥',bank:'🏦',fuel:'⛽',supermarket:'🛒',school:'🏫',bakery:'🥖',bar:'🍺'};
 let placeMarkers=[];
