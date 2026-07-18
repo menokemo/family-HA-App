@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Linking, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
-import { absoluteHaUrl, authHeaders } from '../../api/homeAssistant';
+import { absoluteHaUrl, authHeaders, getPersonHistory } from '../../api/homeAssistant';
 import { colors } from '../../theme';
 import { i18n } from '../../i18n';
 import { requestLocationPermission, watchLiveLocation, type LiveLocation } from '../../native/liveLocation';
@@ -15,7 +15,7 @@ type Point = { id: string; name: string; lat: number; lng: number; picture?: str
 
 // نغيّر الرقم ده لو عملنا تعديل جوهري في mapHtml، عشان نجبر الـ WebView
 // يعمل remount كامل بدل ما يحاول يحدّث المحتوى القديم في مكانه.
-const MAP_TEMPLATE_VERSION = 'v8-marker-wrapper-debug';
+const MAP_TEMPLATE_VERSION = 'v9-timeline';
 
 const coord = (e: HaEntity) => ({ latitude: Number(e.attributes.latitude), longitude: Number(e.attributes.longitude) });
 
@@ -76,6 +76,26 @@ function battery(p: HaEntity, states: HaEntity[]) {
 export function PeopleMapWeb({ people, home, states, selectedPersonId, settings }: Props) {
   const [selected, setSelected] = useState<HaEntity | null>(null);
   const [routeInfo, setRouteInfo] = useState<{ distanceMeters: number; durationSeconds: number } | null>(null);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineActive, setTimelineActive] = useState(false);
+
+  const toggleTimeline = async () => {
+    if (!selected) return;
+    if (timelineActive) {
+      webRef.current?.injectJavaScript(`window.hideTimeline && window.hideTimeline(); true;`);
+      setTimelineActive(false);
+      return;
+    }
+    setTimelineLoading(true);
+    try {
+      const points = await getPersonHistory(settings, selected.entity_id, 24);
+      if (points.length < 2) return;
+      webRef.current?.injectJavaScript(`window.showTimeline && window.showTimeline(${JSON.stringify(JSON.stringify(points))}); true;`);
+      setTimelineActive(true);
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
   const [avatars, setAvatars] = useState<Record<string, string>>({});
   const [showPlaces, setShowPlaces] = useState(false);
   const webRef = useRef<WebView>(null);
@@ -113,6 +133,12 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
       `window.showRoute && window.showRoute(${myCoord.longitude},${myCoord.latitude},${target.longitude},${target.latitude}); true;`,
     );
   }, [selected?.entity_id, selectedCoordKey, myCoord?.latitude, myCoord?.longitude]);
+  useEffect(() => {
+    if (timelineActive) {
+      webRef.current?.injectJavaScript(`window.hideTimeline && window.hideTimeline(); true;`);
+      setTimelineActive(false);
+    }
+  }, [selected?.entity_id]);
   const points: Point[] = people.map(p => ({
     id: p.entity_id,
     name: String(p.attributes.friendly_name ?? p.entity_id),
@@ -216,17 +242,25 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
       {selected && me ? (
         <View style={s.sheet}>
           <View style={s.head}>
-            {avatars[selected.entity_id] ? (
-              <Image source={{ uri: avatars[selected.entity_id] }} style={s.avatar} />
-            ) : (
-              <View style={[s.avatar, s.avatarFallback]}><Ionicons name="person" size={26} color={colors.primary} /></View>
-            )}
+            <Pressable onLongPress={() => void toggleTimeline()} delayLongPress={450}>
+              {avatars[selected.entity_id] ? (
+                <Image source={{ uri: avatars[selected.entity_id] }} style={s.avatar} />
+              ) : (
+                <View style={[s.avatar, s.avatarFallback]}><Ionicons name="person" size={26} color={colors.primary} /></View>
+              )}
+              {timelineLoading ? (
+                <View style={s.timelineLoading}><ActivityIndicator color="#fff" size="small" /></View>
+              ) : timelineActive ? (
+                <View style={s.timelineBadge}><Ionicons name="time" size={12} color="#fff" /></View>
+              ) : null}
+            </Pressable>
             <View style={{ flex: 1 }}>
               <Text style={s.name}>{String(selected.attributes.friendly_name ?? selected.entity_id)}</Text>
               <Text style={s.muted}>{selected.state} · {timeAgo(selected.last_changed)} · {distance(home ? haversine(coord(selected), coord(home)) : undefined)}</Text>
             </View>
             <PressableScale onPress={() => setSelected(null)} style={s.close}><Ionicons name="close" size={20} color={colors.text} /></PressableScale>
           </View>
+          {!timelineActive && !timelineLoading ? <Text style={s.timelineHint}>{i18n.t('longPressForTimeline')}</Text> : null}
           <View style={s.details}>
             <Box label={i18n.t('battery')} value={battery(selected, states)} />
             <Box
@@ -314,6 +348,25 @@ window.hideRoute=function(){
   if(map.getSource('route'))map.removeSource('route');
 };
 
+window.showTimeline=function(pointsJson){
+  const pts=JSON.parse(pointsJson);
+  if(pts.length<2)return;
+  const coords=pts.map(p=>[p.lng,p.lat]);
+  const geojson={type:'Feature',geometry:{type:'LineString',coordinates:coords}};
+  if(map.getSource('timeline')){map.getSource('timeline').setData(geojson);}
+  else{
+    map.addSource('timeline',{type:'geojson',data:geojson});
+    map.addLayer({id:'timeline-line',type:'line',source:'timeline',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#ffb020','line-width':4,'line-dasharray':[0.3,1.6]}});
+  }
+  const b2=new maplibregl.LngLatBounds();
+  coords.forEach(c=>b2.extend(c));
+  map.fitBounds(b2,{padding:70,maxZoom:16,duration:600});
+};
+window.hideTimeline=function(){
+  if(map.getLayer('timeline-line'))map.removeLayer('timeline-line');
+  if(map.getSource('timeline'))map.removeSource('timeline');
+};
+
 const placeIcons={restaurant:'🍽️',cafe:'☕',fast_food:'🍔',pharmacy:'💊',hospital:'🏥',bank:'🏦',fuel:'⛽',supermarket:'🛒',school:'🏫',bakery:'🥖',bar:'🍺'};
 let placeMarkers=[];
 let placesTimer=null;
@@ -356,6 +409,9 @@ const s = StyleSheet.create({
   avatarWrapSelected: { borderColor: colors.primary },
   avatarImg: { width: '100%', height: '100%', borderRadius: 20 },
   avatarFallback: { backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
+  timelineLoading: { position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,.6)', alignItems: 'center', justifyContent: 'center' },
+  timelineBadge: { position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.warning, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.surface },
+  timelineHint: { color: colors.muted, fontSize: 11, marginBottom: 8 },
   placesToggle: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(16,24,38,.94)', borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   placesToggleActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   sheet: { position: 'absolute', left: 14, right: 14, bottom: 14, backgroundColor: colors.surface, borderRadius: 24, borderWidth: 1, borderColor: colors.border, padding: 16, elevation: 8 },

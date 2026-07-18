@@ -221,6 +221,20 @@ export const cameraStreamUrl = (settings: ConnectionSettings, entityId: string, 
 export function absoluteHaUrl(settings: ConnectionSettings, path: string): string { return /^https?:\/\//i.test(path) ? path : `${normalizeUrl(settings.baseUrl)}${path.startsWith('/') ? '' : '/'}${path}`; }
 export type DashboardInfo = { urlPath: string; title: string };
 
+export type HistoryPoint = { lat: number; lng: number; at: string };
+
+export async function getPersonHistory(settings: ConnectionSettings, entityId: string, hours = 24): Promise<HistoryPoint[]> {
+  const end = new Date();
+  const start = new Date(end.getTime() - hours * 60 * 60 * 1000);
+  const path = `/api/history/period/${start.toISOString()}?filter_entity_id=${encodeURIComponent(entityId)}&end_time=${encodeURIComponent(end.toISOString())}`;
+  const response = await request(settings, path);
+  const data = (await response.json()) as Array<Array<{ attributes?: { latitude?: number; longitude?: number }; last_changed?: string }>>;
+  const states = data[0] ?? [];
+  return states
+    .map(s => ({ lat: Number(s.attributes?.latitude), lng: Number(s.attributes?.longitude), at: s.last_changed ?? '' }))
+    .filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+}
+
 export async function listDashboards(settings: ConnectionSettings): Promise<DashboardInfo[]> {
   const defaultDashboard: DashboardInfo = { urlPath: 'lovelace', title: 'Overview' };
   try {
