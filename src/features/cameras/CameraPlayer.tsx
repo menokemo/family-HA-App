@@ -45,7 +45,7 @@ function PtzPad({ camera, settings, states }: { camera: HaEntity; settings: Conn
  * خارجية، بس PanResponder المدمجة في React Native. بتستقبل onTap
  * عشان تكتشف الضغطة العادية (من غير ما تتعارض مع Pressable منفصلة -
  * الاتنين على نفس العنصر بيتعارضوا وبيمنعوا الزوم من الاشتغال). */
-function usePinchPan(onTap: () => void) {
+function usePinchPan(onTap: () => void, onDebug?: (touches: number, scaleValue: number) => void) {
   const scale = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
@@ -60,21 +60,20 @@ function usePinchPan(onTap: () => void) {
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
-      // capture بيخلي الحاوية دي تاخد أولوية اللمس قبل ما يوصل لعنصر
-      // الفيديو الأصلي (RTCView) نفسه - من غيرها، عناصر الفيديو
-      // الأصلية بتاخد اللمس الأول وبتمنع الزوم من الاشتغال خالص.
       onStartShouldSetPanResponderCapture: () => true,
-      onMoveShouldSetPanResponderCapture: (_e, gesture) => Math.abs(gesture.dx) > 2 || Math.abs(gesture.dy) > 2 || gesture.numberActiveTouches === 2,
+      onMoveShouldSetPanResponderCapture: () => true,
       onPanResponderGrant: e => {
         const touches = e.nativeEvent.touches;
         state.current.moved = 0;
         if (touches.length === 2) state.current.startDistance = distance(touches as unknown as { pageX: number; pageY: number }[]);
         state.current.startX = e.nativeEvent.pageX;
         state.current.startY = e.nativeEvent.pageY;
+        onDebug?.(touches.length, state.current.baseScale);
       },
       onPanResponderMove: (e, gesture) => {
         state.current.moved = Math.max(state.current.moved, Math.abs(gesture.dx) + Math.abs(gesture.dy));
         const touches = e.nativeEvent.touches;
+        onDebug?.(touches.length, state.current.baseScale);
         if (touches.length === 2) {
           if (!state.current.startDistance) state.current.startDistance = distance(touches as unknown as { pageX: number; pageY: number }[]);
           const d = distance(touches as unknown as { pageX: number; pageY: number }[]);
@@ -116,7 +115,11 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
   const [showDebug, setShowDebug] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
   const [hasAudio, setHasAudio] = useState(false);
-  const { scale, translateX, translateY, panHandlers } = usePinchPan(() => setChromeVisible(v => !v));
+  const [touchDebug, setTouchDebug] = useState('');
+  const { scale, translateX, translateY, panHandlers } = usePinchPan(
+    () => setChromeVisible(v => !v),
+    (touches, scaleValue) => setTouchDebug(`لمسات: ${touches} — تكبير: ${scaleValue.toFixed(2)}`),
+  );
   const token = typeof camera.attributes.access_token === 'string' ? camera.attributes.access_token : undefined;
   const snapshotUrl = useMemo(
     () => cameraSnapshotUrl(settings, camera.entity_id, nonce, token),
@@ -165,6 +168,8 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
       </Animated.View>
       <View style={StyleSheet.absoluteFill} {...panHandlers} />
     </View>
+
+    {touchDebug ? <Text style={styles.touchDebug}>{touchDebug}</Text> : null}
 
     {chromeVisible ? (
       <>
@@ -246,4 +251,5 @@ const styles = StyleSheet.create({
   debugToggleText: { fontSize: 14 },
   debugPanel: { position: 'absolute', zIndex: 3, top: 60, left: 8, right: 8, bottom: 8, backgroundColor: 'rgba(0,0,0,.9)', borderRadius: 10 },
   debugLine: { color: '#8FE388', fontSize: 10, fontFamily: 'monospace', marginBottom: 3 },
+  touchDebug: { position: 'absolute', zIndex: 4, bottom: 90, alignSelf: 'center', color: '#8FE388', backgroundColor: 'rgba(0,0,0,.75)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, fontSize: 13, fontFamily: 'monospace' },
 });
