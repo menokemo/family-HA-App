@@ -169,6 +169,20 @@ from the saved preference when monitoring is enabled.
   inherited from React Native.
 
 ### ⛔ مفتوحة (لسه بدون حل)
+**تاب الداشبورد: يفضل عالق على شاشة تحميل HA ("Loading data") -
+بروتوكول External Authentication/External Bus** — طبّقنا البروتوكول
+الرسمي بالكامل (developers.home-assistant.io/docs/frontend/external-
+authentication + external-bus)، بما فيه جسر `window.externalAppV2`
+كامل، والرد على `config/get` بنفس الحقول بالظبط اللي تطبيق HA الرسمي
+بيرجّعها (من لوجات حقيقية لتطبيق Android الرسمي على GitHub)، وإرسال
+`connection-status:connected` بروحنا مع إعادة محاولة كل 150ms.
+**النتيجة:** كل الرسائل بتتبعت وتتقبل بنجاح (مؤكَّد بسجل تشخيص مباشر
+🐛)، لكن `getExternalAuth` (طلب التوكن الفعلي) ما بيتنادوش خالص،
+والصفحة بتعمل reload كامل تلقائي كل ~60 ثانية في حلقة متكررة.
+وصلنا لحد أقصى ممكن نوصله بالتوثيق العام - محتاج دليل مباشر من
+console بتاع متصفح حقيقي (Chrome DevTools على كمبيوتر) فاتح نفس رابط
+الداشبورد بـ `?external_auth=1` بدل الاستمرار في التخمين. **مؤجَّل.**
+
 **تاب الداشبورد: Browser Mod بيوري "version mismatch" ويعمل reload
 تلقائي، بس جوه تطبيقنا بس** — نفس الداشبورد بيشتغل عادي في متصفح
 عادي على نفس الموبايل (اتأكد بالفعل من المستخدم)، يبقى المشكلة خاصة
@@ -181,6 +195,19 @@ console logs من جوه الـ WebView نفسها) بدل التخمين - مؤ
 نلاقي وسيلة نشوف بيها الخطأ الفعلي بدل ما نجرب حلول عشوائية.
 
 ### ⛔ Open (not resolved yet)
+**Dashboard tab: stuck on HA's "Loading data" splash — External
+Authentication/External Bus protocol** — implemented the full official
+protocol, including a complete `window.externalAppV2` bridge, a
+`config/get` response matching the official Android app's exact
+fields (confirmed from real GitHub logs), and a self-initiated
+`connection-status:connected` message retried every 150ms. **Result:**
+every message we send is confirmed accepted (live 🐛 debug log), but
+`getExternalAuth` (the actual token request) is never called at all,
+and the page fully reloads in a repeating ~60-second loop. We've
+reached the limit of general documentation — next step needs real
+evidence from a desktop browser's console loading the same URL with
+`?external_auth=1`. **Deferred.**
+
 **Dashboard tab: Browser Mod shows "version mismatch" and auto-reloads,
 but only inside our app** — the same dashboard works fine in a regular
 mobile browser on the same phone (confirmed by the user), so this is
