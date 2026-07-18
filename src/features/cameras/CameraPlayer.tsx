@@ -159,10 +159,11 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
   );
 
   return <View style={styles.container}>
-    <View style={styles.mediaWrap} {...panHandlers}>
+    <View style={styles.mediaWrap}>
       <Animated.View style={{ width: '100%', height: '100%', transform: [{ scale }, { translateX }, { translateY }] }}>
         {video}
       </Animated.View>
+      <View style={StyleSheet.absoluteFill} {...panHandlers} />
     </View>
 
     {chromeVisible ? (

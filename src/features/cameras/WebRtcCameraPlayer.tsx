@@ -317,7 +317,7 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onLog, onA
   return (
     <View style={styles.container}>
       {streamUrl ? (
-        <RTCView streamURL={streamUrl} style={styles.video} objectFit="contain" mirror={false} />
+        <RTCView streamURL={streamUrl} style={styles.video} objectFit="contain" mirror={false} zOrder={0} />
       ) : (
         <View style={styles.loading}>
           <ActivityIndicator size="large" color={colors.primary} />
