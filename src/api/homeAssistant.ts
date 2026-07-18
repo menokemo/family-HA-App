@@ -226,7 +226,7 @@ export async function listDashboards(settings: ConnectionSettings): Promise<Dash
   try {
     const result = (await wsCommand(settings, { type: 'lovelace/dashboards/list' })) as Array<{ url_path?: string; title?: string }>;
     const extra = (Array.isArray(result) ? result : [])
-      .filter(d => typeof d.url_path === 'string')
+      .filter(d => typeof d.url_path === 'string' && d.url_path !== defaultDashboard.urlPath)
       .map(d => ({ urlPath: d.url_path as string, title: d.title ?? d.url_path ?? '' }));
     return [defaultDashboard, ...extra];
   } catch {

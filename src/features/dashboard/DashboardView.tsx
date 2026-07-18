@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { WebView, type ShouldStartLoadRequest } from 'react-native-webview';
 import { ensureFreshToken, normalizeUrl } from '../../api/homeAssistant';
 import { colors } from '../../theme';
@@ -10,13 +10,17 @@ type Props = { settings: ConnectionSettings; dashboardPath: string };
 type ExternalAuthMessage =
   | { kind: 'getExternalAuth'; callback: string }
   | { kind: 'revokeExternalAuth'; callback: string }
-  | { kind: 'kiosk-ready' };
+  | { kind: 'kiosk-ready' }
+  | { kind: 'log'; text: string };
 
 export function DashboardView({ settings, dashboardPath }: Props) {
   const [ready, setReady] = useState(false);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const [showDebug, setShowDebug] = useState(false);
   const webviewRef = useRef<WebView>(null);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
+  const log = (text: string) => setDebugLog(prev => [...prev.slice(-50), `${new Date().toLocaleTimeString()} — ${text}`]);
 
   useEffect(() => { setReady(false); }, [dashboardPath, settings.baseUrl]);
   const baseUrl = normalizeUrl(settings.baseUrl);
@@ -36,16 +40,20 @@ export function DashboardView({ settings, dashboardPath }: Props) {
   // injectJavaScript بمناداة دالة الـ callback المطلوبة بالاسم بالظبط.
   const bridgeJS = `
     (function () {
+      window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: 'bridge injected, page: ' + location.pathname }));
       window.externalAppV2 = {
         postMessage: function (raw) {
           try {
             var msg = JSON.parse(raw);
+            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: 'externalAppV2 called: ' + msg.type }));
             if (msg.type === 'getExternalAuth') {
               window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'getExternalAuth', callback: msg.payload.callback }));
             } else if (msg.type === 'revokeExternalAuth') {
               window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'revokeExternalAuth', callback: msg.payload.callback }));
             }
-          } catch (e) {}
+          } catch (e) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: 'bridge error: ' + e }));
+          }
         }
       };
       // مراقبة اختفاء القائمة الجانبية (Kiosk Mode) - بدل ما نستنى
@@ -68,21 +76,25 @@ export function DashboardView({ settings, dashboardPath }: Props) {
   const onMessage = (raw: string) => {
     let message: ExternalAuthMessage;
     try { message = JSON.parse(raw) as ExternalAuthMessage; } catch { return; }
-    if (message.kind === 'kiosk-ready') { setReady(true); return; }
+    if (message.kind === 'log') { log(message.text); return; }
+    if (message.kind === 'kiosk-ready') { log('kiosk-ready'); setReady(true); return; }
     if (message.kind === 'revokeExternalAuth') {
       webviewRef.current?.injectJavaScript(`window.${message.callback}(true); true;`);
       return;
     }
     if (message.kind === 'getExternalAuth') {
+      log('getExternalAuth طُلب، بنجيب توكن...');
       void ensureFreshToken(settingsRef.current)
         .then(token => {
           const expiresIn = settingsRef.current.authMethod === 'oauth' && settingsRef.current.tokenExpiresAt
             ? Math.max(60, Math.round((settingsRef.current.tokenExpiresAt - Date.now()) / 1000))
             : 315360000; // توكن يدوي - صلاحية طويلة جدًا عمليًا
           const payload = JSON.stringify({ access_token: token, expires_in: expiresIn });
+          log(`توكن جاهز (${token.slice(0, 8)}...)، بنرد على callback`);
           webviewRef.current?.injectJavaScript(`window.${message.callback}(true, ${payload}); true;`);
         })
-        .catch(() => {
+        .catch(e => {
+          log(`❌ فشل جلب التوكن: ${e instanceof Error ? e.message : String(e)}`);
           webviewRef.current?.injectJavaScript(`window.${message.callback}(false); true;`);
         });
     }
@@ -128,6 +140,15 @@ export function DashboardView({ settings, dashboardPath }: Props) {
           <ActivityIndicator color={colors.primary} size="large" />
         </View>
       ) : null}
+      <Pressable style={s.debugToggle} onPress={() => setShowDebug(v => !v)}>
+        <Text style={s.debugToggleText}>🐛</Text>
+      </Pressable>
+      {showDebug ? (
+        <ScrollView style={s.debugPanel} contentContainerStyle={{ padding: 10 }}>
+          {debugLog.length === 0 ? <Text style={s.debugLine}>...</Text> : null}
+          {debugLog.map((line, i) => <Text key={i} style={s.debugLine} selectable>{line}</Text>)}
+        </ScrollView>
+      ) : null}
     </View>
   );
 }
@@ -135,4 +156,8 @@ export function DashboardView({ settings, dashboardPath }: Props) {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
+  debugToggle: { position: 'absolute', zIndex: 4, top: 50, right: 14, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,0,0,.6)', alignItems: 'center', justifyContent: 'center' },
+  debugToggleText: { fontSize: 15 },
+  debugPanel: { position: 'absolute', zIndex: 5, top: 90, left: 8, right: 8, bottom: 8, backgroundColor: 'rgba(0,0,0,.9)', borderRadius: 10 },
+  debugLine: { color: '#8FE388', fontSize: 10, fontFamily: 'monospace', marginBottom: 3 },
 });
