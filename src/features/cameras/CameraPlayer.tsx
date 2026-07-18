@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Image, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Image, PanResponder, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Orientation from 'react-native-orientation-locker';
+import { PressableScale } from '../../components/PressableScale';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { authHeaders, cameraSnapshotUrl, ptzMove, ptzStop, type PtzDirection } from '../../api/homeAssistant';
 import { colors } from '../../theme';
@@ -16,9 +17,9 @@ function PtzPad({ camera, settings, states }: { camera: HaEntity; settings: Conn
   const start = (direction: PtzDirection) => { busy.current = true; void ptzMove(settings, states, camera.entity_id, direction); };
   const stop = () => { if (busy.current) { busy.current = false; void ptzStop(settings, states, camera.entity_id); } };
   const Btn = ({ direction, icon }: { direction: PtzDirection; icon: string }) => (
-    <Pressable style={ptz.btn} onPressIn={() => start(direction)} onPressOut={stop}>
+    <PressableScale style={ptz.btn} onPressIn={() => start(direction)} onPressOut={stop}>
       <Ionicons name={icon} size={20} color="#fff" />
-    </Pressable>
+    </PressableScale>
   );
   return (
     <View style={ptz.wrap}>
@@ -161,9 +162,9 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
     {chromeVisible ? (
       <>
         <View style={styles.topBar}>
-          <Pressable style={styles.iconBtn} onPress={closeAndUnlock} hitSlop={10}>
+          <PressableScale style={styles.iconBtn} onPress={closeAndUnlock} hitSlop={10}>
             <Ionicons name="close" size={19} color="#fff" />
-          </Pressable>
+          </PressableScale>
           <View style={styles.header}>
             <View style={[styles.liveDot, { backgroundColor: mode === 'webrtc' ? colors.danger : colors.warning }]} />
             <Text style={styles.badge} numberOfLines={1}>{title}</Text>
@@ -175,32 +176,32 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
                 <Text style={styles.audioIcon}>{hasAudio ? '🔊' : '🔇'}</Text>
               </View>
             ) : null}
-            <Pressable style={[styles.iconBtn, showPtz && styles.iconBtnActive]} onPress={() => setShowPtz(v => !v)}>
+            <PressableScale style={[styles.iconBtn, showPtz && styles.iconBtnActive]} onPress={() => setShowPtz(v => !v)}>
               <Ionicons name="videocam" size={17} color="#fff" />
-            </Pressable>
-            <Pressable style={styles.iconBtn} onPress={zoomOut}>
+            </PressableScale>
+            <PressableScale style={styles.iconBtn} onPress={zoomOut}>
               <Ionicons name="remove" size={17} color="#fff" />
-            </Pressable>
-            <Pressable style={[styles.iconBtn, zoomed && styles.iconBtnActive]} onPress={zoomIn}>
+            </PressableScale>
+            <PressableScale style={[styles.iconBtn, zoomed && styles.iconBtnActive]} onPress={zoomIn}>
               <Ionicons name="add" size={17} color="#fff" />
-            </Pressable>
-            <Pressable style={[styles.iconBtn, isLandscape && styles.iconBtnActive]} onPress={toggleLandscape}>
+            </PressableScale>
+            <PressableScale style={[styles.iconBtn, isLandscape && styles.iconBtnActive]} onPress={toggleLandscape}>
               <Ionicons name="expand" size={17} color="#fff" />
-            </Pressable>
-            <Pressable style={[styles.iconBtn, showDebug && styles.iconBtnActive]} onPress={() => setShowDebug(v => !v)}>
+            </PressableScale>
+            <PressableScale style={[styles.iconBtn, showDebug && styles.iconBtnActive]} onPress={() => setShowDebug(v => !v)}>
               <Text style={styles.debugToggleText}>🐛</Text>
-            </Pressable>
+            </PressableScale>
           </View>
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <View style={styles.actions}>
-          <Pressable style={styles.button} onPress={() => { setError(undefined); setMode(mode === 'webrtc' ? 'snapshot' : 'webrtc'); }}>
+          <PressableScale style={styles.button} onPress={() => { setError(undefined); setMode(mode === 'webrtc' ? 'snapshot' : 'webrtc'); }}>
             <Text style={styles.buttonText}>{mode === 'webrtc' ? i18n.t('useSnapshot') : i18n.t('retryLive')}</Text>
-          </Pressable>
-          <Pressable style={styles.button} onPress={() => { setError(undefined); if (mode === 'snapshot') setNonce(Date.now()); else setMode('webrtc'); }}>
+          </PressableScale>
+          <PressableScale style={styles.button} onPress={() => { setError(undefined); if (mode === 'snapshot') setNonce(Date.now()); else setMode('webrtc'); }}>
             <Text style={styles.buttonText}>{i18n.t('refresh')}</Text>
-          </Pressable>
+          </PressableScale>
         </View>
       </>
     ) : null}

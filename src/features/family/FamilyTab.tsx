@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { colors } from '../../theme';
 import { i18n } from '../../i18n';
@@ -7,6 +7,7 @@ import { findCalendarEntities, findTodoEntities, getCalendarEvents, getTodoItems
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { CalendarView } from './CalendarView';
 import { ListsView } from './ListsView';
+import { PressableScale } from '../../components/PressableScale';
 
 type Props = { states: HaEntity[]; settings: ConnectionSettings };
 type Screen = 'hub' | 'calendar' | 'lists';
@@ -84,7 +85,7 @@ export function FamilyTab({ states, settings }: Props) {
 function BackHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return (
     <View style={s.backHeader}>
-      <Pressable onPress={onBack} style={s.backBtn}><Ionicons name="chevron-back" size={22} color={colors.text} /></Pressable>
+      <PressableScale onPress={onBack} style={s.backBtn}><Ionicons name="chevron-back" size={22} color={colors.text} /></PressableScale>
       <Text style={s.backTitle}>{title}</Text>
     </View>
   );
@@ -92,13 +93,13 @@ function BackHeader({ title, onBack }: { title: string; onBack: () => void }) {
 
 function Tile({ icon, color, title, subtitle, onPress }: { icon: string; color: string; title: string; subtitle: string; onPress: () => void }) {
   return (
-    <Pressable style={s.tile} onPress={onPress}>
+    <PressableScale style={s.tile} onPress={onPress}>
       <View style={[s.tileIcon, { backgroundColor: color + '26' }]}>
         <Ionicons name={icon} size={26} color={color} />
       </View>
       <Text style={s.tileTitle}>{title}</Text>
       <Text style={s.tileSubtitle}>{subtitle}</Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 

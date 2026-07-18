@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -8,6 +8,7 @@ import { absoluteHaUrl, authHeaders } from '../../api/homeAssistant';
 import { colors } from '../../theme';
 import { i18n } from '../../i18n';
 import { requestLocationPermission, watchLiveLocation, type LiveLocation } from '../../native/liveLocation';
+import { PressableScale } from '../../components/PressableScale';
 
 type Props = { people: HaEntity[]; home?: HaEntity; states: HaEntity[]; selectedPersonId?: string; settings: ConnectionSettings };
 type Point = { id: string; name: string; lat: number; lng: number; picture?: string };
@@ -163,18 +164,18 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
           {people.map(p => {
             const isSelected = selected?.entity_id === p.entity_id;
             return (
-              <Pressable key={p.entity_id} onPress={() => focusPerson(p)} style={[s.avatarWrap, isSelected && s.avatarWrapSelected]}>
+              <PressableScale key={p.entity_id} onPress={() => focusPerson(p)} style={[s.avatarWrap, isSelected && s.avatarWrapSelected]}>
                 {avatars[p.entity_id] ? (
                   <Image source={{ uri: avatars[p.entity_id] }} style={s.avatarImg} />
                 ) : (
                   <View style={[s.avatarImg, s.avatarFallback]}><Ionicons name="person" size={20} color={colors.primary} /></View>
                 )}
-              </Pressable>
+              </PressableScale>
             );
           })}
-          <Pressable style={[s.placesToggle, showPlaces && s.placesToggleActive]} onPress={() => setShowPlaces(v => !v)}>
+          <PressableScale style={[s.placesToggle, showPlaces && s.placesToggleActive]} onPress={() => setShowPlaces(v => !v)}>
             <Ionicons name="storefront" size={16} color={showPlaces ? colors.black : colors.text} />
-          </Pressable>
+          </PressableScale>
         </ScrollView>
       </View>
 
@@ -190,17 +191,17 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
               <Text style={s.name}>{String(selected.attributes.friendly_name ?? selected.entity_id)}</Text>
               <Text style={s.muted}>{selected.state} · {timeAgo(selected.last_changed)} · {distance(home ? haversine(coord(selected), coord(home)) : undefined)}</Text>
             </View>
-            <Pressable onPress={() => setSelected(null)} style={s.close}><Ionicons name="close" size={20} color={colors.text} /></Pressable>
+            <PressableScale onPress={() => setSelected(null)} style={s.close}><Ionicons name="close" size={20} color={colors.text} /></PressableScale>
           </View>
           <View style={s.details}>
             <Box label={i18n.t('battery')} value={battery(selected, states)} />
             <Box label={i18n.t('fromMe')} value={distance(!myCoord ? undefined : me && selected.entity_id === me.entity_id ? 0 : haversine(coord(selected), myCoord))} />
             <Box label={i18n.t('locationAccuracy')} value={Number.isFinite(Number(selected.attributes.gps_accuracy)) ? distance(Number(selected.attributes.gps_accuracy)) : '—'} />
           </View>
-          <Pressable style={s.navigate} onPress={() => navigate(selected)}>
+          <PressableScale style={s.navigate} onPress={() => navigate(selected)}>
             <Ionicons name="navigate" size={20} color={colors.black} />
             <Text style={s.navigateText}>{i18n.t('navigateToPerson')}</Text>
-          </Pressable>
+          </PressableScale>
         </View>
       ) : null}
     </View>

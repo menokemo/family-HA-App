@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Card } from '../../components/Card';
 import { colors } from '../../theme';
 import { i18n } from '../../i18n';
 import { createCalendarEvent, getCalendarEvents, type CalendarEvent } from '../../api/homeAssistant';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
+import { PressableScale } from '../../components/PressableScale';
 
 type Props = { calendars: HaEntity[]; settings: ConnectionSettings };
 type ViewMode = 'agenda' | 'month';
@@ -71,15 +72,15 @@ export function CalendarView({ calendars, settings }: Props) {
   return (
     <View style={{ gap: 12 }}>
       <View style={styles.toggleRow}>
-        <Pressable style={[styles.toggleBtn, mode === 'agenda' && styles.toggleBtnActive]} onPress={() => setMode('agenda')}>
+        <PressableScale style={[styles.toggleBtn, mode === 'agenda' && styles.toggleBtnActive]} onPress={() => setMode('agenda')}>
           <Text style={[styles.toggleText, mode === 'agenda' && styles.toggleTextActive]}>{i18n.t('agenda')}</Text>
-        </Pressable>
-        <Pressable style={[styles.toggleBtn, mode === 'month' && styles.toggleBtnActive]} onPress={() => setMode('month')}>
+        </PressableScale>
+        <PressableScale style={[styles.toggleBtn, mode === 'month' && styles.toggleBtnActive]} onPress={() => setMode('month')}>
           <Text style={[styles.toggleText, mode === 'month' && styles.toggleTextActive]}>{i18n.t('month')}</Text>
-        </Pressable>
-        <Pressable style={styles.addBtn} onPress={() => setShowAdd(true)}>
+        </PressableScale>
+        <PressableScale style={styles.addBtn} onPress={() => setShowAdd(true)}>
           <Ionicons name="add" size={20} color={colors.black} />
-        </Pressable>
+        </PressableScale>
       </View>
 
       <AddEventModal
@@ -115,9 +116,9 @@ export function CalendarView({ calendars, settings }: Props) {
       ) : (
         <Card>
           <View style={styles.monthHeader}>
-            <Pressable onPress={() => setMonthCursor(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}><Ionicons name="chevron-back" size={20} color={colors.text} /></Pressable>
+            <PressableScale onPress={() => setMonthCursor(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}><Ionicons name="chevron-back" size={20} color={colors.text} /></PressableScale>
             <Text style={styles.dayTitle}>{monthCursor.toLocaleDateString(i18n.locale, { month: 'long', year: 'numeric' })}</Text>
-            <Pressable onPress={() => setMonthCursor(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}><Ionicons name="chevron-forward" size={20} color={colors.text} /></Pressable>
+            <PressableScale onPress={() => setMonthCursor(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}><Ionicons name="chevron-forward" size={20} color={colors.text} /></PressableScale>
           </View>
           <MonthGrid cursor={monthCursor} eventsByDay={eventsByDay} selectedDay={selectedDay} onSelect={setSelectedDay} />
           <View style={styles.selectedDayEvents}>
@@ -145,14 +146,14 @@ function MonthGrid({ cursor, eventsByDay, selectedDay, onSelect }: { cursor: Dat
   return (
     <View style={styles.grid}>
       {cells.map((d, i) => (
-        <Pressable key={i} style={styles.cell} disabled={!d} onPress={() => d && onSelect(d)}>
+        <PressableScale key={i} style={styles.cell} disabled={!d} onPress={() => d && onSelect(d)}>
           {d ? (
             <View style={[styles.cellInner, isSameDay(d, selectedDay) && styles.cellSelected, isSameDay(d, today) && styles.cellToday]}>
               <Text style={[styles.cellText, isSameDay(d, selectedDay) && styles.cellTextSelected]}>{d.getDate()}</Text>
               {(eventsByDay.get(dayKey(d)) ?? []).length > 0 ? <View style={styles.cellDot} /> : null}
             </View>
           ) : null}
-        </Pressable>
+        </PressableScale>
       ))}
     </View>
   );
@@ -217,9 +218,9 @@ function AddEventModal({
           {calendars.length > 1 ? (
             <View style={styles.calRow}>
               {calendars.map(c => (
-                <Pressable key={c.entity_id} style={[styles.calChip, calendarId === c.entity_id && styles.calChipActive]} onPress={() => setCalendarId(c.entity_id)}>
+                <PressableScale key={c.entity_id} style={[styles.calChip, calendarId === c.entity_id && styles.calChipActive]} onPress={() => setCalendarId(c.entity_id)}>
                   <Text style={[styles.calChipText, calendarId === c.entity_id && styles.calChipTextActive]}>{String(c.attributes.friendly_name ?? c.entity_id)}</Text>
-                </Pressable>
+                </PressableScale>
               ))}
             </View>
           ) : null}
@@ -240,10 +241,10 @@ function AddEventModal({
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <View style={styles.modalActions}>
-            <Pressable style={styles.modalCancel} onPress={onClose}><Text style={styles.modalCancelText}>{i18n.t('cancel')}</Text></Pressable>
-            <Pressable style={[styles.modalSave, (!summary.trim() || saving) && styles.modalSaveDisabled]} disabled={!summary.trim() || saving} onPress={() => void submit()}>
+            <PressableScale style={styles.modalCancel} onPress={onClose}><Text style={styles.modalCancelText}>{i18n.t('cancel')}</Text></PressableScale>
+            <PressableScale style={[styles.modalSave, (!summary.trim() || saving) && styles.modalSaveDisabled]} disabled={!summary.trim() || saving} onPress={() => void submit()}>
               <Text style={styles.modalSaveText}>{saving ? i18n.t('loading') : i18n.t('saveEvent')}</Text>
-            </Pressable>
+            </PressableScale>
           </View>
         </View>
       </View>

@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, StyleSheet, Text, View } from 'react-native';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { colors } from '../theme';
 import { i18n } from '../i18n';
 import { buildAuthorizeUrl, extractAuthCode, exchangeCodeForTokens } from '../api/oauth';
+import { PressableScale } from './PressableScale';
 
 type Props = {
   visible: boolean;
@@ -41,9 +42,9 @@ export function OAuthLoginWebView({ visible, baseUrl, onClose, onSuccess, onErro
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={s.header}>
-        <Pressable onPress={onClose} style={s.closeBtn} hitSlop={10}>
+        <PressableScale onPress={onClose} style={s.closeBtn} hitSlop={10}>
           <Ionicons name="close" size={24} color={colors.text} />
-        </Pressable>
+        </PressableScale>
         <Text style={s.title}>{i18n.t('loginWithHomeAssistant')}</Text>
         <View style={{ width: 24 }} />
       </View>

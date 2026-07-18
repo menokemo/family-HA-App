@@ -19,10 +19,10 @@ export const darkPalette: Palette = {
   border: '#26384B',
   text: '#F5F8FC',
   muted: '#9CB0C5',
-  primary: '#47A7FF',
-  safe: '#37C993',
-  warning: '#F5B94C',
-  danger: '#FF6174',
+  primary: '#5C8DFF',
+  safe: '#2EE6A6',
+  warning: '#FFB020',
+  danger: '#FF4D6D',
   black: '#000000',
 };
 
@@ -33,9 +33,9 @@ export const lightPalette: Palette = {
   border: '#DCE4ED',
   text: '#0E1620',
   muted: '#5E6D80',
-  primary: '#1E76D6',
-  safe: '#1FA575',
-  warning: '#C97F0B',
-  danger: '#D8394E',
+  primary: '#3D5FEF',
+  safe: '#0FAF7A',
+  warning: '#D97F00',
+  danger: '#E63958',
   black: '#000000',
 };

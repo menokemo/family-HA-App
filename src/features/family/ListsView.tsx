@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { colors } from '../../theme';
 import { i18n } from '../../i18n';
 import { addTodoItem, getTodoItems, removeTodoItem, setTodoItemStatus, type TodoItem } from '../../api/homeAssistant';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
+import { PressableScale } from '../../components/PressableScale';
 
 type Props = { lists: HaEntity[]; settings: ConnectionSettings };
 type Row = { kind: 'item'; item: TodoItem } | { kind: 'header'; count: number };
@@ -99,9 +100,9 @@ export function ListsView({ lists, settings }: Props) {
           {lists.length > 1 ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
               {lists.map(l => (
-                <Pressable key={l.entity_id} style={[styles.tab, active?.entity_id === l.entity_id && styles.tabActive]} onPress={() => setActiveId(l.entity_id)}>
+                <PressableScale key={l.entity_id} style={[styles.tab, active?.entity_id === l.entity_id && styles.tabActive]} onPress={() => setActiveId(l.entity_id)}>
                   <Text style={[styles.tabText, active?.entity_id === l.entity_id && styles.tabTextActive]}>{String(l.attributes.friendly_name ?? l.entity_id)}</Text>
-                </Pressable>
+                </PressableScale>
               ))}
             </ScrollView>
           ) : null}
@@ -115,9 +116,9 @@ export function ListsView({ lists, settings }: Props) {
               onSubmitEditing={() => void add()}
               returnKeyType="done"
             />
-            <Pressable style={styles.addBtn} onPress={() => void add()}>
+            <PressableScale style={styles.addBtn} onPress={() => void add()}>
               <Ionicons name="add" size={22} color={colors.black} />
-            </Pressable>
+            </PressableScale>
           </View>
           {loading ? <Text style={styles.muted}>{i18n.t('loading')}</Text> : null}
           {!loading && !rows.length ? <Text style={styles.muted}>{i18n.t('emptyList')}</Text> : null}
@@ -127,15 +128,15 @@ export function ListsView({ lists, settings }: Props) {
         row.kind === 'header' ? (
           <Text style={styles.doneLabel}>{i18n.t('completed')} · {row.count}</Text>
         ) : (
-          <Pressable style={styles.itemRow} onPress={() => void toggle(row.item)}>
+          <PressableScale style={styles.itemRow} onPress={() => void toggle(row.item)}>
             <View style={[styles.checkbox, row.item.status === 'completed' && styles.checkboxDone]}>
               {row.item.status === 'completed' ? <Ionicons name="checkmark" size={13} color={colors.black} /> : null}
             </View>
             <Text style={[styles.itemText, row.item.status === 'completed' && styles.itemTextDone]}>{row.item.summary}</Text>
-            <Pressable onPress={() => void remove(row.item)} hitSlop={10}>
+            <PressableScale onPress={() => void remove(row.item)} hitSlop={10}>
               <Ionicons name="close" size={18} color={colors.muted} />
-            </Pressable>
-          </Pressable>
+            </PressableScale>
+          </PressableScale>
         )
       }
     />

@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, StyleSheet, Text, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { colors } from '../theme';
 import { i18n } from '../i18n';
+import { PressableScale } from './PressableScale';
 
 type Props = {
   visible: boolean;
@@ -49,7 +50,7 @@ export function PinKeypad({ visible, title, onSubmit, onCancel, minLength = 4 }:
           </View>
           <View style={s.grid}>
             {KEYS.map((key, i) => (
-              <Pressable
+              <PressableScale
                 key={i}
                 style={[s.key, key === '' && s.keyGhost]}
                 disabled={key === ''}
@@ -60,16 +61,16 @@ export function PinKeypad({ visible, title, onSubmit, onCancel, minLength = 4 }:
                 ) : (
                   <Text style={s.keyText}>{key}</Text>
                 )}
-              </Pressable>
+              </PressableScale>
             ))}
           </View>
           <View style={s.actions}>
-            <Pressable style={s.cancelButton} onPress={close}>
+            <PressableScale style={s.cancelButton} onPress={close}>
               <Text style={s.cancelText}>{i18n.t('cancel')}</Text>
-            </Pressable>
-            <Pressable style={[s.submitButton, code.length < minLength && s.submitDisabled]} disabled={code.length < minLength} onPress={submit}>
+            </PressableScale>
+            <PressableScale style={[s.submitButton, code.length < minLength && s.submitDisabled]} disabled={code.length < minLength} onPress={submit}>
               <Text style={s.submitText}>{i18n.t('confirm')}</Text>
-            </Pressable>
+            </PressableScale>
           </View>
         </View>
       </View>
