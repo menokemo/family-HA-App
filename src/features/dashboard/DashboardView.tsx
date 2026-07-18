@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { WebView } from 'react-native-webview';
+import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native';
+import { WebView, type ShouldStartLoadRequest } from 'react-native-webview';
 import { normalizeUrl } from '../../api/homeAssistant';
 import { colors } from '../../theme';
 import type { ConnectionSettings } from '../../types/homeAssistant';
@@ -61,6 +61,28 @@ export function DashboardView({ settings, dashboardPath }: Props) {
     true;
   `;
 
+  // Navigation Guard: بيمنع الخروج من مسار الداشبورد المسموح -
+  // لو كارت فيه رابط لـ /config أو /developer-tools أو داشبورد تانية،
+  // بيتمنع بدل ما ينتقل ليها. لو الرابط خارجي فعلًا (مش HA خالص)،
+  // بيتفتح في متصفح النظام بدل الـ WebView. إخفاء القوائم لوحده مش
+  // كفاية - لازم الحماية دي كمان (زي ما موضّح في وثيقة القرار).
+  const dashboardRoot = dashboardPath.replace(/^\/+/, '').split('/')[0] || 'lovelace';
+  const onShouldStartLoadWithRequest = (request: ShouldStartLoadRequest) => {
+    try {
+      const target = new URL(request.url);
+      const base = new URL(baseUrl);
+      if (target.origin !== base.origin) {
+        void Linking.openURL(request.url).catch(() => undefined);
+        return false;
+      }
+      const path = target.pathname.replace(/^\/+/, '');
+      if (path === '' || path === dashboardRoot || path.startsWith(`${dashboardRoot}/`)) return true;
+      return false;
+    } catch {
+      return true; // لو فشل تحليل الرابط لأي سبب، منمنعش عشان منكسرش الداشبورد الأساسي
+    }
+  };
+
   return (
     <View style={s.container}>
       <WebView
@@ -72,6 +94,7 @@ export function DashboardView({ settings, dashboardPath }: Props) {
         onLoadEnd={() => setTimeout(() => setReady(true), 3200)}
         cacheEnabled={false}
         incognito
+        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         style={{ backgroundColor: colors.background }}
       />
       {!ready ? (
