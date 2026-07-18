@@ -75,6 +75,7 @@ function battery(p: HaEntity, states: HaEntity[]) {
 
 export function PeopleMapWeb({ people, home, states, selectedPersonId, settings }: Props) {
   const [selected, setSelected] = useState<HaEntity | null>(null);
+  const [mapError, setMapError] = useState<string | null>(null);
   const [routeInfo, setRouteInfo] = useState<{ distanceMeters: number; durationSeconds: number } | null>(null);
   const [avatars, setAvatars] = useState<Record<string, string>>({});
   const [showPlaces, setShowPlaces] = useState(false);
@@ -175,6 +176,10 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
             g.__familyHaLog?.('trace', [e.nativeEvent.data]);
             return;
           }
+          if (e.nativeEvent.data.startsWith('JS_ERROR:') || e.nativeEvent.data.startsWith('MAP_ERROR:') || e.nativeEvent.data.startsWith('HOUSENUM_ERR:')) {
+            setMapError(e.nativeEvent.data);
+            return;
+          }
           if (e.nativeEvent.data.startsWith('ROUTE_INFO:')) {
             try {
               const info = JSON.parse(e.nativeEvent.data.slice('ROUTE_INFO:'.length)) as { distance: number; duration: number };
@@ -186,6 +191,12 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
         }}
         style={s.web}
       />
+
+      {mapError ? (
+        <View style={s.errorBanner}>
+          <Text style={s.errorBannerText} selectable numberOfLines={4}>{mapError}</Text>
+        </View>
+      ) : null}
 
       <View style={s.topBar} pointerEvents="box-none">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.avatarRow}>
@@ -265,12 +276,14 @@ function mapHtml(points: Point[], home?: { lat: number; lng: number; name: strin
   // ومن غير حد استخدام، بديل مجاني حقيقي لـ Mapbox.
   return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"><style>html,body,#map{height:100%;margin:0;background:#0b1220}.pin{width:44px;height:56px;position:relative}.pin-tail{position:absolute;bottom:6px;left:50%;width:16px;height:16px;background:#3d5fef;transform:translateX(-50%) rotate(45deg);border-radius:0 0 4px 0;box-shadow:1px 1px 3px rgba(0,0,0,.3)}.pin-photo{position:absolute;top:0;left:2px;width:40px;height:40px;border-radius:50%;overflow:hidden;border:3px solid #3d5fef;background:#152238;box-shadow:0 2px 6px rgba(0,0,0,.35);z-index:1;display:flex;align-items:center;justify-content:center}.pin-photo img{width:100%;height:100%;object-fit:cover}.pin-initial{color:#fff;font:700 16px sans-serif}.home{width:40px;height:40px;border-radius:50%;background:#27c499;color:#fff;text-align:center;line-height:40px;font-size:20px;border:3px solid #fff}.place{width:30px;height:30px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 8px #0007}.maplibregl-popup-content{background:#152238;color:#fff;font:600 13px sans-serif;border-radius:8px}.maplibregl-popup-tip{border-top-color:#152238 !important;border-bottom-color:#152238 !important}</style></head><body><div id="map"></div><script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script><script>
 const map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/liberty',center:[${c[1]},${c[0]}],zoom:16,pitch:55,bearing:-10,antialias:true,attributionControl:false});
+window.onerror=function(msg,src,line,col,err){try{window.ReactNativeWebView.postMessage('JS_ERROR:'+msg+' @'+line+':'+col);}catch(e){}};
+map.on('error',function(e){try{window.ReactNativeWebView.postMessage('MAP_ERROR:'+(e&&e.error?String(e.error.message||e.error):JSON.stringify(e)));}catch(x){}});
 map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'top-right');
 map.addControl(new maplibregl.AttributionControl({compact:true}));
 const b=new maplibregl.LngLatBounds();
 const markers={};
 map.on('load',()=>{
-map.addLayer({id:'housenumbers',type:'symbol',source:'openmaptiles','source-layer':'housenumber',minzoom:17,layout:{'text-field':['get','housenumber'],'text-size':10,'text-font':['Noto Sans Regular']},paint:{'text-color':'#3a4a5c','text-halo-color':'#ffffff','text-halo-width':1.3}});
+try{map.addLayer({id:'housenumbers',type:'symbol',source:'openmaptiles','source-layer':'housenumber',minzoom:17,layout:{'text-field':['get','housenumber'],'text-size':10,'text-font':['Noto Sans Regular']},paint:{'text-color':'#3a4a5c','text-halo-color':'#ffffff','text-halo-width':1.3}});}catch(e){window.ReactNativeWebView.postMessage('HOUSENUM_ERR:'+String(e));}
 ${home ? `{const el=document.createElement('div');el.innerHTML='<div class="home">⌂</div>';new maplibregl.Marker({element:el.firstChild}).setLngLat([${home.lng},${home.lat}]).setPopup(new maplibregl.Popup({offset:24,closeButton:false}).setText(\`${esc(home.name)}\`)).addTo(map);b.extend([${home.lng},${home.lat}]);}` : ''}
 ${points
   .map(
@@ -343,6 +356,8 @@ const s = StyleSheet.create({
   empty: { padding: 24 },
   muted: { color: colors.muted },
   topBar: { position: 'absolute', top: 14, left: 0, right: 0 },
+  errorBanner: { position: 'absolute', top: 70, left: 14, right: 14, zIndex: 10, backgroundColor: 'rgba(180,20,40,.92)', borderRadius: 12, padding: 12 },
+  errorBannerText: { color: '#fff', fontSize: 11, fontFamily: 'monospace' },
   avatarRow: { paddingHorizontal: 14, gap: 9, alignItems: 'center' },
   avatarPillCount: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(16,24,38,.94)', borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   avatarWrap: { width: 46, height: 46, borderRadius: 23, borderWidth: 2, borderColor: 'rgba(16,24,38,.5)', padding: 1, backgroundColor: 'rgba(16,24,38,.94)' },
