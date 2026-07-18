@@ -15,7 +15,7 @@ type Point = { id: string; name: string; lat: number; lng: number; picture?: str
 
 // نغيّر الرقم ده لو عملنا تعديل جوهري في mapHtml، عشان نجبر الـ WebView
 // يعمل remount كامل بدل ما يحاول يحدّث المحتوى القديم في مكانه.
-const MAP_TEMPLATE_VERSION = 'v4';
+const MAP_TEMPLATE_VERSION = 'v5-maplibre3d';
 
 const coord = (e: HaEntity) => ({ latitude: Number(e.attributes.latitude), longitude: Number(e.attributes.longitude) });
 
@@ -215,23 +215,31 @@ function Box({ label, value }: { label: string; value: string }) {
 function mapHtml(points: Point[], home?: { lat: number; lng: number; name: string }) {
   const all = [...points.map(p => [p.lat, p.lng]), ...(home ? [[home.lat, home.lng]] : [])];
   const c = all[0] ?? [52.1, 5.1];
-  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>html,body,#map{height:100%;margin:0;background:#0b1220}.person{width:50px;height:50px;border:3px solid #51c7ff;border-radius:50%;background:#152238;overflow:hidden;box-shadow:0 4px 12px #0008}.person img{width:100%;height:100%;object-fit:cover}.initial{color:#fff;font:700 19px sans-serif;text-align:center;line-height:50px}.home{width:40px;height:40px;border-radius:50%;background:#27c499;color:#fff;text-align:center;line-height:40px;font-size:20px;border:3px solid #fff}.place{width:30px;height:30px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 8px #0007}</style></head><body><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
-const map=L.map('map',{zoomControl:true}).setView([${c[0]},${c[1]}],16);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors',errorTileUrl:''}).addTo(map);
-const b=[];
+  // MapLibre GL بدل Leaflet - خريطة ثلاثية الأبعاد حقيقية (مباني
+  // بارتفاعات، إمالة ودوران بإصبعين) من غير أي مفتاح API مدفوع.
+  // OpenFreeMap بيوفّر بلاطات متجهية (vector tiles) مجانية بالكامل
+  // ومن غير حد استخدام، بديل مجاني حقيقي لـ Mapbox.
+  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"><style>html,body,#map{height:100%;margin:0;background:#0b1220}.person{width:50px;height:50px;border:3px solid #51c7ff;border-radius:50%;background:#152238;overflow:hidden;box-shadow:0 4px 12px #0008}.person img{width:100%;height:100%;object-fit:cover}.initial{color:#fff;font:700 19px sans-serif;text-align:center;line-height:50px}.home{width:40px;height:40px;border-radius:50%;background:#27c499;color:#fff;text-align:center;line-height:40px;font-size:20px;border:3px solid #fff}.place{width:30px;height:30px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 8px #0007}.maplibregl-popup-content{background:#152238;color:#fff;font:600 13px sans-serif;border-radius:8px}.maplibregl-popup-tip{border-top-color:#152238 !important;border-bottom-color:#152238 !important}</style></head><body><div id="map"></div><script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script><script>
+const map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/liberty',center:[${c[1]},${c[0]}],zoom:16,pitch:55,bearing:-10,antialias:true,attributionControl:false});
+map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'top-right');
+map.addControl(new maplibregl.AttributionControl({compact:true}));
+const b=new maplibregl.LngLatBounds();
 const markers={};
-${home ? `L.marker([${home.lat},${home.lng}],{icon:L.divIcon({className:'',html:'<div class="home">⌂</div>',iconSize:[46,46],iconAnchor:[23,23]})}).addTo(map).bindTooltip(\`${esc(home.name)}\`);b.push([${home.lat},${home.lng}]);` : ''}
+map.on('load',()=>{
+${home ? `{const el=document.createElement('div');el.innerHTML='<div class="home">⌂</div>';new maplibregl.Marker({element:el.firstChild}).setLngLat([${home.lng},${home.lat}]).setPopup(new maplibregl.Popup({offset:24,closeButton:false}).setText(\`${esc(home.name)}\`)).addTo(map);b.extend([${home.lng},${home.lat}]);}` : ''}
 ${points
   .map(
-    p => `(()=>{const i=L.divIcon({className:'',html:\`<div class="person">${p.picture ? `<img src="${p.picture}">` : `<div class="initial">${esc(p.name.slice(0, 1).toUpperCase())}</div>`}</div>\`,iconSize:[56,56],iconAnchor:[28,28]});const m=L.marker([${p.lat},${p.lng}],{icon:i}).addTo(map).bindTooltip(\`${esc(p.name)}\`).on('click',()=>window.ReactNativeWebView.postMessage('${p.id}'));markers['${p.id}']=m;b.push([${p.lat},${p.lng}]);})();`,
+    p => `{const el=document.createElement('div');el.innerHTML=\`<div class="person">${p.picture ? `<img src="${p.picture}">` : `<div class="initial">${esc(p.name.slice(0, 1).toUpperCase())}</div>`}</div>\`;const node=el.firstChild;node.addEventListener('click',()=>window.ReactNativeWebView.postMessage('${p.id}'));const m=new maplibregl.Marker({element:node}).setLngLat([${p.lng},${p.lat}]).setPopup(new maplibregl.Popup({offset:28,closeButton:false}).setText(\`${esc(p.name)}\`)).addTo(map);markers['${p.id}']=m;b.extend([${p.lng},${p.lat}]);}`,
   )
   .join('')}
-if(b.length>1)map.fitBounds(b,{padding:[60,60]});
-window.focusPerson=function(id){const m=markers[id];if(!m)return;map.setView(m.getLatLng(),17,{animate:true});m.openTooltip();};
+if(!b.isEmpty())map.fitBounds(b,{padding:70,maxZoom:17,duration:0});
+});
+window.focusPerson=function(id){const m=markers[id];if(!m)return;map.flyTo({center:m.getLngLat(),zoom:17,pitch:55,duration:800});m.togglePopup();};
 
-const placesLayer=L.layerGroup();
 const placeIcons={restaurant:'🍽️',cafe:'☕',fast_food:'🍔',pharmacy:'💊',hospital:'🏥',bank:'🏦',fuel:'⛽',supermarket:'🛒',school:'🏫',bakery:'🥖',bar:'🍺'};
+let placeMarkers=[];
 let placesTimer=null;
+function clearPlaces(){placeMarkers.forEach(m=>m.remove());placeMarkers=[];}
 async function loadPlaces(){
   const bounds=map.getBounds();
   const bbox=[bounds.getSouth(),bounds.getWest(),bounds.getNorth(),bounds.getEast()].join(',');
@@ -239,21 +247,22 @@ async function loadPlaces(){
   try{
     const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:query});
     const data=await res.json();
-    placesLayer.clearLayers();
+    clearPlaces();
     (data.elements||[]).forEach(el=>{
       const amenity=el.tags&&el.tags.amenity;
       const emoji=placeIcons[amenity]||'📍';
       const name=(el.tags&&el.tags.name)||amenity||'Place';
-      const icon=L.divIcon({className:'',html:'<div class="place">'+emoji+'</div>',iconSize:[30,30],iconAnchor:[15,15]});
-      L.marker([el.lat,el.lon],{icon}).addTo(placesLayer).bindTooltip(name);
+      const el2=document.createElement('div');
+      el2.innerHTML='<div class="place">'+emoji+'</div>';
+      const m=new maplibregl.Marker({element:el2.firstChild}).setLngLat([el.lon,el.lat]).setPopup(new maplibregl.Popup({offset:18,closeButton:false}).setText(name)).addTo(map);
+      placeMarkers.push(m);
     });
   }catch(e){}
 }
-window.showPlaces=function(){placesLayer.addTo(map);void loadPlaces();if(placesTimer)clearTimeout(placesTimer);map.on('moveend',onPlacesMoveEnd);};
-window.hidePlaces=function(){placesLayer.clearLayers();map.removeLayer(placesLayer);map.off('moveend',onPlacesMoveEnd);};
+window.showPlaces=function(){void loadPlaces();if(placesTimer)clearTimeout(placesTimer);map.on('moveend',onPlacesMoveEnd);};
+window.hidePlaces=function(){clearPlaces();map.off('moveend',onPlacesMoveEnd);};
 function onPlacesMoveEnd(){if(placesTimer)clearTimeout(placesTimer);placesTimer=setTimeout(loadPlaces,600);}
 window.ReactNativeWebView.postMessage('MAP_HTML_V2_LOADED');
-fetch('https://tile.openstreetmap.org/1/0/0.png').then(r=>window.ReactNativeWebView.postMessage('TILE_TEST:'+r.status)).catch(e=>window.ReactNativeWebView.postMessage('TILE_TEST_FAILED:'+String(e)));
 </script></body></html>`;
 }
 
