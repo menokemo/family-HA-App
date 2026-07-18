@@ -8,6 +8,8 @@ type AlarmMonitorNative = {
   openFullScreenIntentSettings: () => Promise<boolean>;
   canDrawOverlays: () => Promise<boolean>;
   openOverlaySettings: () => Promise<boolean>;
+  setWatchedPersons: (personIds: string, baseUrl: string, token: string, language: string) => Promise<boolean>;
+  isZoneWatchRunning: () => Promise<boolean>;
 };
 
 const native = NativeModules.AlarmMonitor as AlarmMonitorNative | undefined;
@@ -58,4 +60,21 @@ export function stopAlarmMonitor(): Promise<boolean> {
 
 export function isAlarmMonitorRunning(): Promise<boolean> {
   return native?.isRunning() ?? Promise.resolve(false);
+}
+
+// personIds بقائمة entity_id مفصولة بفاصلة، أو فاضية عشان نوقف
+// المراقبة. الخدمة بتفضل شغالة لو مراقبة الإنذار مفعّلة برضو، حتى لو
+// المستخدم قفّل مراقبة المناطق - وبالعكس.
+export async function setWatchedPersons(personIds: string[], baseUrl: string, token: string, language: string): Promise<boolean> {
+  if (!native) return false;
+  if (Platform.OS === 'android' && Platform.Version >= 33 && personIds.length) {
+    try {
+      await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+    } catch { /* المستخدم يقدر يرفض */ }
+  }
+  return native.setWatchedPersons(personIds.join(','), baseUrl, token, language);
+}
+
+export function isZoneWatchRunning(): Promise<boolean> {
+  return native?.isZoneWatchRunning() ?? Promise.resolve(false);
 }

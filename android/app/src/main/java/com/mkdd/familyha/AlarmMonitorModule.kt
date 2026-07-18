@@ -96,7 +96,11 @@ class AlarmMonitorModule(private val reactContext: ReactApplicationContext) :
   fun stop(promise: Promise) {
     try {
       prefs().edit().putBoolean("enabled", false).apply()
-      reactContext.stopService(Intent(reactContext, AlarmMonitorService::class.java))
+      // لو مراقبة مناطق العائلة لسه مفعّلة، الخدمة لازم تفضل شغالة
+      // من أجلها حتى لو المستخدم قفّل مراقبة الإنذار تحديدًا
+      if (!prefs().getBoolean("zoneWatchEnabled", false)) {
+        reactContext.stopService(Intent(reactContext, AlarmMonitorService::class.java))
+      }
       promise.resolve(true)
     } catch (e: Exception) {
       promise.reject("stop_failed", e.message, e)
@@ -106,5 +110,33 @@ class AlarmMonitorModule(private val reactContext: ReactApplicationContext) :
   @ReactMethod
   fun isRunning(promise: Promise) {
     promise.resolve(prefs().getBoolean("enabled", false))
+  }
+
+  @ReactMethod
+  fun setWatchedPersons(personIds: String, baseUrl: String, token: String, language: String, promise: Promise) {
+    try {
+      val enabled = personIds.isNotBlank()
+      prefs().edit()
+        .putString("watchedPersons", personIds)
+        .putString("baseUrl", baseUrl)
+        .putString("token", token)
+        .putString("language", language)
+        .putBoolean("zoneWatchEnabled", enabled)
+        .apply()
+      val intent = Intent(reactContext, AlarmMonitorService::class.java)
+      if (enabled || prefs().getBoolean("enabled", false)) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) reactContext.startForegroundService(intent) else reactContext.startService(intent)
+      } else {
+        reactContext.stopService(intent)
+      }
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("set_watched_failed", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun isZoneWatchRunning(promise: Promise) {
+    promise.resolve(prefs().getBoolean("zoneWatchEnabled", false))
   }
 }

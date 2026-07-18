@@ -39,8 +39,10 @@ class AlarmMonitorService : Service() {
   companion object {
     const val CHANNEL_MONITOR = "alarm_monitor_channel"
     const val CHANNEL_ALERT = "alarm_alert_channel"
+    const val CHANNEL_ZONE = "zone_notification_channel"
     const val NOTIF_ID_MONITOR = 1001
     const val NOTIF_ID_ALERT = 1002
+    const val NOTIF_ID_ZONE_BASE = 2000
     const val PREFS = "alarm_monitor"
   }
 
@@ -108,6 +110,7 @@ class AlarmMonitorService : Service() {
                     showFullScreenAlert(reason)
                   }
                 }
+                if (entityId.startsWith("person.")) checkZoneChange(entityId, data)
               }
             }
           } catch (e: Exception) {
@@ -140,6 +143,9 @@ class AlarmMonitorService : Service() {
       val alertChannel = NotificationChannel(CHANNEL_ALERT, "تنبيه الإنذار", NotificationManager.IMPORTANCE_HIGH)
       alertChannel.enableVibration(true)
       nm.createNotificationChannel(alertChannel)
+      nm.createNotificationChannel(
+        NotificationChannel(CHANNEL_ZONE, "مواقع العائلة", NotificationManager.IMPORTANCE_DEFAULT),
+      )
     }
   }
 
@@ -152,6 +158,38 @@ class AlarmMonitorService : Service() {
       .setPriority(NotificationCompat.PRIORITY_MIN)
       .setOngoing(true)
       .build()
+  }
+
+  private fun checkZoneChange(entityId: String, data: JSONObject) {
+    val watched = (prefs().getString("watchedPersons", "") ?: "").split(",").map { it.trim() }.filter { it.isNotEmpty() }
+    if (entityId !in watched) return
+    val oldZone = data.optJSONObject("old_state")?.optString("state")
+    val newZone = data.optJSONObject("new_state")?.optString("state")
+    if (oldZone.isNullOrEmpty() || newZone.isNullOrEmpty() || oldZone == newZone) return
+    // أول قراءة لحالة الشخص لحظة ما الخدمة تشتغل مفيش "قديم" حقيقي
+    // نقارنه بيه (oldZone ممكن تيجي فاضية أو null من HA نفسه أول مرة) -
+    // already handled above via isNullOrEmpty check
+    val name = data.optJSONObject("new_state")?.optJSONObject("attributes")?.optString("friendly_name") ?: entityId
+    val lang = prefs().getString("language", "en")
+    val leftHomeOrArea = newZone == "not_home"
+    val message = if (leftHomeOrArea) {
+      AlarmStrings.get(lang, "personLeft").replace("{name}", name).replace("{zone}", formatEntityName(oldZone))
+    } else {
+      AlarmStrings.get(lang, "personArrived").replace("{name}", name).replace("{zone}", formatEntityName(newZone))
+    }
+    showZoneNotification(message)
+  }
+
+  private fun showZoneNotification(message: String) {
+    val notification = NotificationCompat.Builder(this, CHANNEL_ZONE)
+      .setContentTitle("📍 " + (AlarmStrings.get(prefs().getString("language", "en"), "familyLocation")))
+      .setContentText(message)
+      .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+      .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+      .setAutoCancel(true)
+      .build()
+    val nm = getSystemService(NotificationManager::class.java)
+    nm.notify(NOTIF_ID_ZONE_BASE + (System.currentTimeMillis() % 1000).toInt(), notification)
   }
 
   private fun extractTriggerReason(attributes: JSONObject?): String {

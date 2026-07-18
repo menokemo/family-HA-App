@@ -13,6 +13,9 @@ object AlarmStrings {
       "disarming" to "جاري التعطيل...",
       "disarm_failed" to "فشل التعطيل، حاول تاني",
       "swipe_hint" to "اسحب للتعطيل  ‹ ‹ ‹",
+      "personLeft" to "{name} خرج من {zone}",
+      "personArrived" to "{name} وصل {zone}",
+      "familyLocation" to "موقع العائلة",
     ),
     "en" to mapOf(
       "monitor_title" to "Family HA",
@@ -23,6 +26,9 @@ object AlarmStrings {
       "disarming" to "Disarming...",
       "disarm_failed" to "Failed to disarm, try again",
       "swipe_hint" to "Swipe to disarm  ‹ ‹ ‹",
+      "personLeft" to "{name} left {zone}",
+      "personArrived" to "{name} arrived at {zone}",
+      "familyLocation" to "Family location",
     ),
     "nl" to mapOf(
       "monitor_title" to "Family HA",
@@ -33,6 +39,9 @@ object AlarmStrings {
       "disarming" to "Uitschakelen...",
       "disarm_failed" to "Uitschakelen mislukt, probeer opnieuw",
       "swipe_hint" to "Veeg om uit te schakelen  ‹ ‹ ‹",
+      "personLeft" to "{name} heeft {zone} verlaten",
+      "personArrived" to "{name} is aangekomen bij {zone}",
+      "familyLocation" to "Gezinslocatie",
     ),
   )
 
