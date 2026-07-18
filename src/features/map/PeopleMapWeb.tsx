@@ -75,7 +75,6 @@ function battery(p: HaEntity, states: HaEntity[]) {
 
 export function PeopleMapWeb({ people, home, states, selectedPersonId, settings }: Props) {
   const [selected, setSelected] = useState<HaEntity | null>(null);
-  const [mapError, setMapError] = useState<string | null>(null);
   const [routeInfo, setRouteInfo] = useState<{ distanceMeters: number; durationSeconds: number } | null>(null);
   const [avatars, setAvatars] = useState<Record<string, string>>({});
   const [showPlaces, setShowPlaces] = useState(false);
@@ -177,11 +176,8 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
             return;
           }
           if (e.nativeEvent.data.startsWith('JS_ERROR:') || e.nativeEvent.data.startsWith('MAP_ERROR:') || e.nativeEvent.data.startsWith('HOUSENUM_ERR:')) {
-            setMapError(e.nativeEvent.data);
-            return;
-          }
-          if (e.nativeEvent.data.startsWith('MARKER_POS:')) {
-            setMapError(prev => `${prev ? prev + '\n' : ''}${e.nativeEvent.data}`);
+            const g = globalThis as unknown as { __familyHaLog?: (level: string, args: unknown[]) => void };
+            g.__familyHaLog?.('warn', [e.nativeEvent.data]);
             return;
           }
           if (e.nativeEvent.data.startsWith('ROUTE_INFO:')) {
@@ -195,12 +191,6 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
         }}
         style={s.web}
       />
-
-      {mapError ? (
-        <View style={s.errorBanner}>
-          <Text style={s.errorBannerText} selectable numberOfLines={10}>{mapError}</Text>
-        </View>
-      ) : null}
 
       <View style={s.topBar} pointerEvents="box-none">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.avatarRow}>
@@ -291,7 +281,7 @@ try{map.addLayer({id:'housenumbers',type:'symbol',source:'openmaptiles','source-
 ${home ? `{const el=document.createElement('div');el.innerHTML='<div class="home">⌂</div>';new maplibregl.Marker({element:el.firstChild}).setLngLat([${home.lng},${home.lat}]).setPopup(new maplibregl.Popup({offset:24,closeButton:false}).setText(\`${esc(home.name)}\`)).addTo(map);b.extend([${home.lng},${home.lat}]);}` : ''}
 ${points
   .map(
-    p => `{const el=document.createElement('div');el.innerHTML=\`<div class="pin-marker"><div class="pin"><div class="pin-tail"></div><div class="pin-photo">${p.picture ? `<img src="${p.picture}">` : `<div class="pin-initial">${esc(p.name.slice(0, 1).toUpperCase())}</div>`}</div></div></div></div>\`;const node=el.firstChild;node.addEventListener('click',()=>window.ReactNativeWebView.postMessage('${p.id}'));const m=new maplibregl.Marker({element:node,anchor:'bottom'}).setLngLat([${p.lng},${p.lat}]).setPopup(new maplibregl.Popup({offset:36,closeButton:false}).setText(\`${esc(p.name)}\`)).addTo(map);markers['${p.id}']=m;b.extend([${p.lng},${p.lat}]);window.ReactNativeWebView.postMessage('MARKER_POS:${esc(p.name)}='+JSON.stringify(m.getLngLat())+' | style='+node.parentElement.getAttribute('style'));}`,
+    p => `{const el=document.createElement('div');el.innerHTML=\`<div class="pin-marker"><div class="pin"><div class="pin-tail"></div><div class="pin-photo">${p.picture ? `<img src="${p.picture}">` : `<div class="pin-initial">${esc(p.name.slice(0, 1).toUpperCase())}</div>`}</div></div></div></div>\`;const node=el.firstChild;node.addEventListener('click',()=>window.ReactNativeWebView.postMessage('${p.id}'));const m=new maplibregl.Marker({element:node,anchor:'bottom'}).setLngLat([${p.lng},${p.lat}]).setPopup(new maplibregl.Popup({offset:36,closeButton:false}).setText(\`${esc(p.name)}\`)).addTo(map);markers['${p.id}']=m;b.extend([${p.lng},${p.lat}]);}`,
   )
   .join('')}
 if(!b.isEmpty())map.fitBounds(b,{padding:70,maxZoom:17,duration:0});
@@ -360,8 +350,6 @@ const s = StyleSheet.create({
   empty: { padding: 24 },
   muted: { color: colors.muted },
   topBar: { position: 'absolute', top: 14, left: 0, right: 0 },
-  errorBanner: { position: 'absolute', top: 70, left: 14, right: 14, zIndex: 10, backgroundColor: 'rgba(180,20,40,.92)', borderRadius: 12, padding: 12 },
-  errorBannerText: { color: '#fff', fontSize: 11, fontFamily: 'monospace' },
   avatarRow: { paddingHorizontal: 14, gap: 9, alignItems: 'center' },
   avatarPillCount: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(16,24,38,.94)', borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   avatarWrap: { width: 46, height: 46, borderRadius: 23, borderWidth: 2, borderColor: 'rgba(16,24,38,.5)', padding: 1, backgroundColor: 'rgba(16,24,38,.94)' },
