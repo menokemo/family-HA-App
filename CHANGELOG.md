@@ -6,6 +6,51 @@
 
 ## العربية
 
+### [2.12.0] — 2026-07-19
+- **تصحيح جذري لنظام الثيمات**: تاب العائلة (التقويم والتذكيرات)
+  كان بياخد الوضع الغامق ثابت حتى في الوضع الفاتح - كان بيستورد
+  ألوان ثابتة بدل نظام الثيم الصحيح. اتصلح في التلات ملفات.
+- **تجميل التقويم والتذكيرات** بأسلوب أقرب لتطبيقات زي FamilyWall:
+  كروت أحداث بألوان صريحة ممتلئة، تمييز خاص لـ"النهاردة"، كشف بسيط
+  لأعياد الميلاد (🎂)، وتذكيرات بشكل كروت ملوّنة بدل قائمة تسوق.
+- **مسار الحركة (Timeline)**: دوسة طويلة على صورة أي شخص في الخريطة
+  تعرض مسار تحركاته آخر 24 ساعة كخط على الخريطة.
+- **تنبيهات وصول/مغادرة أفراد العائلة**: تشتغل حتى لو التطبيق مقفول
+  تمامًا (بنفس بنية خدمة مراقبة الإنذار الخلفية)، قابلة للتفعيل لأي
+  شخص تختاره من إعدادات تاب الخريطة.
+
+### [2.11.0] — 2026-07-18
+- **خريطة ثلاثية الأبعاد حقيقية**: استبدال محرك الخريطة بالكامل من
+  Leaflet لـ MapLibre GL (بديل مجاني مفتوح المصدر لـ Mapbox) - مباني
+  حقيقية بارتفاعات، إمالة ودوران بإصبعين، بلاطات مجانية بالكامل من
+  OpenFreeMap.
+- **مسار حي على الطريق**: خط توجيه حقيقي (مش خط مستقيم) بين موقعك
+  وموقع أي شخص تختاره، مع مسافة ووقت وصول متوقع بيتحدّثوا تلقائي.
+- علامات على شكل دبوس خريطة كلاسيكي (صورة الشخص جوه دائرة) بدل دائرة
+  بسيطة، وأرقام منازل على الخريطة.
+- أيقونة تطبيق جديدة (درع أزرق/فيروزي).
+
+### [2.10.0] — 2026-07-17/18
+- **إعادة تصميم شاشة الكاميرا بالكامل**: شريط تحكم موحّد ومنظّم
+  (إغلاق، اسم الكاميرا، صوت، PTZ، تدوير، تشخيص) بدل عناصر متفرقة.
+- **تدوير شاشة حقيقي** للكاميرا (مش حيلة CSS كانت بتمط الصورة) -
+  الموبايل نفسه بيتقلب لوضع أفقي حقيقي عند الحاجة.
+- **زوم بإصبع واحد** (دبل تاب + أزرار +/-) بعد اكتشاف إن الزوم
+  بإصبعين مش موثوق مع فيديو WebRTC على أندرويد (قيد حقيقي في
+  المنصة، مش باگ في التطبيق).
+- **إصلاح الصوت الخافت** في البث المباشر (مشكلة معروفة في
+  react-native-webrtc - الصوت بيتوجّه لقناة مكالمة هادية افتراضيًا).
+- لوحة تشخيص مباشرة (🐛) داخل شاشة الكاميرا لأي مشكلة بث مستقبلية.
+
+### [2.9.0] — 2026-07-16/17
+- **تسجيل دخول بحساب Home Assistant (OAuth2)** بدل التوكن اليدوي -
+  نفس تجربة تطبيق HA الرسمي بالظبط، تجديد التوكن تلقائي في الخلفية.
+- **تاب داشبورد HA كامل** يعرض داشبورد Lovelace حقيقية جوه WebView
+  (Kiosk Mode لإخفاء قوائم HA، حماية تنقّل، مصادقة رسمية عبر بروتوكول
+  External Authentication/External Bus).
+- تجميل شامل: ألوان تفاعلية (رد فعل بصري موحّد عند الضغط في كل
+  التطبيق)، لون أساسي أكتر تميّزًا، عمق بصري (ظل) للبادجات والكروت.
+
 ### [2.8.0] — 2026-07-16
 - تنظيف شامل للكود: حذف كود/أنماط/مفاتيح ترجمة ميتة، تصحيح أسماء
   ملفات الإعداد (`.gitignore` وغيرها).
@@ -63,6 +108,60 @@
 ---
 
 ## English
+
+### [2.12.0] — 2026-07-19
+- **Root-cause theme fix**: the Family tab (calendar and reminders)
+  was always stuck in dark mode even when light mode was selected —
+  it was importing a static color export instead of the real theme
+  system. Fixed across all three files.
+- **Calendar and reminders visual redesign** closer to apps like
+  FamilyWall: bold solid-colored event cards, a special "Today"
+  callout, simple birthday detection (🎂), and reminder cards instead
+  of a shopping-list look.
+- **Movement timeline**: long-press any person's photo on the map to
+  see their movement trail over the last 24 hours, drawn on the map.
+- **Family arrival/departure alerts**: work even if the app is fully
+  closed (same background-service architecture as the alarm monitor),
+  opt-in per family member from the Map tab's settings.
+
+### [2.11.0] — 2026-07-18
+- **Real 3D map**: replaced the entire map engine, from Leaflet to
+  MapLibre GL (a free, open-source Mapbox alternative) — real
+  extruded buildings, two-finger tilt/rotate, fully free tiles from
+  OpenFreeMap.
+- **Live road route**: a real routed line (not a straight line)
+  between you and any selected family member, with distance/ETA that
+  update automatically.
+- Classic map-pin-shaped markers (photo inside a circle) instead of
+  plain circles, plus house numbers on the map.
+- New app icon (blue/teal shield).
+
+### [2.10.0] — 2026-07-17/18
+- **Full camera screen redesign**: one unified, organized toolbar
+  (close, camera name, audio, PTZ, rotate, debug) instead of scattered
+  controls.
+- **Real screen rotation** for cameras (not a CSS trick that used to
+  stretch the image) — the phone itself rotates to real landscape when
+  needed.
+- **One-finger zoom** (double-tap + +/- buttons) after discovering
+  two-finger pinch isn't reliable with WebRTC video on Android (a real
+  platform limitation, not an app bug).
+- **Fixed quiet audio** on live streams (a known react-native-webrtc
+  issue — audio defaults to a quiet call channel).
+- Live debug panel (🐛) inside the camera screen for any future stream
+  issue.
+
+### [2.9.0] — 2026-07-16/17
+- **Log in with a Home Assistant account (OAuth2)** instead of a
+  manual token — the same experience as the official HA app, with
+  automatic background token refresh.
+- **Full HA dashboard tab** showing a real Lovelace dashboard inside a
+  WebView (Kiosk Mode to hide HA's own menus, navigation guard,
+  official authentication via the External Authentication/External
+  Bus protocol).
+- Full visual polish: interactive colors (unified press feedback
+  across the whole app), a more distinctive primary color, visual
+  depth (shadows) for badges and cards.
 
 ### [2.8.0] — 2026-07-16
 - Full project cleanup: removed dead code/styles/translation keys,
