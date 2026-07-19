@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Modal, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Card } from '../../components/Card';
 import { useTheme, type Palette } from '../../theme';
@@ -9,30 +9,34 @@ import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { PressableScale } from '../../components/PressableScale';
 
 type Props = { calendars: HaEntity[]; settings: ConnectionSettings };
-type ViewMode = 'agenda' | 'month';
 type Event = CalendarEvent & { color: string; calendarName: string };
 
 const PALETTE = ['#E64C7A', '#3D5FEF', '#00B894', '#F5A623', '#9B59B6', '#FF6B4A', '#17A2B8', '#E74C3C'];
+const STRIP_DAYS = 14;
 
 function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
 function endOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59); }
 function isSameDay(a: Date, b: Date) { return a.toDateString() === b.toDateString(); }
 function dayKey(d: Date) { return d.toISOString().slice(0, 10); }
+function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
 
+// نطاق تحميل واحد واسع (أسبوع للوراء لغاية 6 أسابيع قدام) بيغطي شريط
+// الأيام الافتراضي وكمان تصفّح الشهر جوه نافذة "اختيار تاريخ" - من
+// غير ما نحتاج نعيد التحميل في كل مرة يفتح فيها المستخدم شهر مختلف.
 export function CalendarView({ calendars, settings }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const [mode, setMode] = useState<ViewMode>('agenda');
-  const [monthCursor, setMonthCursor] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
+  const [monthCursor, setMonthCursor] = useState(new Date());
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const load = () => {
     setLoading(true);
-    const start = startOfMonth(monthCursor);
-    const end = endOfMonth(monthCursor);
+    const start = addDays(new Date(), -7);
+    const end = addDays(new Date(), 42);
     return Promise.all(
       calendars.map(async (cal, i) => {
         try {
@@ -49,7 +53,7 @@ export function CalendarView({ calendars, settings }: Props) {
     let on = true;
     void load().catch(() => { if (on) setLoading(false); });
     return () => { on = false; };
-  }, [calendars.map(c => c.entity_id).join('|'), settings.baseUrl, settings.token, monthCursor.getMonth(), monthCursor.getFullYear()]);
+  }, [calendars.map(c => c.entity_id).join('|'), settings.baseUrl, settings.token]);
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, Event[]>();
@@ -60,87 +64,89 @@ export function CalendarView({ calendars, settings }: Props) {
     return map;
   }, [events]);
 
-  const agendaDays = useMemo(() => {
-    const today = new Date();
-    return Array.from({ length: 14 }, (_, i) => {
-      const d = new Date(today);
-      d.setDate(d.getDate() + i);
-      return d;
-    });
-  }, []);
+  const strip = useMemo(() => Array.from({ length: STRIP_DAYS }, (_, i) => addDays(new Date(), i)), []);
+  const dayEvents = useMemo(() => (eventsByDay.get(dayKey(selectedDay)) ?? []).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()), [eventsByDay, selectedDay]);
+  const isToday = isSameDay(selectedDay, new Date());
 
   if (!calendars.length) return <Card><Text style={styles.muted}>{i18n.t('noCalendars')}</Text></Card>;
 
   return (
-    <View style={{ gap: 12 }}>
-      <View style={styles.toggleRow}>
-        <PressableScale style={[styles.toggleBtn, mode === 'agenda' && styles.toggleBtnActive]} onPress={() => setMode('agenda')}>
-          <Text style={[styles.toggleText, mode === 'agenda' && styles.toggleTextActive]}>{i18n.t('agenda')}</Text>
-        </PressableScale>
-        <PressableScale style={[styles.toggleBtn, mode === 'month' && styles.toggleBtnActive]} onPress={() => setMode('month')}>
-          <Text style={[styles.toggleText, mode === 'month' && styles.toggleTextActive]}>{i18n.t('month')}</Text>
-        </PressableScale>
-        <PressableScale style={styles.addBtn} onPress={() => setShowAdd(true)}>
-          <Ionicons name="add" size={20} color={colors.black} />
-        </PressableScale>
+    <View style={{ gap: 14 }}>
+      <View style={styles.headerRow}>
+        <Text style={styles.screenTitle}>
+          {isToday ? i18n.t('today') : selectedDay.toLocaleDateString(i18n.locale, { weekday: 'long', day: 'numeric', month: 'long' })}
+        </Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <PressableScale onPress={() => setShowDatePicker(true)} style={styles.iconBtn}>
+            <Ionicons name="calendar-outline" size={18} color={colors.text} />
+          </PressableScale>
+          <PressableScale onPress={() => setShowAdd(true)} style={styles.addBtn}>
+            <Ionicons name="add" size={20} color={colors.black} />
+          </PressableScale>
+        </View>
       </View>
+
+      <FlatList
+        horizontal
+        data={strip}
+        keyExtractor={dayKey}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: 8 }}
+        renderItem={({ item: d }) => {
+          const has = (eventsByDay.get(dayKey(d)) ?? []).length > 0;
+          const sel = isSameDay(d, selectedDay);
+          return (
+            <PressableScale onPress={() => setSelectedDay(d)} style={[styles.stripDay, sel && styles.stripDaySelected]}>
+              <Text style={[styles.stripWeekday, sel && styles.stripTextSelected]}>{d.toLocaleDateString(i18n.locale, { weekday: 'short' })}</Text>
+              <Text style={[styles.stripDate, sel && styles.stripTextSelected]}>{d.getDate()}</Text>
+              {has ? <View style={[styles.stripDot, sel && styles.stripDotSelected]} /> : null}
+            </PressableScale>
+          );
+        }}
+      />
 
       <AddEventModal
         visible={showAdd}
-        defaultDay={mode === 'month' ? selectedDay : new Date()}
+        defaultDay={selectedDay}
         calendars={calendars}
         settings={settings}
         onClose={() => setShowAdd(false)}
         onCreated={() => { setShowAdd(false); void load(); }}
       />
 
-      {loading ? <Card><Text style={styles.muted}>{i18n.t('loading')}</Text></Card> : null}
+      <Modal visible={showDatePicker} transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.monthHeader}>
+              <PressableScale onPress={() => setMonthCursor(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}><Ionicons name="chevron-back" size={20} color={colors.text} /></PressableScale>
+              <Text style={styles.dayTitle}>{monthCursor.toLocaleDateString(i18n.locale, { month: 'long', year: 'numeric' })}</Text>
+              <PressableScale onPress={() => setMonthCursor(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}><Ionicons name="chevron-forward" size={20} color={colors.text} /></PressableScale>
+            </View>
+            <MonthGrid cursor={monthCursor} eventsByDay={eventsByDay} selectedDay={selectedDay} onSelect={d => { setSelectedDay(d); setShowDatePicker(false); }} />
+            <PressableScale style={styles.modalCancel} onPress={() => setShowDatePicker(false)}><Text style={styles.modalCancelText}>{i18n.t('cancel')}</Text></PressableScale>
+          </View>
+        </View>
+      </Modal>
 
-      {mode === 'agenda' ? (
-        agendaDays.map((day, dayIndex) => {
-          const list = eventsByDay.get(dayKey(day)) ?? [];
-          if (!list.length) return null;
-          const isToday = dayIndex === 0;
-          return (
-            <View key={dayKey(day)} style={isToday ? styles.todayBlock : undefined}>
-              <View style={styles.dayHeaderRow}>
-                {isToday ? <View style={styles.todayBadge}><Text style={styles.todayBadgeText}>{i18n.t('today')}</Text></View> : null}
-                <Text style={[styles.dayTitle, isToday && styles.dayTitleToday]}>
-                  {day.toLocaleDateString(i18n.locale, { weekday: 'long', day: 'numeric', month: 'short' })}
-                </Text>
-              </View>
-              <View style={{ gap: 8 }}>
-                {list.map((e, i) => (
-                  <View key={i} style={[styles.eventBlock, { backgroundColor: e.color }]}>
-                    <Text style={styles.eventBlockIcon}>{isBirthday(e.summary) ? '🎂' : '📌'}</Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.eventBlockTitle} numberOfLines={2}>{e.summary}</Text>
-                      <Text style={styles.eventBlockMeta}>{e.calendarName} · {new Date(e.start).toLocaleTimeString(i18n.locale, { hour: '2-digit', minute: '2-digit' })}</Text>
-                    </View>
-                  </View>
-                ))}
+      {loading ? (
+        <Card><Text style={styles.muted}>{i18n.t('loading')}</Text></Card>
+      ) : dayEvents.length === 0 ? (
+        <Card style={{ alignItems: 'center', gap: 6, paddingVertical: 26 }}>
+          <Ionicons name="sunny-outline" size={26} color={colors.muted} />
+          <Text style={styles.muted}>{i18n.t('noEventsThisDay')}</Text>
+        </Card>
+      ) : (
+        <View style={{ gap: 8 }}>
+          {dayEvents.map((e, i) => (
+            <View key={i} style={[styles.eventBlock, { backgroundColor: e.color }]}>
+              <Text style={styles.eventBlockIcon}>{isBirthday(e.summary) ? '🎂' : '📌'}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.eventBlockTitle} numberOfLines={2}>{e.summary}</Text>
+                <Text style={styles.eventBlockMeta}>{e.calendarName} · {new Date(e.start).toLocaleTimeString(i18n.locale, { hour: '2-digit', minute: '2-digit' })}</Text>
               </View>
             </View>
-          );
-        })
-      ) : (
-        <Card>
-          <View style={styles.monthHeader}>
-            <PressableScale onPress={() => setMonthCursor(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}><Ionicons name="chevron-back" size={20} color={colors.text} /></PressableScale>
-            <Text style={styles.dayTitle}>{monthCursor.toLocaleDateString(i18n.locale, { month: 'long', year: 'numeric' })}</Text>
-            <PressableScale onPress={() => setMonthCursor(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}><Ionicons name="chevron-forward" size={20} color={colors.text} /></PressableScale>
-          </View>
-          <MonthGrid cursor={monthCursor} eventsByDay={eventsByDay} selectedDay={selectedDay} onSelect={setSelectedDay} />
-          <View style={styles.selectedDayEvents}>
-            {(eventsByDay.get(dayKey(selectedDay)) ?? []).map((e, i) => (
-              <View key={i} style={[styles.eventBlock, { backgroundColor: e.color }]}>
-                <Text style={styles.eventBlockIcon}>{isBirthday(e.summary) ? '🎂' : '📌'}</Text>
-                <Text style={styles.eventBlockTitle} numberOfLines={1}>{e.summary}</Text>
-              </View>
-            ))}
-            {!(eventsByDay.get(dayKey(selectedDay)) ?? []).length ? <Text style={styles.muted}>{i18n.t('noEventsThisDay')}</Text> : null}
-          </View>
-        </Card>
+          ))}
+        </View>
       )}
     </View>
   );
@@ -274,21 +280,21 @@ function AddEventModal({
 
 function makeStyles(colors: Palette) { return StyleSheet.create({
   muted: { color: colors.muted },
-  toggleRow: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: 14, padding: 4, gap: 4 },
-  toggleBtn: { flex: 1, padding: 9, alignItems: 'center', borderRadius: 10 },
-  toggleBtnActive: { backgroundColor: colors.surfaceElevated },
-  toggleText: { color: colors.muted, fontWeight: '800', fontSize: 13 },
-  toggleTextActive: { color: colors.primary },
-  addBtn: { width: 40, height: 40, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  screenTitle: { color: colors.text, fontSize: 20, fontWeight: '900', textTransform: 'capitalize', flexShrink: 1 },
+  iconBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  addBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  stripDay: { width: 52, paddingVertical: 10, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', gap: 4 },
+  stripDaySelected: { backgroundColor: colors.primary, borderColor: colors.primary },
+  stripWeekday: { color: colors.muted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
+  stripDate: { color: colors.text, fontSize: 17, fontWeight: '800' },
+  stripTextSelected: { color: colors.black },
+  stripDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.warning },
+  stripDotSelected: { backgroundColor: colors.black },
   dayTitle: { color: colors.text, fontWeight: '800', fontSize: 15, marginBottom: 8, textTransform: 'capitalize' },
-  dayHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  todayBlock: { backgroundColor: colors.surfaceElevated, borderRadius: 20, padding: 14, borderWidth: 1, borderColor: colors.primary },
-  todayBadge: { backgroundColor: colors.primary, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 8 },
-  todayBadgeText: { color: colors.black, fontWeight: '900', fontSize: 10, textTransform: 'uppercase' },
-  dayTitleToday: { marginBottom: 0, color: colors.text },
-  eventBlock: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 16, padding: 12 },
+  eventBlock: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 16, padding: 14 },
   eventBlockIcon: { fontSize: 18 },
-  eventBlockTitle: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  eventBlockTitle: { color: '#fff', fontWeight: '800', fontSize: 15 },
   eventBlockMeta: { color: 'rgba(255,255,255,.85)', fontSize: 12, fontWeight: '600', marginTop: 2 },
   monthHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
@@ -299,7 +305,6 @@ function makeStyles(colors: Palette) { return StyleSheet.create({
   cellText: { color: colors.text, fontSize: 13, fontWeight: '700' },
   cellTextSelected: { color: colors.black },
   cellDot: { position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: 2, backgroundColor: colors.warning },
-  selectedDayEvents: { marginTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingTop: 10, gap: 8 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(4,8,14,.82)', alignItems: 'center', justifyContent: 'center', padding: 20 },
   modalCard: { width: '100%', maxWidth: 380, backgroundColor: colors.surface, borderRadius: 24, borderWidth: 1, borderColor: colors.border, padding: 20, gap: 12 },
   modalDate: { color: colors.muted, marginTop: -6, marginBottom: 4 },
