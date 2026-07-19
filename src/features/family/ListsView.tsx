@@ -6,16 +6,10 @@ import { i18n } from '../../i18n';
 import { addTodoItem, getTodoItems, removeTodoItem, setTodoItemStatus, type TodoItem } from '../../api/homeAssistant';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { PressableScale } from '../../components/PressableScale';
+import { CATEGORIES, categoryLabel, detectCategory, stripCategoryEmoji } from './categories';
 
 type Props = { lists: HaEntity[]; settings: ConnectionSettings };
 type Row = { kind: 'item'; item: TodoItem } | { kind: 'header'; count: number };
-
-const NOTE_COLORS = ['#F5A623', '#3D5FEF', '#00B894', '#E64C7A', '#9B59B6', '#17A2B8'];
-const noteColor = (uid: string) => {
-  let hash = 0;
-  for (let i = 0; i < uid.length; i++) hash = (hash * 31 + uid.charCodeAt(i)) >>> 0;
-  return NOTE_COLORS[hash % NOTE_COLORS.length];
-};
 
 export function ListsView({ lists, settings }: Props) {
   const { colors } = useTheme();
@@ -24,6 +18,7 @@ export function ListsView({ lists, settings }: Props) {
   const [items, setItems] = useState<TodoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState('');
+  const [category, setCategory] = useState(CATEGORIES[0]);
   const fetchingRef = useRef(false);
 
   const active = lists.find(l => l.entity_id === activeId) ?? lists[0];
@@ -71,7 +66,7 @@ export function ListsView({ lists, settings }: Props) {
     setDraft('');
     setAddError('');
     try {
-      await addTodoItem(settings, active.entity_id, summary);
+      await addTodoItem(settings, active.entity_id, `${category.emoji} ${summary}`);
       void load();
     } catch (e) {
       setAddError(e instanceof Error ? e.message : String(e));
@@ -132,6 +127,14 @@ export function ListsView({ lists, settings }: Props) {
               <Ionicons name="add" size={22} color={colors.black} />
             </PressableScale>
           </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catRow}>
+            {CATEGORIES.map(c => (
+              <PressableScale key={c.key} onPress={() => setCategory(c)} style={[styles.catChip, { borderColor: c.color }, category.key === c.key && { backgroundColor: c.color }]}>
+                <Text style={styles.catChipEmoji}>{c.emoji}</Text>
+                <Text style={[styles.catChipText, category.key === c.key && { color: '#fff' }]}>{categoryLabel(c.key)}</Text>
+              </PressableScale>
+            ))}
+          </ScrollView>
           {addError ? <Text style={styles.errorText} selectable>{addError}</Text> : null}
           {loading ? <Text style={styles.muted}>{i18n.t('loading')}</Text> : null}
           {!loading && !rows.length ? <Text style={styles.muted}>{i18n.t('emptyList')}</Text> : null}
@@ -142,13 +145,14 @@ export function ListsView({ lists, settings }: Props) {
           <Text style={styles.doneLabel}>{i18n.t('completed')} · {row.count}</Text>
         ) : (
           <PressableScale
-            style={[styles.noteCard, { backgroundColor: row.item.status === 'completed' ? colors.surfaceElevated : noteColor(row.item.uid) }]}
+            style={[styles.noteCard, { backgroundColor: row.item.status === 'completed' ? colors.surfaceElevated : detectCategory(row.item.summary).color }]}
             onPress={() => void toggle(row.item)}
           >
             <View style={[styles.checkbox, row.item.status === 'completed' && styles.checkboxDone]}>
               {row.item.status === 'completed' ? <Ionicons name="checkmark" size={13} color={colors.black} /> : null}
             </View>
-            <Text style={[styles.noteText, row.item.status === 'completed' && styles.itemTextDone]} numberOfLines={4}>{row.item.summary}</Text>
+            <Text style={styles.noteEmoji}>{detectCategory(row.item.summary).emoji}</Text>
+            <Text style={[styles.noteText, row.item.status === 'completed' && styles.itemTextDone]} numberOfLines={4}>{stripCategoryEmoji(row.item.summary)}</Text>
             <PressableScale onPress={() => void remove(row.item)} hitSlop={10}>
               <Ionicons name="close" size={18} color={row.item.status === 'completed' ? colors.muted : 'rgba(255,255,255,.85)'} />
             </PressableScale>
@@ -173,6 +177,11 @@ function makeStyles(colors: Palette) { return StyleSheet.create({
   addBtn: { width: 46, height: 46, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   addBtnDisabled: { backgroundColor: colors.border },
   errorText: { color: colors.danger, fontSize: 12 },
+  catRow: { gap: 8, paddingVertical: 2 },
+  catChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, borderWidth: 1.5, backgroundColor: colors.surfaceElevated },
+  catChipEmoji: { fontSize: 15 },
+  catChipText: { color: colors.text, fontSize: 12, fontWeight: '700' },
+  noteEmoji: { fontSize: 17 },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   noteCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: 14, marginBottom: 8 },
   noteText: { flex: 1, color: '#fff', fontWeight: '700', fontSize: 15 },

@@ -5,6 +5,7 @@ import { Card } from '../../components/Card';
 import { useTheme, type Palette } from '../../theme';
 import { i18n } from '../../i18n';
 import { createCalendarEvent, getCalendarEvents, type CalendarEvent } from '../../api/homeAssistant';
+import { CATEGORIES, categoryLabel, detectCategory, stripCategoryEmoji } from './categories';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { PressableScale } from '../../components/PressableScale';
 
@@ -155,26 +156,25 @@ export function CalendarView({ calendars, settings }: Props) {
         </Card>
       ) : (
         <View style={{ gap: 8 }}>
-          {dayEvents.map((e, i) => (
-            <View key={i} style={[styles.eventBlock, { backgroundColor: e.color }]}>
-              <Text style={styles.eventBlockIcon}>{isBirthday(e.summary) ? '🎂' : '📌'}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.eventBlockTitle} numberOfLines={2}>{e.summary}</Text>
-                <Text style={styles.eventBlockMeta}>{e.calendarName} · {/^\d{4}-\d{2}-\d{2}$/.test(e.start) ? i18n.t('allDay') : new Date(e.start).toLocaleTimeString(i18n.locale, { hour: '2-digit', minute: '2-digit' })}</Text>
+          {dayEvents.map((e, i) => {
+            const cat = detectCategory(e.summary);
+            return (
+              <View key={i} style={[styles.eventBlock, { backgroundColor: cat.color }]}>
+                <Text style={styles.eventBlockIcon}>{cat.emoji}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.eventBlockTitle} numberOfLines={2}>{stripCategoryEmoji(e.summary)}</Text>
+                  <Text style={styles.eventBlockMeta}>{e.calendarName} · {/^\d{4}-\d{2}-\d{2}$/.test(e.start) ? i18n.t('allDay') : new Date(e.start).toLocaleTimeString(i18n.locale, { hour: '2-digit', minute: '2-digit' })}</Text>
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
       )}
     </View>
   );
 }
 
-const BIRTHDAY_KEYWORDS = ['birthday', 'bday', 'عيد ميلاد', 'ميلاد', 'verjaardag'];
-function isBirthday(summary: string) {
-  const lower = summary.toLowerCase();
-  return BIRTHDAY_KEYWORDS.some(k => lower.includes(k));
-}
+
 
 function MonthGrid({ cursor, eventsByDay, selectedDay, onSelect }: { cursor: Date; eventsByDay: Map<string, Event[]>; selectedDay: Date; onSelect: (d: Date) => void }) {
   const { colors } = useTheme();
@@ -219,6 +219,7 @@ function AddEventModal({
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [summary, setSummary] = useState('');
+  const [category, setCategory] = useState(CATEGORIES[0]);
   const [calendarId, setCalendarId] = useState(calendars[0]?.entity_id);
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('10:00');
@@ -239,7 +240,7 @@ function AddEventModal({
     setError(undefined);
     try {
       await createCalendarEvent(settings, target.entity_id, {
-        summary: summary.trim(),
+        summary: `${category.emoji} ${summary.trim()}`,
         start_date_time: `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')} ${startTime}:00`,
         end_date_time: `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')} ${endTime}:00`,
       });
@@ -270,6 +271,16 @@ function AddEventModal({
           ) : null}
 
           <TextInput value={summary} onChangeText={setSummary} placeholder={i18n.t('eventTitle')} placeholderTextColor={colors.muted} style={styles.modalInput} />
+
+          <Text style={styles.muted}>{i18n.t('category')}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            {CATEGORIES.map(c => (
+              <PressableScale key={c.key} onPress={() => setCategory(c)} style={[styles.catChip, { borderColor: c.color }, category.key === c.key && { backgroundColor: c.color }]}>
+                <Text style={styles.catChipEmoji}>{c.emoji}</Text>
+                <Text style={[styles.catChipText, category.key === c.key && { color: '#fff' }]}>{categoryLabel(c.key)}</Text>
+              </PressableScale>
+            ))}
+          </ScrollView>
 
           <View style={styles.timeRow}>
             <View style={{ flex: 1 }}>
@@ -327,6 +338,9 @@ function makeStyles(colors: Palette) { return StyleSheet.create({
   modalCard: { width: '100%', maxWidth: 380, backgroundColor: colors.surface, borderRadius: 24, borderWidth: 1, borderColor: colors.border, padding: 20, gap: 12 },
   modalDate: { color: colors.muted, marginTop: -6, marginBottom: 4 },
   calRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  catChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, borderWidth: 1.5, backgroundColor: colors.surfaceElevated },
+  catChipEmoji: { fontSize: 15 },
+  catChipText: { color: colors.text, fontSize: 12, fontWeight: '700' },
   calChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 12, backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border },
   calChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   calChipText: { color: colors.muted, fontSize: 12, fontWeight: '700' },
