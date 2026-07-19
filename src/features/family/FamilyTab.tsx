@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTheme, type Palette } from '../../theme';
 import { i18n } from '../../i18n';
@@ -8,17 +8,21 @@ import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { CalendarView } from './CalendarView';
 import { ListsView } from './ListsView';
 import { PressableScale } from '../../components/PressableScale';
+import { Card } from '../../components/Card';
 
-type Props = { states: HaEntity[]; settings: ConnectionSettings };
+type Props = { states: HaEntity[]; settings: ConnectionSettings; onSettingsChange: (patch: Partial<ConnectionSettings>) => void };
 type Screen = 'hub' | 'calendar' | 'lists';
 
-export function FamilyTab({ states, settings }: Props) {
+export function FamilyTab({ states, settings, onSettingsChange }: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const [screen, setScreen] = useState<Screen>('hub');
+  const [showCalendarSettings, setShowCalendarSettings] = useState(false);
+  const [showListSettings, setShowListSettings] = useState(false);
   const allCalendars = findCalendarEntities(states);
   const calendars = settings.selectedCalendarIds ? allCalendars.filter(c => settings.selectedCalendarIds!.includes(c.entity_id)) : allCalendars;
-  const lists = findTodoEntities(states);
+  const allLists = findTodoEntities(states);
+  const lists = settings.selectedTodoIds ? allLists.filter(l => settings.selectedTodoIds!.includes(l.entity_id)) : allLists;
   const [eventCount, setEventCount] = useState<number | null>(null);
   const [itemCount, setItemCount] = useState<number | null>(null);
   const calendarKey = calendars.map(c => c.entity_id).sort().join('|');
@@ -48,16 +52,34 @@ export function FamilyTab({ states, settings }: Props) {
   if (screen === 'calendar') {
     return (
       <View style={{ flex: 1 }}>
-        <BackHeader title={i18n.t('calendar')} onBack={() => setScreen('hub')} />
+        <BackHeader title={i18n.t('calendar')} onBack={() => setScreen('hub')} onSettings={() => setShowCalendarSettings(true)} />
         <ScrollView contentContainerStyle={s.content}><CalendarView calendars={calendars} settings={settings} /></ScrollView>
+        <EntityPickerModal
+          visible={showCalendarSettings}
+          title={i18n.t('calendarSettings')}
+          hint={i18n.t('calendarSettingsHint')}
+          entities={allCalendars}
+          selectedIds={settings.selectedCalendarIds ?? allCalendars.map(c => c.entity_id)}
+          onClose={() => setShowCalendarSettings(false)}
+          onSave={ids => { onSettingsChange({ selectedCalendarIds: ids }); setShowCalendarSettings(false); }}
+        />
       </View>
     );
   }
   if (screen === 'lists') {
     return (
       <View style={{ flex: 1 }}>
-        <BackHeader title={i18n.t('lists')} onBack={() => setScreen('hub')} />
+        <BackHeader title={i18n.t('lists')} onBack={() => setScreen('hub')} onSettings={() => setShowListSettings(true)} />
         <ListsView lists={lists} settings={settings} />
+        <EntityPickerModal
+          visible={showListSettings}
+          title={i18n.t('listSettings')}
+          hint={i18n.t('listSettingsHint')}
+          entities={allLists}
+          selectedIds={settings.selectedTodoIds ?? allLists.map(l => l.entity_id)}
+          onClose={() => setShowListSettings(false)}
+          onSave={ids => { onSettingsChange({ selectedTodoIds: ids }); setShowListSettings(false); }}
+        />
       </View>
     );
   }
@@ -85,14 +107,63 @@ export function FamilyTab({ states, settings }: Props) {
   );
 }
 
-function BackHeader({ title, onBack }: { title: string; onBack: () => void }) {
+function BackHeader({ title, onBack, onSettings }: { title: string; onBack: () => void; onSettings: () => void }) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={s.backHeader}>
       <PressableScale onPress={onBack} style={s.backBtn}><Ionicons name="chevron-back" size={22} color={colors.text} /></PressableScale>
-      <Text style={s.backTitle}>{title}</Text>
+      <Text style={[s.backTitle, { flex: 1 }]}>{title}</Text>
+      <PressableScale onPress={onSettings} style={s.backBtn}><Ionicons name="ellipsis-vertical" size={18} color={colors.text} /></PressableScale>
     </View>
+  );
+}
+
+// نافذة اختيار مستقلة تمامًا - كل شاشة (تقويم / تذكيرات) بتاخد نسختها
+// الخاصة (entities + selectedIds + مفتاح حفظ مختلف)، من غير أي تشابك
+// بين الاتنين زي ما كان قبل كده.
+function EntityPickerModal({
+  visible, title, hint, entities, selectedIds, onClose, onSave,
+}: {
+  visible: boolean; title: string; hint: string; entities: HaEntity[]; selectedIds: string[];
+  onClose: () => void; onSave: (ids: string[]) => void;
+}) {
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
+  const [local, setLocal] = useState(selectedIds);
+  useEffect(() => { if (visible) setLocal(selectedIds); }, [visible]);
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={s.modalBackdrop}>
+        <View style={s.modalSheet}>
+          <View style={s.modalHeader}>
+            <Text style={s.modalTitle}>{title}</Text>
+            <PressableScale onPress={onClose}><Ionicons name="close" size={22} color={colors.text} /></PressableScale>
+          </View>
+          <ScrollView>
+            <Card>
+              <Text style={s.hintText}>{hint}</Text>
+              {entities.length === 0 ? (
+                <Text style={s.hintText}>{i18n.t('noCalendars')}</Text>
+              ) : entities.map(e => (
+                <View key={e.entity_id} style={s.toggleRow}>
+                  <Text style={s.toggleLabel} numberOfLines={1}>{String(e.attributes.friendly_name ?? e.entity_id)}</Text>
+                  <Switch
+                    value={local.includes(e.entity_id)}
+                    onValueChange={v => setLocal(prev => v ? [...new Set([...prev, e.entity_id])] : prev.filter(x => x !== e.entity_id))}
+                    trackColor={{ true: colors.primary, false: colors.border }}
+                  />
+                </View>
+              ))}
+            </Card>
+          </ScrollView>
+          <PressableScale style={s.saveBtn} onPress={() => onSave(local)}>
+            <Text style={s.saveBtnText}>{i18n.t('save')}</Text>
+          </PressableScale>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -122,4 +193,13 @@ function makeStyles(colors: Palette) { return StyleSheet.create({
   backBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
   backTitle: { color: colors.text, fontSize: 20, fontWeight: '800' },
   content: { padding: 16, gap: 14 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(4,8,14,.6)', justifyContent: 'flex-end' },
+  modalSheet: { backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, maxHeight: '80%', gap: 12 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  modalTitle: { color: colors.text, fontSize: 18, fontWeight: '900' },
+  hintText: { color: colors.muted, fontSize: 13 },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
+  toggleLabel: { color: colors.text, fontSize: 15, fontWeight: '600', flex: 1, marginRight: 10 },
+  saveBtn: { backgroundColor: colors.primary, borderRadius: 14, padding: 14, alignItems: 'center' },
+  saveBtnText: { color: colors.black, fontWeight: '900', fontSize: 15 },
 }); }

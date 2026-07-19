@@ -25,6 +25,7 @@ export interface ConnectionSettings {
   selectedDashboardPath?: string;
   zoneWatchPersonIds?: string[];
   selectedCalendarIds?: string[];
+  selectedTodoIds?: string[];
   selectedPersonId?: string;
 }
 export interface AlarmoEvent {
