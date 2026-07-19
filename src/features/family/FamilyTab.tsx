@@ -75,7 +75,7 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
     return (
       <View style={{ flex: 1 }}>
         <BackHeader title={i18n.t('lists')} onBack={() => setScreen('hub')} onSettings={() => setShowListSettings(true)} />
-        <ListsView lists={lists} settings={settings} />
+        <ListsView lists={lists} settings={settings} myName={states.find(p => p.entity_id === settings.selectedPersonId)?.attributes.friendly_name as string | undefined} />
         <EntityPickerModal
           visible={showListSettings}
           title={i18n.t('listSettings')}

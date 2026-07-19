@@ -9,10 +9,22 @@ import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { PressableScale } from '../../components/PressableScale';
 import { CATEGORIES, categoryLabel, detectCategory, stripCategoryEmoji } from './categories';
 
-type Props = { lists: HaEntity[]; settings: ConnectionSettings };
+type Props = { lists: HaEntity[]; settings: ConnectionSettings; myName?: string };
 type Row = { kind: 'item'; item: TodoItem } | { kind: 'header'; count: number };
 
-export function ListsView({ lists, settings }: Props) {
+// بيانات إنشاء التذكير (اسم اللي عمله) بتتخزن كسطر مخفي في نهاية
+// description بتاعة عنصر الـ todo نفسه في HA - أبسط طريقة تتوافق مع
+// HA بالكامل من غير أي حقل إضافي. بنفصلها عن الملاحظات الحقيقية
+// بمحدد ثابت (·by:) وقت العرض والتعديل.
+const CREATOR_MARKER = '\n·by:';
+function splitCreator(description?: string): { notes: string; createdBy?: string } {
+  if (!description) return { notes: '' };
+  const idx = description.indexOf(CREATOR_MARKER);
+  if (idx === -1) return { notes: description };
+  return { notes: description.slice(0, idx), createdBy: description.slice(idx + CREATOR_MARKER.length).trim() };
+}
+
+export function ListsView({ lists, settings, myName }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [activeId, setActiveId] = useState(lists[0]?.entity_id);
@@ -123,7 +135,11 @@ export function ListsView({ lists, settings }: Props) {
                 <Text style={styles.noteEmoji}>{detectCategory(row.item.summary).emoji}</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.noteText, row.item.status === 'completed' && styles.itemTextDone]} numberOfLines={2}>{stripCategoryEmoji(row.item.summary)}</Text>
-                  {row.item.due ? <Text style={styles.noteDue}>{new Date(row.item.due).toLocaleDateString(i18n.locale, { day: 'numeric', month: 'short' })}</Text> : null}
+                  <Text style={styles.noteDue}>
+                    {row.item.due ? new Date(row.item.due).toLocaleDateString(i18n.locale, { day: 'numeric', month: 'short' }) : ''}
+                    {row.item.due && splitCreator(row.item.description).createdBy ? '  ·  ' : ''}
+                    {splitCreator(row.item.description).createdBy ? `${i18n.t('addedBy')} ${splitCreator(row.item.description).createdBy}` : ''}
+                  </Text>
                 </View>
               </PressableScale>
               <PressableScale onPress={() => void remove(row.item)} hitSlop={10}>
@@ -138,6 +154,7 @@ export function ListsView({ lists, settings }: Props) {
         visible={showAdd}
         settings={settings}
         listEntityId={active?.entity_id}
+        myName={myName}
         onClose={() => setShowAdd(false)}
         onCreated={() => { setShowAdd(false); void load(); }}
       />
@@ -158,8 +175,8 @@ export function ListsView({ lists, settings }: Props) {
 // جديد). عنوان + ملاحظات + تاريخ استحقاق + فئة - نفس شكل نافذة
 // إضافة الحدث في التقويم بالظبط.
 function AddReminderModal({
-  visible, settings, listEntityId, editItem, onClose, onCreated,
-}: { visible: boolean; settings: ConnectionSettings; listEntityId?: string; editItem?: TodoItem; onClose: () => void; onCreated: () => void }) {
+  visible, settings, listEntityId, editItem, myName, onClose, onCreated,
+}: { visible: boolean; settings: ConnectionSettings; listEntityId?: string; editItem?: TodoItem; myName?: string; onClose: () => void; onCreated: () => void }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [title, setTitle] = useState('');
@@ -174,7 +191,7 @@ function AddReminderModal({
     if (!visible) return;
     if (editItem) {
       setTitle(stripCategoryEmoji(editItem.summary));
-      setNotes(editItem.description ?? '');
+      setNotes(splitCreator(editItem.description).notes);
       setDueDate(editItem.due?.slice(0, 10) ?? '');
       setCategory(detectCategory(editItem.summary));
     } else {
@@ -193,9 +210,14 @@ function AddReminderModal({
     try {
       const summary = `${category.emoji} ${title.trim()}`;
       if (editItem) {
-        await updateTodoItemDetails(settings, listEntityId, editItem.uid, { summary, dueDate: dueDate.trim(), description: notes.trim() });
+        // نحافظ على علامة "أضافه فلان" الأصلية زي ما هي وقت التعديل -
+        // مش هي اللي بتتعدّل، بس الملاحظات الحقيقية بس
+        const existingCreator = splitCreator(editItem.description).createdBy;
+        const description = notes.trim() + (existingCreator ? `${CREATOR_MARKER}${existingCreator}` : '');
+        await updateTodoItemDetails(settings, listEntityId, editItem.uid, { summary, dueDate: dueDate.trim(), description });
       } else {
-        await addTodoItem(settings, listEntityId, summary, dueDate.trim() || undefined, notes.trim() || undefined);
+        const description = notes.trim() + (myName ? `${CREATOR_MARKER}${myName}` : '');
+        await addTodoItem(settings, listEntityId, summary, dueDate.trim() || undefined, description || undefined);
       }
       onCreated();
     } catch (e) {
@@ -208,7 +230,7 @@ function AddReminderModal({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalBackdrop}>
-        <ScrollView contentContainerStyle={{ width: '100%', alignItems: 'center' }}>
+        <ScrollView style={{ width: '100%' }} contentContainerStyle={{ width: '100%', alignItems: 'center' }} keyboardShouldPersistTaps="handled">
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{editItem ? i18n.t('editReminder') : i18n.t('newReminder')}</Text>
 
@@ -255,7 +277,7 @@ function AddReminderModal({
             <View style={styles.modalActions}>
               <PressableScale style={styles.modalCancel} onPress={onClose}><Text style={styles.modalCancelText}>{i18n.t('cancel')}</Text></PressableScale>
               <PressableScale style={[styles.modalSave, (!title.trim() || saving) && styles.modalSaveDisabled]} disabled={!title.trim() || saving} onPress={() => void submit()}>
-                <Text style={styles.modalSaveText}>{saving ? i18n.t('loading') : i18n.t('save')}</Text>
+                <Text style={styles.modalSaveText}>{saving ? i18n.t('loading') : i18n.t('saveReminder')}</Text>
               </PressableScale>
             </View>
           </View>
