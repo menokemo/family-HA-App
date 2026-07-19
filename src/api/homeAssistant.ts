@@ -134,7 +134,7 @@ export async function createCalendarEvent(settings: ConnectionSettings, entityId
   await request(settings, '/api/services/calendar/create_event', { method: 'POST', body: JSON.stringify({ entity_id: entityId, ...data }) });
 }
 
-export type TodoItem = { uid: string; summary: string; status: 'needs_action' | 'completed'; due?: string };
+export type TodoItem = { uid: string; summary: string; status: 'needs_action' | 'completed'; due?: string; description?: string };
 
 function wsUrl(baseUrl: string) {
   return `${normalizeUrl(baseUrl).replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:')}/api/websocket`;
@@ -187,10 +187,21 @@ export async function getTodoItems(settings: ConnectionSettings, entityId: strin
   return result?.response?.[entityId]?.items ?? [];
 }
 
-export async function addTodoItem(settings: ConnectionSettings, entityId: string, summary: string, dueDate?: string): Promise<void> {
+export async function addTodoItem(settings: ConnectionSettings, entityId: string, summary: string, dueDate?: string, description?: string): Promise<void> {
   const data: Record<string, unknown> = { entity_id: entityId, item: summary };
   if (dueDate) data.due_date = dueDate;
+  if (description) data.description = description;
   await request(settings, '/api/services/todo/add_item', { method: 'POST', body: JSON.stringify(data) });
+}
+
+// لتعديل عنصر موجود (بدل إضافة عنصر جديد) - HA بتستخدم نفس service
+// بس بتحدد العنصر بـ uid وتديله rename/due_date/description جدد.
+export async function updateTodoItemDetails(settings: ConnectionSettings, entityId: string, uid: string, changes: { summary?: string; dueDate?: string; description?: string }): Promise<void> {
+  const data: Record<string, unknown> = { entity_id: entityId, item: uid };
+  if (changes.summary !== undefined) data.rename = changes.summary;
+  if (changes.dueDate !== undefined) data.due_date = changes.dueDate || null;
+  if (changes.description !== undefined) data.description = changes.description;
+  await request(settings, '/api/services/todo/update_item', { method: 'POST', body: JSON.stringify(data) });
 }
 
 export async function setTodoItemStatus(settings: ConnectionSettings, entityId: string, uid: string, status: 'needs_action' | 'completed'): Promise<void> {

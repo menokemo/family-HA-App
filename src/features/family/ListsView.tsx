@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Modal, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTheme, type Palette } from '../../theme';
 import { i18n } from '../../i18n';
-import { addTodoItem, getTodoItems, removeTodoItem, setTodoItemStatus, type TodoItem } from '../../api/homeAssistant';
+import { addTodoItem, getTodoItems, removeTodoItem, setTodoItemStatus, updateTodoItemDetails, type TodoItem } from '../../api/homeAssistant';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { PressableScale } from '../../components/PressableScale';
 import { CATEGORIES, categoryLabel, detectCategory, stripCategoryEmoji } from './categories';
@@ -18,6 +19,7 @@ export function ListsView({ lists, settings }: Props) {
   const [items, setItems] = useState<TodoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [editing, setEditing] = useState<TodoItem | null>(null);
   const fetchingRef = useRef(false);
 
   const active = lists.find(l => l.entity_id === activeId) ?? lists[0];
@@ -111,22 +113,23 @@ export function ListsView({ lists, settings }: Props) {
           row.kind === 'header' ? (
             <Text style={styles.doneLabel}>{i18n.t('completed')} · {row.count}</Text>
           ) : (
-            <PressableScale
-              style={[styles.noteCard, { backgroundColor: row.item.status === 'completed' ? colors.surfaceElevated : detectCategory(row.item.summary).color }]}
-              onPress={() => void toggle(row.item)}
-            >
-              <View style={[styles.checkbox, row.item.status === 'completed' && styles.checkboxDone]}>
-                {row.item.status === 'completed' ? <Ionicons name="checkmark" size={13} color={colors.black} /> : null}
-              </View>
-              <Text style={styles.noteEmoji}>{detectCategory(row.item.summary).emoji}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.noteText, row.item.status === 'completed' && styles.itemTextDone]} numberOfLines={4}>{stripCategoryEmoji(row.item.summary)}</Text>
-                {row.item.due ? <Text style={styles.noteDue}>{new Date(row.item.due).toLocaleDateString(i18n.locale, { day: 'numeric', month: 'short' })}</Text> : null}
-              </View>
+            <View style={[styles.noteCard, { backgroundColor: row.item.status === 'completed' ? colors.surfaceElevated : detectCategory(row.item.summary).color }]}>
+              <PressableScale onPress={() => void toggle(row.item)}>
+                <View style={[styles.checkbox, row.item.status === 'completed' && styles.checkboxDone]}>
+                  {row.item.status === 'completed' ? <Ionicons name="checkmark" size={13} color={colors.black} /> : null}
+                </View>
+              </PressableScale>
+              <PressableScale style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }} onPress={() => setEditing(row.item)}>
+                <Text style={styles.noteEmoji}>{detectCategory(row.item.summary).emoji}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.noteText, row.item.status === 'completed' && styles.itemTextDone]} numberOfLines={2}>{stripCategoryEmoji(row.item.summary)}</Text>
+                  {row.item.due ? <Text style={styles.noteDue}>{new Date(row.item.due).toLocaleDateString(i18n.locale, { day: 'numeric', month: 'short' })}</Text> : null}
+                </View>
+              </PressableScale>
               <PressableScale onPress={() => void remove(row.item)} hitSlop={10}>
                 <Ionicons name="close" size={18} color={row.item.status === 'completed' ? colors.muted : 'rgba(255,255,255,.85)'} />
               </PressableScale>
-            </PressableScale>
+            </View>
           )
         }
       />
@@ -138,31 +141,62 @@ export function ListsView({ lists, settings }: Props) {
         onClose={() => setShowAdd(false)}
         onCreated={() => { setShowAdd(false); void load(); }}
       />
+      <AddReminderModal
+        visible={!!editing}
+        settings={settings}
+        listEntityId={active?.entity_id}
+        editItem={editing ?? undefined}
+        onClose={() => setEditing(null)}
+        onCreated={() => { setEditing(null); void load(); }}
+      />
     </>
   );
 }
 
-// نافذة إضافة منفصلة (Popup) - عنوان + تاريخ + فئة، بدل حقل مضغوط جوه
-// الشاشة نفسها. نفس شكل نافذة إضافة الحدث في التقويم بالظبط.
+// نافذة إضافة/تعديل واحدة - لو editItem موجودة بتشتغل في وضع تعديل
+// (بتتملى بالقيم الحالية وبتحدّث العنصر الموجود بدل ما تضيف واحد
+// جديد). عنوان + ملاحظات + تاريخ استحقاق + فئة - نفس شكل نافذة
+// إضافة الحدث في التقويم بالظبط.
 function AddReminderModal({
-  visible, settings, listEntityId, onClose, onCreated,
-}: { visible: boolean; settings: ConnectionSettings; listEntityId?: string; onClose: () => void; onCreated: () => void }) {
+  visible, settings, listEntityId, editItem, onClose, onCreated,
+}: { visible: boolean; settings: ConnectionSettings; listEntityId?: string; editItem?: TodoItem; onClose: () => void; onCreated: () => void }) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [title, setTitle] = useState('');
+  const [notes, setNotes] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [category, setCategory] = useState(CATEGORIES[0]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
+
+  useEffect(() => {
+    if (!visible) return;
+    if (editItem) {
+      setTitle(stripCategoryEmoji(editItem.summary));
+      setNotes(editItem.description ?? '');
+      setDueDate(editItem.due?.slice(0, 10) ?? '');
+      setCategory(detectCategory(editItem.summary));
+    } else {
+      setTitle('');
+      setNotes('');
+      setDueDate('');
+      setCategory(CATEGORIES[0]);
+    }
+    setError(undefined);
+  }, [visible, editItem?.uid]);
 
   const submit = async () => {
     if (!listEntityId || !title.trim()) return;
     setSaving(true);
     setError(undefined);
     try {
-      await addTodoItem(settings, listEntityId, `${category.emoji} ${title.trim()}`, dueDate.trim() || undefined);
-      setTitle('');
-      setDueDate('');
+      const summary = `${category.emoji} ${title.trim()}`;
+      if (editItem) {
+        await updateTodoItemDetails(settings, listEntityId, editItem.uid, { summary, dueDate: dueDate.trim(), description: notes.trim() });
+      } else {
+        await addTodoItem(settings, listEntityId, summary, dueDate.trim() || undefined, notes.trim() || undefined);
+      }
       onCreated();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -174,33 +208,58 @@ function AddReminderModal({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalBackdrop}>
-        <View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>{i18n.t('newReminder')}</Text>
+        <ScrollView contentContainerStyle={{ width: '100%', alignItems: 'center' }}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>{editItem ? i18n.t('editReminder') : i18n.t('newReminder')}</Text>
 
-          <TextInput value={title} onChangeText={setTitle} placeholder={i18n.t('reminderTitle')} placeholderTextColor={colors.muted} style={styles.modalInput} />
+            <TextInput value={title} onChangeText={setTitle} placeholder={i18n.t('reminderTitle')} placeholderTextColor={colors.muted} style={styles.modalInput} />
 
-          <Text style={styles.muted}>{i18n.t('dueDateOptional')}</Text>
-          <TextInput value={dueDate} onChangeText={setDueDate} placeholder="2026-07-25" placeholderTextColor={colors.muted} style={styles.modalInput} keyboardType="numbers-and-punctuation" />
+            <Text style={styles.muted}>{i18n.t('notesOptional')}</Text>
+            <TextInput value={notes} onChangeText={setNotes} placeholder={i18n.t('notesPlaceholder')} placeholderTextColor={colors.muted} style={[styles.modalInput, { minHeight: 70, textAlignVertical: 'top' }]} multiline />
 
-          <Text style={styles.muted}>{i18n.t('category')}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catRow}>
-            {CATEGORIES.map(c => (
-              <PressableScale key={c.key} onPress={() => setCategory(c)} style={[styles.catChip, { borderColor: c.color }, category.key === c.key && { backgroundColor: c.color }]}>
-                <Text style={styles.catChipEmoji}>{c.emoji}</Text>
-                <Text style={[styles.catChipText, category.key === c.key && { color: '#fff' }]}>{categoryLabel(c.key)}</Text>
+            <Text style={styles.muted}>{i18n.t('dueDateOptional')}</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <PressableScale style={[styles.modalInput, { flex: 1 }]} onPress={() => setShowDatePicker(true)}>
+                <Text style={{ color: dueDate ? colors.text : colors.muted }}>{dueDate || i18n.t('selectDate')}</Text>
               </PressableScale>
-            ))}
-          </ScrollView>
+              {dueDate ? (
+                <PressableScale style={styles.clearDateBtn} onPress={() => setDueDate('')}>
+                  <Ionicons name="close" size={16} color={colors.muted} />
+                </PressableScale>
+              ) : null}
+            </View>
+            {showDatePicker ? (
+              <DateTimePicker
+                value={dueDate ? new Date(dueDate) : new Date()}
+                mode="date"
+                display="default"
+                onChange={(_event, selected) => {
+                  setShowDatePicker(false);
+                  if (selected) setDueDate(selected.toISOString().slice(0, 10));
+                }}
+              />
+            ) : null}
 
-          {error ? <Text style={styles.errorText} selectable>{error}</Text> : null}
+            <Text style={styles.muted}>{i18n.t('category')}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catRow}>
+              {CATEGORIES.map(c => (
+                <PressableScale key={c.key} onPress={() => setCategory(c)} style={[styles.catChip, { borderColor: c.color }, category.key === c.key && { backgroundColor: c.color }]}>
+                  <Text style={styles.catChipEmoji}>{c.emoji}</Text>
+                  <Text style={[styles.catChipText, category.key === c.key && { color: '#fff' }]}>{categoryLabel(c.key)}</Text>
+                </PressableScale>
+              ))}
+            </ScrollView>
 
-          <View style={styles.modalActions}>
-            <PressableScale style={styles.modalCancel} onPress={onClose}><Text style={styles.modalCancelText}>{i18n.t('cancel')}</Text></PressableScale>
-            <PressableScale style={[styles.modalSave, (!title.trim() || saving) && styles.modalSaveDisabled]} disabled={!title.trim() || saving} onPress={() => void submit()}>
-              <Text style={styles.modalSaveText}>{saving ? i18n.t('loading') : i18n.t('save')}</Text>
-            </PressableScale>
+            {error ? <Text style={styles.errorText} selectable>{error}</Text> : null}
+
+            <View style={styles.modalActions}>
+              <PressableScale style={styles.modalCancel} onPress={onClose}><Text style={styles.modalCancelText}>{i18n.t('cancel')}</Text></PressableScale>
+              <PressableScale style={[styles.modalSave, (!title.trim() || saving) && styles.modalSaveDisabled]} disabled={!title.trim() || saving} onPress={() => void submit()}>
+                <Text style={styles.modalSaveText}>{saving ? i18n.t('loading') : i18n.t('save')}</Text>
+              </PressableScale>
+            </View>
           </View>
-        </View>
+        </ScrollView>
       </View>
     </Modal>
   );
@@ -230,6 +289,7 @@ function makeStyles(colors: Palette) { return StyleSheet.create({
   modalCard: { width: '100%', maxWidth: 380, backgroundColor: colors.surface, borderRadius: 24, borderWidth: 1, borderColor: colors.border, padding: 20, gap: 10 },
   modalTitle: { color: colors.text, fontSize: 18, fontWeight: '900' },
   modalInput: { color: colors.text, backgroundColor: colors.surfaceElevated, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 10 },
+  clearDateBtn: { width: 42, borderRadius: 12, backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   catRow: { gap: 8, paddingVertical: 2 },
   catChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, borderWidth: 1.5, backgroundColor: colors.surfaceElevated },
   catChipEmoji: { fontSize: 15 },
