@@ -113,7 +113,7 @@ export function findTodoEntities(states: HaEntity[]): HaEntity[] {
 export type CalendarEvent = { summary: string; start: string; end: string; description?: string; location?: string; uid?: string };
 
 export async function getCalendarEvents(settings: ConnectionSettings, entityId: string, startISO: string, endISO: string): Promise<CalendarEvent[]> {
-  const res = await request(settings, `/api/calendar/${entityId}/events?start=${encodeURIComponent(startISO)}&end=${encodeURIComponent(endISO)}`);
+  const res = await request(settings, `/api/calendars/${entityId}?start=${encodeURIComponent(startISO)}&end=${encodeURIComponent(endISO)}`);
   return (await res.json()) as CalendarEvent[];
 }
 

@@ -64,14 +64,17 @@ export function ListsView({ lists, settings }: Props) {
     }
   };
 
+  const [addError, setAddError] = useState('');
   const add = async () => {
     const summary = draft.trim();
     if (!summary || !active) return;
     setDraft('');
+    setAddError('');
     try {
       await addTodoItem(settings, active.entity_id, summary);
       void load();
-    } catch {
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : String(e));
       void load();
     }
   };
@@ -125,10 +128,11 @@ export function ListsView({ lists, settings }: Props) {
               onSubmitEditing={() => void add()}
               returnKeyType="done"
             />
-            <PressableScale style={styles.addBtn} onPress={() => void add()}>
+            <PressableScale style={[styles.addBtn, !draft.trim() && styles.addBtnDisabled]} onPress={() => void add()}>
               <Ionicons name="add" size={22} color={colors.black} />
             </PressableScale>
           </View>
+          {addError ? <Text style={styles.errorText} selectable>{addError}</Text> : null}
           {loading ? <Text style={styles.muted}>{i18n.t('loading')}</Text> : null}
           {!loading && !rows.length ? <Text style={styles.muted}>{i18n.t('emptyList')}</Text> : null}
         </View>
@@ -167,6 +171,8 @@ function makeStyles(colors: Palette) { return StyleSheet.create({
   addRow: { flexDirection: 'row', gap: 10 },
   input: { flex: 1, color: colors.text, backgroundColor: colors.surfaceElevated, borderRadius: 14, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 12 },
   addBtn: { width: 46, height: 46, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  addBtnDisabled: { backgroundColor: colors.border },
+  errorText: { color: colors.danger, fontSize: 12 },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   noteCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: 14, marginBottom: 8 },
   noteText: { flex: 1, color: '#fff', fontWeight: '700', fontSize: 15 },
