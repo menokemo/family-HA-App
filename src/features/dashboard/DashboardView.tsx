@@ -43,17 +43,20 @@ export function DashboardView({ settings, dashboardPath }: Props) {
       };
       setBridgeJS(`
         (function () {
-          // نحقن CSS خام كأول حاجة ممكنة - ده بيتطبّق أسرع بكتير من أي
-          // حل جافاسكريبت (زي Kiosk Mode نفسها)، فمفيش أي "ومضة"
-          // للوجو/القوائم قبل ما تتخفي. عناصر HA دي (ha-sidebar،
-          // header الأساسي) بتاخد الوقت ده تتخفي بجافاسكريبت عادةً.
+          // الحل المعروف لمشكلة "Flash of Unstyled Content": بدل ما
+          // نحاول نخفي عناصر معيّنة (لو غلطنا في اسمها هتظهر لحظة)،
+          // بنخفي الصفحة كلها فورًا من أول لحظة (قبل أي رسم خالص)،
+          // ومنظهرهاش إلا لما نتأكد فعليًا إن القوائم اختفت. النتيجة:
+          // إما الداشبورد النضيف، وإلا شاشة سودا بينية - أبدًا أي
+          // ومضة للوجو أو القوائم.
           try {
-            var style = document.createElement('style');
-            style.textContent = 'ha-sidebar,partial-panel-resolver > ha-sidebar,app-drawer,.header,ha-top-app-bar-fixed,.toolbar,ha-menu-button{display:none !important;visibility:hidden !important;} ha-app-layout,hui-view,.content{margin:0 !important;padding:0 !important;}';
-            (document.head || document.documentElement).appendChild(style);
-            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '✅ CSS فوري اتحقن' }));
+            var hideStyle = document.createElement('style');
+            hideStyle.id = 'fha-hide-until-ready';
+            hideStyle.textContent = 'html{visibility:hidden !important;}';
+            (document.head || document.documentElement).appendChild(hideStyle);
+            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '✅ إخفاء فوري للصفحة كلها اتحقن' }));
           } catch (e) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '❌ فشل حقن CSS: ' + e }));
+            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '❌ فشل إخفاء الصفحة: ' + e }));
           }
           try {
             localStorage.setItem('hassTokens', ${JSON.stringify(JSON.stringify(tokens))});
@@ -71,12 +74,24 @@ export function DashboardView({ settings, dashboardPath }: Props) {
             var hidden = !sidebar || getComputedStyle(sidebar).display === 'none' || sidebar.hasAttribute('hidden');
             if (loginForm) window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '⚠️ صفحة تسجيل دخول ظاهرة!' }));
             if (hidden || Date.now() - start > 4000) {
+              try {
+                var s = document.getElementById('fha-hide-until-ready');
+                if (s) s.remove();
+                document.documentElement.style.visibility = 'visible';
+              } catch (e) {}
               window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'kiosk-ready' }));
             } else {
               setTimeout(check, 100);
             }
           };
           check();
+          setTimeout(function () {
+            try {
+              var s2 = document.getElementById('fha-hide-until-ready');
+              if (s2) s2.remove();
+              document.documentElement.style.visibility = 'visible';
+            } catch (e) {}
+          }, 5000);
         })();
         true;
       `);
