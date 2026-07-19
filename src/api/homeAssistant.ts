@@ -122,6 +122,23 @@ function normalizeEventDate(v: string | { dateTime?: string; date?: string }): s
   return v.dateTime ?? v.date ?? '';
 }
 
+export async function getCurrentUserId(settings: ConnectionSettings): Promise<string | undefined> {
+  try {
+    const result = (await wsCommand(settings, { type: 'auth/current_user' })) as { id?: string };
+    return result?.id;
+  } catch {
+    return undefined;
+  }
+}
+
+// كيانات person.* في HA ممكن تكون مربوطة بحساب مستخدم فعلي عن طريق
+// user_id في attributes. لو المستخدم مسجل دخول بحسابه هو نفسه (OAuth)،
+// نقدر نلاقي شخصه تلقائيًا من غير ما نطلب منه يختار يدويًا.
+export function findPersonByUserId(people: HaEntity[], userId?: string): HaEntity | undefined {
+  if (!userId) return undefined;
+  return people.find(p => p.attributes.user_id === userId);
+}
+
 export async function getCalendarEvents(settings: ConnectionSettings, entityId: string, startISO: string, endISO: string): Promise<CalendarEvent[]> {
   const res = await request(settings, `/api/calendars/${entityId}?start=${encodeURIComponent(startISO)}&end=${encodeURIComponent(endISO)}`);
   const raw = (await res.json()) as RawCalendarEvent[];

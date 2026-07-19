@@ -3,7 +3,7 @@ import { Alert, FlatList, I18nManager, Image, Modal, ScrollView, StatusBar, Styl
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useSirenPlayers } from './src/audio/useSirenPlayers';
-import { absoluteHaUrl, authHeaders, callAlarmoArm, callAlarmoDisarm, findAlarmoEntities, getStates, listDashboards, skipAlarmoDelay, testConnection, type DashboardInfo } from './src/api/homeAssistant';
+import { absoluteHaUrl, authHeaders, callAlarmoArm, callAlarmoDisarm, findAlarmoEntities, findPersonByUserId, getCurrentUserId, getStates, listDashboards, skipAlarmoDelay, testConnection, type DashboardInfo } from './src/api/homeAssistant';
 import { HomeAssistantSocket } from './src/api/socket';
 import { entitiesByIds, isProblemState, sensorIdsFromAlarm, supportedModes } from './src/features/alarmo/model';
 import { CameraBrowser } from './src/features/cameras/CameraBrowser';
@@ -64,6 +64,20 @@ function AppContent({themeMode,onThemeModeChange}:{themeMode:ThemeMode;onThemeMo
  useEffect(()=>{const players={classic,digital,pulse};const selected=players[settings.sirenTone??'classic'];for(const player of Object.values(players)){if(player!==selected){player.pause();player.seekTo(0);}}if(settings.sirenEnabled!==false&&alarm?.state==='triggered'&&!backgroundMonitorActive){selected.loop=true;selected.play();}else{selected.pause();selected.seekTo(0);}},[alarm?.state,settings.sirenEnabled,settings.sirenTone,classic,digital,pulse,backgroundMonitorActive]);
  const persist=async()=>{try{await testConnection(draft);const next={...draft,snapshotRefreshSeconds:Math.max(3,Number(draft.snapshotRefreshSeconds)||10)};await saveSettings(next);setSettings(next);await refresh(next);setDialog({title:i18n.t('saved'),tone:'info'});}catch(e){showError(e);}};
  const saveFieldImmediately=async(patch:Partial<ConnectionSettings>)=>{const next={...settings,...patch};await saveSettings(next);setSettings(next);setDraft(d=>({...d,...patch}));};
+
+ // لو مفيش شخص متحدد يدويًا لسه، نحاول نكتشفه تلقائي من حساب OAuth
+ // اللي المستخدم داخل بيه - كيانات person.* في HA بتترابط بحساب
+ // مستخدم عن طريق user_id، فمفيش داعي نطلب اختيار يدوي لو ممكن نعرفه
+ // بروحنا.
+ useEffect(()=>{
+  if(settings.selectedPersonId||!settings.baseUrl||!settings.token)return;
+  const allPeople=states.filter(x=>x.entity_id.startsWith('person.'));
+  if(!allPeople.length)return;
+  void getCurrentUserId(settings).then(userId=>{
+   const match=findPersonByUserId(allPeople,userId);
+   if(match)void saveFieldImmediately({selectedPersonId:match.entity_id});
+  }).catch(()=>undefined);
+ },[settings.baseUrl,settings.token,settings.selectedPersonId,states.length>0]);
  const arm=async(mode:string,force=false)=>{if(!alarm)return;pendingMode.current=mode;const perform=async()=>{try{await callAlarmoArm(settings,alarm.entity_id,mode,force);await refresh();}catch(e){await refresh().catch(()=>undefined);showError(e);}};if(settings.directStatusChange===false&&!force){setDialog({title:i18n.t('confirmAction'),message:i18n.t('confirmArm'),tone:'warning',confirmLabel:i18n.t('confirm'),onConfirm:()=>void perform()});}else await perform();};
  const performDisarm=async(code?:string)=>{if(!alarm)return;try{await callAlarmoDisarm(settings,alarm.entity_id,code);setShowPinKeypad(false);await refresh();}catch(e){showError(e);}};
  const disarm=()=>{if(!alarm)return;if(!settings.alarmCode.trim()){setShowPinKeypad(true);return;}if(settings.directStatusChange===false){setDialog({title:i18n.t('confirmAction'),message:i18n.t('confirmDisarm'),tone:'warning',confirmLabel:i18n.t('confirm'),onConfirm:()=>void performDisarm()});}else void performDisarm();};
