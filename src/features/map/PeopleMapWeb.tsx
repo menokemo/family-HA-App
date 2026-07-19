@@ -15,7 +15,7 @@ type Point = { id: string; name: string; lat: number; lng: number; picture?: str
 
 // نغيّر الرقم ده لو عملنا تعديل جوهري في mapHtml، عشان نجبر الـ WebView
 // يعمل remount كامل بدل ما يحاول يحدّث المحتوى القديم في مكانه.
-const MAP_TEMPLATE_VERSION = 'v9-timeline';
+const MAP_TEMPLATE_VERSION = 'v10-satellite';
 
 const coord = (e: HaEntity) => ({ latitude: Number(e.attributes.latitude), longitude: Number(e.attributes.longitude) });
 
@@ -164,6 +164,11 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
     webRef.current?.injectJavaScript(`window.${showPlaces ? 'showPlaces' : 'hidePlaces'} && window.${showPlaces ? 'showPlaces' : 'hidePlaces'}(); true;`);
   }, [showPlaces]);
 
+  const [satelliteOn, setSatelliteOn] = useState(false);
+  useEffect(() => {
+    webRef.current?.injectJavaScript(`window.toggleSatellite && window.toggleSatellite(${satelliteOn}); true;`);
+  }, [satelliteOn]);
+
   if (!people.length) return <View style={s.empty}><Text style={s.muted}>{i18n.t('noPeople')}</Text></View>;
 
   const navigate = (p: HaEntity) => {
@@ -201,7 +206,7 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
             g.__familyHaLog?.('trace', [e.nativeEvent.data]);
             return;
           }
-          if (e.nativeEvent.data.startsWith('JS_ERROR:') || e.nativeEvent.data.startsWith('MAP_ERROR:') || e.nativeEvent.data.startsWith('HOUSENUM_ERR:')) {
+          if (e.nativeEvent.data.startsWith('JS_ERROR:') || e.nativeEvent.data.startsWith('MAP_ERROR:') || e.nativeEvent.data.startsWith('HOUSENUM_ERR:') || e.nativeEvent.data.startsWith('SAT_ERR:')) {
             const g = globalThis as unknown as { __familyHaLog?: (level: string, args: unknown[]) => void };
             g.__familyHaLog?.('warn', [e.nativeEvent.data]);
             return;
@@ -217,6 +222,10 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
         }}
         style={s.web}
       />
+
+      <PressableScale style={[s.satelliteToggle, satelliteOn && s.satelliteToggleActive]} onPress={() => setSatelliteOn(v => !v)}>
+        <Ionicons name="globe-outline" size={18} color={satelliteOn ? colors.black : colors.text} />
+      </PressableScale>
 
       <View style={s.topBar} pointerEvents="box-none">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.avatarRow}>
@@ -312,6 +321,20 @@ const b=new maplibregl.LngLatBounds();
 const markers={};
 map.on('load',()=>{
 try{map.addLayer({id:'housenumbers',type:'symbol',source:'openmaptiles','source-layer':'housenumber',minzoom:17,layout:{'text-field':['get','housenumber'],'text-size':10,'text-font':['Noto Sans Regular']},paint:{'text-color':'#3a4a5c','text-halo-color':'#ffffff','text-halo-width':1.3}});}catch(e){window.ReactNativeWebView.postMessage('HOUSENUM_ERR:'+String(e));}
+
+// طبقة قمر صناعي مجانية بالكامل (Esri World Imagery، من غير مفتاح
+// API) - بتتحط فوق خلفية الخريطة مباشرة وتحت الطرق/المباني/الأسماء،
+// فبتبقى "هجينة" (صور حقيقية + خطوط الطرق فوقها للمرجعية) زي وضع
+// Hybrid في خرائط جوجل. الإمالة والدوران بتاعت الكاميرا شغالين
+// بنفس الطريقة بغض النظر عن الطبقة دي - مش مرتبطين بيها خالص.
+try{
+  map.addSource('satellite-src',{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],tileSize:256,attribution:'Esri'});
+  const firstSymbolLayer=map.getStyle().layers.find(l=>l.type==='symbol'||l.type==='line'||l.type==='fill-extrusion');
+  map.addLayer({id:'satellite-layer',type:'raster',source:'satellite-src',layout:{visibility:'none'},paint:{'raster-opacity':1}},firstSymbolLayer?firstSymbolLayer.id:undefined);
+}catch(e){window.ReactNativeWebView.postMessage('SAT_ERR:'+String(e));}
+window.toggleSatellite=function(on){
+  if(map.getLayer('satellite-layer'))map.setLayoutProperty('satellite-layer','visibility',on?'visible':'none');
+};
 ${home ? `{const el=document.createElement('div');el.innerHTML='<div class="home">⌂</div>';new maplibregl.Marker({element:el.firstChild}).setLngLat([${home.lng},${home.lat}]).setPopup(new maplibregl.Popup({offset:24,closeButton:false}).setText(\`${esc(home.name)}\`)).addTo(map);b.extend([${home.lng},${home.lat}]);}` : ''}
 ${points
   .map(
@@ -413,6 +436,8 @@ const s = StyleSheet.create({
   timelineBadge: { position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.warning, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.surface },
   timelineHint: { color: colors.muted, fontSize: 11, marginBottom: 8 },
   placesToggle: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(16,24,38,.94)', borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  satelliteToggle: { position: 'absolute', zIndex: 5, bottom: 100, right: 14, width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(16,24,38,.9)', borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  satelliteToggleActive: { backgroundColor: colors.primary },
   placesToggleActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   sheet: { position: 'absolute', left: 14, right: 14, bottom: 14, backgroundColor: colors.surface, borderRadius: 24, borderWidth: 1, borderColor: colors.border, padding: 16, elevation: 8 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
