@@ -147,10 +147,18 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
     picture: avatars[p.entity_id],
   }));
 
-  const html = useMemo(
-    () => mapHtml(points, home ? { lat: Number(home.attributes.latitude), lng: Number(home.attributes.longitude), name: String(home.attributes.friendly_name ?? 'Home') } : undefined),
-    [JSON.stringify(points), home?.attributes.latitude, home?.attributes.longitude],
+  // بنولّد الـ HTML مرة واحدة بس (أول ظهور) ومنعملوش refresh تاني -
+  // أي تحديث لاحق لمواقع الأشخاص بيتبعت بـ updateMarkers() جوه
+  // الصفحة نفسها (injectJavaScript) بدل إعادة تحميل الصفحة بالكامل،
+  // اللي كانت بتعمل وميض/إعادة ضبط لأي حالة مؤقتة زي وضع القمر
+  // الصناعي المفعّل.
+  const [html] = useState(() =>
+    mapHtml(points, home ? { lat: Number(home.attributes.latitude), lng: Number(home.attributes.longitude), name: String(home.attributes.friendly_name ?? 'Home') } : undefined),
   );
+  const pointsKey = JSON.stringify(points.map(p => [p.id, p.lat, p.lng]));
+  useEffect(() => {
+    webRef.current?.injectJavaScript(`window.updateMarkers && window.updateMarkers(${JSON.stringify(JSON.stringify(points))}); true;`);
+  }, [pointsKey]);
 
   const focusPerson = (person: HaEntity) => {
     setSelected(person);
@@ -192,7 +200,7 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
   return (
     <View style={s.screen}>
       <WebView
-        key={`${MAP_TEMPLATE_VERSION}:${points.length}:${home ? '1' : '0'}`}
+        key={MAP_TEMPLATE_VERSION}
         ref={webRef}
         source={{ html }}
         originWhitelist={['*']}
@@ -344,6 +352,22 @@ ${points
 if(!b.isEmpty())map.fitBounds(b,{padding:70,maxZoom:17,duration:0});
 });
 window.focusPerson=function(id){const m=markers[id];if(!m)return;map.flyTo({center:m.getLngLat(),zoom:17,pitch:55,duration:800});m.togglePopup();};
+
+// بيحدّث مواقع العلامات الموجودة (وبيضيف/يشيل لو حد اتضاف أو اختفى)
+// من غير إعادة تحميل الصفحة كلها خالص - قبل كده كنا بنغيّر "key"
+// الـWebView كل ما عدد الأشخاص يتغيّر (حتى تذبذب مؤقت بسيط في GPS)،
+// وده كان بيعمل إعادة تحميل كاملة (وميض + فقدان أي حالة مؤقتة زي
+// وضع القمر الصناعي المفعّل).
+window.updateMarkers=function(pointsJson){
+  const pts=JSON.parse(pointsJson);
+  const seen={};
+  pts.forEach(p=>{
+    seen[p.id]=true;
+    const m=markers[p.id];
+    if(m){m.setLngLat([p.lng,p.lat]);}
+  });
+  Object.keys(markers).forEach(id=>{if(!seen[id]){markers[id].remove();delete markers[id];}});
+};
 
 let routeAbort=null;
 window.showRoute=async function(fromLng,fromLat,toLng,toLat){
