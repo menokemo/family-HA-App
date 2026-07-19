@@ -49,15 +49,28 @@ export function DashboardView({ settings, dashboardPath }: Props) {
           // ومنظهرهاش إلا لما نتأكد فعليًا إن القوائم اختفت. النتيجة:
           // إما الداشبورد النضيف، وإلا شاشة سودا بينية - أبدًا أي
           // ومضة للوجو أو القوائم.
-          try {
-            var hideStyle = document.createElement('style');
-            hideStyle.id = 'fha-hide-until-ready';
-            hideStyle.textContent = 'html{visibility:hidden !important;}';
-            (document.head || document.documentElement).appendChild(hideStyle);
-            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '✅ إخفاء فوري للصفحة كلها اتحقن' }));
-          } catch (e) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '❌ فشل إخفاء الصفحة: ' + e }));
-          }
+          // documentElement ممكن متكونش موجودة لسه في اللحظة دي بالظبط
+          // (توقيت مبكر جدًا قبل ما المتصفح يبدأ يرسم الصفحة الحقيقية)
+          // - بنعيد المحاولة كل 5ms لحد ما تبقى موجودة فعليًا، بدل ما
+          // نفشل مرة واحدة ونسيبها.
+          var hideAttempts = 0;
+          var tryHide = function () {
+            hideAttempts++;
+            if (document.documentElement) {
+              try {
+                var hideStyle = document.createElement('style');
+                hideStyle.id = 'fha-hide-until-ready';
+                hideStyle.textContent = 'html{visibility:hidden !important;}';
+                (document.head || document.documentElement).appendChild(hideStyle);
+                window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '✅ إخفاء فوري اتحقن (محاولة ' + hideAttempts + ')' }));
+                return;
+              } catch (e) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '❌ فشل إخفاء الصفحة: ' + e }));
+              }
+            }
+            if (hideAttempts < 100) setTimeout(tryHide, 5);
+          };
+          tryHide();
           try {
             localStorage.setItem('hassTokens', ${JSON.stringify(JSON.stringify(tokens))});
             window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '✅ hassTokens اتحقنت، طول القيمة: ' + localStorage.getItem('hassTokens').length }));
