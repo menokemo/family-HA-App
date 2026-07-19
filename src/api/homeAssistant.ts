@@ -187,8 +187,10 @@ export async function getTodoItems(settings: ConnectionSettings, entityId: strin
   return result?.response?.[entityId]?.items ?? [];
 }
 
-export async function addTodoItem(settings: ConnectionSettings, entityId: string, summary: string): Promise<void> {
-  await request(settings, '/api/services/todo/add_item', { method: 'POST', body: JSON.stringify({ entity_id: entityId, item: summary }) });
+export async function addTodoItem(settings: ConnectionSettings, entityId: string, summary: string, dueDate?: string): Promise<void> {
+  const data: Record<string, unknown> = { entity_id: entityId, item: summary };
+  if (dueDate) data.due_date = dueDate;
+  await request(settings, '/api/services/todo/add_item', { method: 'POST', body: JSON.stringify(data) });
 }
 
 export async function setTodoItemStatus(settings: ConnectionSettings, entityId: string, uid: string, status: 'needs_action' | 'completed'): Promise<void> {
