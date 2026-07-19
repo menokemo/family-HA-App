@@ -16,7 +16,8 @@ export function FamilyTab({ states, settings }: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const [screen, setScreen] = useState<Screen>('hub');
-  const calendars = findCalendarEntities(states);
+  const allCalendars = findCalendarEntities(states);
+  const calendars = settings.selectedCalendarIds ? allCalendars.filter(c => settings.selectedCalendarIds!.includes(c.entity_id)) : allCalendars;
   const lists = findTodoEntities(states);
   const [eventCount, setEventCount] = useState<number | null>(null);
   const [itemCount, setItemCount] = useState<number | null>(null);

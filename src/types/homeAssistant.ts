@@ -24,6 +24,7 @@ export interface ConnectionSettings {
   biometricDisarmEnabled?: boolean;
   selectedDashboardPath?: string;
   zoneWatchPersonIds?: string[];
+  selectedCalendarIds?: string[];
   selectedPersonId?: string;
 }
 export interface AlarmoEvent {

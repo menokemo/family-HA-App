@@ -18,6 +18,15 @@ function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 
 function endOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59); }
 function isSameDay(a: Date, b: Date) { return a.toDateString() === b.toDateString(); }
 function dayKey(d: Date) { return d.toISOString().slice(0, 10); }
+// الأحداث "طول اليوم" (زي أعياد الميلاد) بتيجي من HA كتاريخ بس بدون
+// وقت (YYYY-MM-DD) - تحويلها بـ new Date() وبعدين toISOString()
+// بيفسّرها كمنتصف ليل UTC، وده ممكن يزيحها ليوم غلط حسب توقيت
+// المستخدم المحلي. لو النص أصلًا بصيغة تاريخ بس، بنستخدمه زي ما هو
+// من غير أي تحويل توقيت خالص.
+function eventDayKey(startString: string) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(startString)) return startString;
+  return dayKey(new Date(startString));
+}
 function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
 
 // نطاق تحميل واحد واسع (أسبوع للوراء لغاية 6 أسابيع قدام) بيغطي شريط
@@ -58,7 +67,7 @@ export function CalendarView({ calendars, settings }: Props) {
   const eventsByDay = useMemo(() => {
     const map = new Map<string, Event[]>();
     for (const e of events) {
-      const key = dayKey(new Date(e.start));
+      const key = eventDayKey(e.start);
       map.set(key, [...(map.get(key) ?? []), e]);
     }
     return map;
@@ -142,7 +151,7 @@ export function CalendarView({ calendars, settings }: Props) {
               <Text style={styles.eventBlockIcon}>{isBirthday(e.summary) ? '🎂' : '📌'}</Text>
               <View style={{ flex: 1 }}>
                 <Text style={styles.eventBlockTitle} numberOfLines={2}>{e.summary}</Text>
-                <Text style={styles.eventBlockMeta}>{e.calendarName} · {new Date(e.start).toLocaleTimeString(i18n.locale, { hour: '2-digit', minute: '2-digit' })}</Text>
+                <Text style={styles.eventBlockMeta}>{e.calendarName} · {/^\d{4}-\d{2}-\d{2}$/.test(e.start) ? i18n.t('allDay') : new Date(e.start).toLocaleTimeString(i18n.locale, { hour: '2-digit', minute: '2-digit' })}</Text>
               </View>
             </View>
           ))}
