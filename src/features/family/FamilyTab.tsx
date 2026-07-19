@@ -20,9 +20,14 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
   const [showCalendarSettings, setShowCalendarSettings] = useState(false);
   const [showListSettings, setShowListSettings] = useState(false);
   const allCalendars = findCalendarEntities(states);
-  const calendars = settings.selectedCalendarIds?.length ? allCalendars.filter(c => settings.selectedCalendarIds!.includes(c.entity_id)) : allCalendars;
+  const filteredCalendars = settings.selectedCalendarIds?.length ? allCalendars.filter(c => settings.selectedCalendarIds!.includes(c.entity_id)) : allCalendars;
+  // لو الاختيار المحفوظ بقى مش متطابق مع أي تقويم حالي (IDs قديمة من
+  // تجربة سابقة مثلًا)، الفلترة هترجع فاضية رغم وجود تقاويم فعليًا -
+  // نرجع نعرض الكل بدل ما تفضل الشاشة فاضية بشكل مربك للمستخدم.
+  const calendars = filteredCalendars.length > 0 || allCalendars.length === 0 ? filteredCalendars : allCalendars;
   const allLists = findTodoEntities(states);
-  const lists = settings.selectedTodoIds?.length ? allLists.filter(l => settings.selectedTodoIds!.includes(l.entity_id)) : allLists;
+  const filteredLists = settings.selectedTodoIds?.length ? allLists.filter(l => settings.selectedTodoIds!.includes(l.entity_id)) : allLists;
+  const lists = filteredLists.length > 0 || allLists.length === 0 ? filteredLists : allLists;
   const [eventCount, setEventCount] = useState<number | null>(null);
   const [itemCount, setItemCount] = useState<number | null>(null);
   const calendarKey = calendars.map(c => c.entity_id).sort().join('|');
