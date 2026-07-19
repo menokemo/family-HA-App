@@ -20,9 +20,9 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
   const [showCalendarSettings, setShowCalendarSettings] = useState(false);
   const [showListSettings, setShowListSettings] = useState(false);
   const allCalendars = findCalendarEntities(states);
-  const calendars = settings.selectedCalendarIds ? allCalendars.filter(c => settings.selectedCalendarIds!.includes(c.entity_id)) : allCalendars;
+  const calendars = settings.selectedCalendarIds?.length ? allCalendars.filter(c => settings.selectedCalendarIds!.includes(c.entity_id)) : allCalendars;
   const allLists = findTodoEntities(states);
-  const lists = settings.selectedTodoIds ? allLists.filter(l => settings.selectedTodoIds!.includes(l.entity_id)) : allLists;
+  const lists = settings.selectedTodoIds?.length ? allLists.filter(l => settings.selectedTodoIds!.includes(l.entity_id)) : allLists;
   const [eventCount, setEventCount] = useState<number | null>(null);
   const [itemCount, setItemCount] = useState<number | null>(null);
   const calendarKey = calendars.map(c => c.entity_id).sort().join('|');
@@ -59,7 +59,7 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
           title={i18n.t('calendarSettings')}
           hint={i18n.t('calendarSettingsHint')}
           entities={allCalendars}
-          selectedIds={settings.selectedCalendarIds ?? allCalendars.map(c => c.entity_id)}
+          selectedIds={settings.selectedCalendarIds?.length ? settings.selectedCalendarIds : allCalendars.map(c => c.entity_id)}
           onClose={() => setShowCalendarSettings(false)}
           onSave={ids => { onSettingsChange({ selectedCalendarIds: ids }); setShowCalendarSettings(false); }}
         />
@@ -76,7 +76,7 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
           title={i18n.t('listSettings')}
           hint={i18n.t('listSettingsHint')}
           entities={allLists}
-          selectedIds={settings.selectedTodoIds ?? allLists.map(l => l.entity_id)}
+          selectedIds={settings.selectedTodoIds?.length ? settings.selectedTodoIds : allLists.map(l => l.entity_id)}
           onClose={() => setShowListSettings(false)}
           onSave={ids => { onSettingsChange({ selectedTodoIds: ids }); setShowListSettings(false); }}
         />
