@@ -43,6 +43,18 @@ export function DashboardView({ settings, dashboardPath }: Props) {
       };
       setBridgeJS(`
         (function () {
+          // نحقن CSS خام كأول حاجة ممكنة - ده بيتطبّق أسرع بكتير من أي
+          // حل جافاسكريبت (زي Kiosk Mode نفسها)، فمفيش أي "ومضة"
+          // للوجو/القوائم قبل ما تتخفي. عناصر HA دي (ha-sidebar،
+          // header الأساسي) بتاخد الوقت ده تتخفي بجافاسكريبت عادةً.
+          try {
+            var style = document.createElement('style');
+            style.textContent = 'ha-sidebar,partial-panel-resolver > ha-sidebar,app-drawer,.header,ha-top-app-bar-fixed,.toolbar,ha-menu-button{display:none !important;visibility:hidden !important;} ha-app-layout,hui-view,.content{margin:0 !important;padding:0 !important;}';
+            (document.head || document.documentElement).appendChild(style);
+            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '✅ CSS فوري اتحقن' }));
+          } catch (e) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '❌ فشل حقن CSS: ' + e }));
+          }
           try {
             localStorage.setItem('hassTokens', ${JSON.stringify(JSON.stringify(tokens))});
             window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '✅ hassTokens اتحقنت، طول القيمة: ' + localStorage.getItem('hassTokens').length }));
