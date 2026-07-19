@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { colors } from '../../theme';
+import { useTheme, type Palette } from '../../theme';
 import { i18n } from '../../i18n';
 import { addTodoItem, getTodoItems, removeTodoItem, setTodoItemStatus, type TodoItem } from '../../api/homeAssistant';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
@@ -18,6 +18,8 @@ const noteColor = (uid: string) => {
 };
 
 export function ListsView({ lists, settings }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [activeId, setActiveId] = useState(lists[0]?.entity_id);
   const [items, setItems] = useState<TodoItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -153,7 +155,7 @@ export function ListsView({ lists, settings }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: Palette) { return StyleSheet.create({
   card: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 20, padding: 16 },
   listContent: { padding: 16, paddingBottom: 32 },
   muted: { color: colors.muted },
@@ -173,4 +175,4 @@ const styles = StyleSheet.create({
   itemText: { flex: 1, color: colors.text, fontSize: 15 },
   itemTextDone: { color: colors.muted, textDecorationLine: 'line-through' },
   doneLabel: { color: colors.muted, fontWeight: '800', fontSize: 12, marginTop: 10, marginBottom: 4 },
-});
+}); }

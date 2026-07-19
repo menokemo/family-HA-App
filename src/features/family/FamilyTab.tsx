@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { colors } from '../../theme';
+import { useTheme, type Palette } from '../../theme';
 import { i18n } from '../../i18n';
 import { findCalendarEntities, findTodoEntities, getCalendarEvents, getTodoItems } from '../../api/homeAssistant';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
@@ -13,6 +13,8 @@ type Props = { states: HaEntity[]; settings: ConnectionSettings };
 type Screen = 'hub' | 'calendar' | 'lists';
 
 export function FamilyTab({ states, settings }: Props) {
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   const [screen, setScreen] = useState<Screen>('hub');
   const calendars = findCalendarEntities(states);
   const lists = findTodoEntities(states);
@@ -83,6 +85,8 @@ export function FamilyTab({ states, settings }: Props) {
 }
 
 function BackHeader({ title, onBack }: { title: string; onBack: () => void }) {
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={s.backHeader}>
       <PressableScale onPress={onBack} style={s.backBtn}><Ionicons name="chevron-back" size={22} color={colors.text} /></PressableScale>
@@ -92,6 +96,8 @@ function BackHeader({ title, onBack }: { title: string; onBack: () => void }) {
 }
 
 function Tile({ icon, color, title, subtitle, onPress }: { icon: string; color: string; title: string; subtitle: string; onPress: () => void }) {
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   return (
     <PressableScale style={s.tile} onPress={onPress}>
       <View style={[s.tileIcon, { backgroundColor: color + '26' }]}>
@@ -103,7 +109,7 @@ function Tile({ icon, color, title, subtitle, onPress }: { icon: string; color: 
   );
 }
 
-const s = StyleSheet.create({
+function makeStyles(colors: Palette) { return StyleSheet.create({
   hub: { padding: 16, gap: 16 },
   hubTitle: { color: colors.text, fontSize: 26, fontWeight: '800' },
   tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
@@ -115,4 +121,4 @@ const s = StyleSheet.create({
   backBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
   backTitle: { color: colors.text, fontSize: 20, fontWeight: '800' },
   content: { padding: 16, gap: 14 },
-});
+}); }

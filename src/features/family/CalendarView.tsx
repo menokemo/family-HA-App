@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Modal, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Card } from '../../components/Card';
-import { colors } from '../../theme';
+import { useTheme, type Palette } from '../../theme';
 import { i18n } from '../../i18n';
 import { createCalendarEvent, getCalendarEvents, type CalendarEvent } from '../../api/homeAssistant';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
@@ -20,6 +20,8 @@ function isSameDay(a: Date, b: Date) { return a.toDateString() === b.toDateStrin
 function dayKey(d: Date) { return d.toISOString().slice(0, 10); }
 
 export function CalendarView({ calendars, settings }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [mode, setMode] = useState<ViewMode>('agenda');
   const [monthCursor, setMonthCursor] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
@@ -151,6 +153,8 @@ function isBirthday(summary: string) {
 }
 
 function MonthGrid({ cursor, eventsByDay, selectedDay, onSelect }: { cursor: Date; eventsByDay: Map<string, Event[]>; selectedDay: Date; onSelect: (d: Date) => void }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const first = startOfMonth(cursor);
   const startOffset = first.getDay();
   const daysInMonth = endOfMonth(cursor).getDate();
@@ -188,6 +192,8 @@ function AddEventModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [summary, setSummary] = useState('');
   const [calendarId, setCalendarId] = useState(calendars[0]?.entity_id);
   const [startTime, setStartTime] = useState('09:00');
@@ -266,7 +272,7 @@ function AddEventModal({
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: Palette) { return StyleSheet.create({
   muted: { color: colors.muted },
   toggleRow: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: 14, padding: 4, gap: 4 },
   toggleBtn: { flex: 1, padding: 9, alignItems: 'center', borderRadius: 10 },
@@ -311,4 +317,4 @@ const styles = StyleSheet.create({
   modalSave: { flex: 1, padding: 13, borderRadius: 13, backgroundColor: colors.primary, alignItems: 'center' },
   modalSaveDisabled: { opacity: 0.5 },
   modalSaveText: { color: colors.black, fontWeight: '900' },
-});
+}); }
