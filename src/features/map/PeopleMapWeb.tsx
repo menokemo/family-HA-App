@@ -15,7 +15,7 @@ type Point = { id: string; name: string; lat: number; lng: number; picture?: str
 
 // نغيّر الرقم ده لو عملنا تعديل جوهري في mapHtml، عشان نجبر الـ WebView
 // يعمل remount كامل بدل ما يحاول يحدّث المحتوى القديم في مكانه.
-const MAP_TEMPLATE_VERSION = 'v10-satellite';
+const MAP_TEMPLATE_VERSION = 'v11-live-photo';
 
 const coord = (e: HaEntity) => ({ latitude: Number(e.attributes.latitude), longitude: Number(e.attributes.longitude) });
 
@@ -364,7 +364,15 @@ window.updateMarkers=function(pointsJson){
   pts.forEach(p=>{
     seen[p.id]=true;
     const m=markers[p.id];
-    if(m){m.setLngLat([p.lng,p.lat]);}
+    if(m){
+      m.setLngLat([p.lng,p.lat]);
+      const el=m.getElement();
+      const photoEl=el&&el.querySelector('.pin-photo');
+      if(photoEl&&photoEl.getAttribute('data-pic')!==(p.picture||'')){
+        photoEl.setAttribute('data-pic',p.picture||'');
+        photoEl.innerHTML=p.picture?('<img src="'+p.picture+'">'):('<div class="pin-initial">'+(p.name?p.name.slice(0,1).toUpperCase():'?')+'</div>');
+      }
+    }
   });
   Object.keys(markers).forEach(id=>{if(!seen[id]){markers[id].remove();delete markers[id];}});
 };
