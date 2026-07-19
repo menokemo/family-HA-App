@@ -111,10 +111,23 @@ export function findTodoEntities(states: HaEntity[]): HaEntity[] {
 }
 
 export type CalendarEvent = { summary: string; start: string; end: string; description?: string; location?: string; uid?: string };
+type RawCalendarEvent = { summary: string; start: string | { dateTime?: string; date?: string }; end: string | { dateTime?: string; date?: string }; description?: string; location?: string; uid?: string };
+
+// HA بترجع start/end كـ string مباشر في بعض الإصدارات، وككائن
+// {dateTime:...} أو {date:...} (للأحداث طول اليوم) في إصدارات تانية.
+// من غير التطبيع ده، new Date() على كائن كامل بيرجع تاريخ غير صالح
+// ("Invalid Date") ويكسّر التطبيق بالكامل.
+function normalizeEventDate(v: string | { dateTime?: string; date?: string }): string {
+  if (typeof v === 'string') return v;
+  return v.dateTime ?? v.date ?? '';
+}
 
 export async function getCalendarEvents(settings: ConnectionSettings, entityId: string, startISO: string, endISO: string): Promise<CalendarEvent[]> {
   const res = await request(settings, `/api/calendars/${entityId}?start=${encodeURIComponent(startISO)}&end=${encodeURIComponent(endISO)}`);
-  return (await res.json()) as CalendarEvent[];
+  const raw = (await res.json()) as RawCalendarEvent[];
+  return raw
+    .map(e => ({ ...e, start: normalizeEventDate(e.start), end: normalizeEventDate(e.end) }))
+    .filter(e => e.start);
 }
 
 export async function createCalendarEvent(settings: ConnectionSettings, entityId: string, data: { summary: string; start_date_time: string; end_date_time: string; description?: string; location?: string }): Promise<void> {

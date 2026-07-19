@@ -23,9 +23,11 @@ function dayKey(d: Date) { return d.toISOString().slice(0, 10); }
 // بيفسّرها كمنتصف ليل UTC، وده ممكن يزيحها ليوم غلط حسب توقيت
 // المستخدم المحلي. لو النص أصلًا بصيغة تاريخ بس، بنستخدمه زي ما هو
 // من غير أي تحويل توقيت خالص.
-function eventDayKey(startString: string) {
+function eventDayKey(startString: string): string | null {
   if (/^\d{4}-\d{2}-\d{2}$/.test(startString)) return startString;
-  return dayKey(new Date(startString));
+  const d = new Date(startString);
+  if (Number.isNaN(d.getTime())) return null;
+  return dayKey(d);
 }
 function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
 
@@ -73,6 +75,7 @@ export function CalendarView({ calendars, settings }: Props) {
     const map = new Map<string, Event[]>();
     for (const e of events) {
       const key = eventDayKey(e.start);
+      if (!key) continue;
       map.set(key, [...(map.get(key) ?? []), e]);
     }
     return map;
