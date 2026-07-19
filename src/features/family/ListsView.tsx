@@ -10,6 +10,13 @@ import { PressableScale } from '../../components/PressableScale';
 type Props = { lists: HaEntity[]; settings: ConnectionSettings };
 type Row = { kind: 'item'; item: TodoItem } | { kind: 'header'; count: number };
 
+const NOTE_COLORS = ['#F5A623', '#3D5FEF', '#00B894', '#E64C7A', '#9B59B6', '#17A2B8'];
+const noteColor = (uid: string) => {
+  let hash = 0;
+  for (let i = 0; i < uid.length; i++) hash = (hash * 31 + uid.charCodeAt(i)) >>> 0;
+  return NOTE_COLORS[hash % NOTE_COLORS.length];
+};
+
 export function ListsView({ lists, settings }: Props) {
   const [activeId, setActiveId] = useState(lists[0]?.entity_id);
   const [items, setItems] = useState<TodoItem[]>([]);
@@ -128,13 +135,16 @@ export function ListsView({ lists, settings }: Props) {
         row.kind === 'header' ? (
           <Text style={styles.doneLabel}>{i18n.t('completed')} · {row.count}</Text>
         ) : (
-          <PressableScale style={styles.itemRow} onPress={() => void toggle(row.item)}>
+          <PressableScale
+            style={[styles.noteCard, { backgroundColor: row.item.status === 'completed' ? colors.surfaceElevated : noteColor(row.item.uid) }]}
+            onPress={() => void toggle(row.item)}
+          >
             <View style={[styles.checkbox, row.item.status === 'completed' && styles.checkboxDone]}>
               {row.item.status === 'completed' ? <Ionicons name="checkmark" size={13} color={colors.black} /> : null}
             </View>
-            <Text style={[styles.itemText, row.item.status === 'completed' && styles.itemTextDone]}>{row.item.summary}</Text>
+            <Text style={[styles.noteText, row.item.status === 'completed' && styles.itemTextDone]} numberOfLines={4}>{row.item.summary}</Text>
             <PressableScale onPress={() => void remove(row.item)} hitSlop={10}>
-              <Ionicons name="close" size={18} color={colors.muted} />
+              <Ionicons name="close" size={18} color={row.item.status === 'completed' ? colors.muted : 'rgba(255,255,255,.85)'} />
             </PressableScale>
           </PressableScale>
         )
@@ -156,7 +166,9 @@ const styles = StyleSheet.create({
   input: { flex: 1, color: colors.text, backgroundColor: colors.surfaceElevated, borderRadius: 14, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 12 },
   addBtn: { width: 46, height: 46, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  noteCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, padding: 14, marginBottom: 8 },
+  noteText: { flex: 1, color: '#fff', fontWeight: '700', fontSize: 15 },
+  checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: 'rgba(255,255,255,.7)', alignItems: 'center', justifyContent: 'center' },
   checkboxDone: { backgroundColor: colors.safe, borderColor: colors.safe },
   itemText: { flex: 1, color: colors.text, fontSize: 15 },
   itemTextDone: { color: colors.muted, textDecorationLine: 'line-through' },

@@ -12,7 +12,7 @@ type Props = { calendars: HaEntity[]; settings: ConnectionSettings };
 type ViewMode = 'agenda' | 'month';
 type Event = CalendarEvent & { color: string; calendarName: string };
 
-const PALETTE = [colors.primary, colors.safe, colors.warning, colors.danger, '#B37FEB', '#FF9F6B'];
+const PALETTE = ['#E64C7A', '#3D5FEF', '#00B894', '#F5A623', '#9B59B6', '#FF6B4A', '#17A2B8', '#E74C3C'];
 
 function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
 function endOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59); }
@@ -95,22 +95,30 @@ export function CalendarView({ calendars, settings }: Props) {
       {loading ? <Card><Text style={styles.muted}>{i18n.t('loading')}</Text></Card> : null}
 
       {mode === 'agenda' ? (
-        agendaDays.map(day => {
+        agendaDays.map((day, dayIndex) => {
           const list = eventsByDay.get(dayKey(day)) ?? [];
           if (!list.length) return null;
+          const isToday = dayIndex === 0;
           return (
-            <Card key={dayKey(day)}>
-              <Text style={styles.dayTitle}>{day.toLocaleDateString(i18n.locale, { weekday: 'long', day: 'numeric', month: 'short' })}</Text>
-              {list.map((e, i) => (
-                <View key={i} style={styles.eventRow}>
-                  <View style={[styles.eventDot, { backgroundColor: e.color }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.eventTitle}>{e.summary}</Text>
-                    <Text style={styles.muted}>{e.calendarName} · {new Date(e.start).toLocaleTimeString(i18n.locale, { hour: '2-digit', minute: '2-digit' })}</Text>
+            <View key={dayKey(day)} style={isToday ? styles.todayBlock : undefined}>
+              <View style={styles.dayHeaderRow}>
+                {isToday ? <View style={styles.todayBadge}><Text style={styles.todayBadgeText}>{i18n.t('today')}</Text></View> : null}
+                <Text style={[styles.dayTitle, isToday && styles.dayTitleToday]}>
+                  {day.toLocaleDateString(i18n.locale, { weekday: 'long', day: 'numeric', month: 'short' })}
+                </Text>
+              </View>
+              <View style={{ gap: 8 }}>
+                {list.map((e, i) => (
+                  <View key={i} style={[styles.eventBlock, { backgroundColor: e.color }]}>
+                    <Text style={styles.eventBlockIcon}>{isBirthday(e.summary) ? '🎂' : '📌'}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.eventBlockTitle} numberOfLines={2}>{e.summary}</Text>
+                      <Text style={styles.eventBlockMeta}>{e.calendarName} · {new Date(e.start).toLocaleTimeString(i18n.locale, { hour: '2-digit', minute: '2-digit' })}</Text>
+                    </View>
                   </View>
-                </View>
-              ))}
-            </Card>
+                ))}
+              </View>
+            </View>
           );
         })
       ) : (
@@ -123,9 +131,9 @@ export function CalendarView({ calendars, settings }: Props) {
           <MonthGrid cursor={monthCursor} eventsByDay={eventsByDay} selectedDay={selectedDay} onSelect={setSelectedDay} />
           <View style={styles.selectedDayEvents}>
             {(eventsByDay.get(dayKey(selectedDay)) ?? []).map((e, i) => (
-              <View key={i} style={styles.eventRow}>
-                <View style={[styles.eventDot, { backgroundColor: e.color }]} />
-                <Text style={styles.eventTitle}>{e.summary}</Text>
+              <View key={i} style={[styles.eventBlock, { backgroundColor: e.color }]}>
+                <Text style={styles.eventBlockIcon}>{isBirthday(e.summary) ? '🎂' : '📌'}</Text>
+                <Text style={styles.eventBlockTitle} numberOfLines={1}>{e.summary}</Text>
               </View>
             ))}
             {!(eventsByDay.get(dayKey(selectedDay)) ?? []).length ? <Text style={styles.muted}>{i18n.t('noEventsThisDay')}</Text> : null}
@@ -134,6 +142,12 @@ export function CalendarView({ calendars, settings }: Props) {
       )}
     </View>
   );
+}
+
+const BIRTHDAY_KEYWORDS = ['birthday', 'bday', 'عيد ميلاد', 'ميلاد', 'verjaardag'];
+function isBirthday(summary: string) {
+  const lower = summary.toLowerCase();
+  return BIRTHDAY_KEYWORDS.some(k => lower.includes(k));
 }
 
 function MonthGrid({ cursor, eventsByDay, selectedDay, onSelect }: { cursor: Date; eventsByDay: Map<string, Event[]>; selectedDay: Date; onSelect: (d: Date) => void }) {
@@ -261,9 +275,15 @@ const styles = StyleSheet.create({
   toggleTextActive: { color: colors.primary },
   addBtn: { width: 40, height: 40, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   dayTitle: { color: colors.text, fontWeight: '800', fontSize: 15, marginBottom: 8, textTransform: 'capitalize' },
-  eventRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
-  eventDot: { width: 9, height: 9, borderRadius: 4.5 },
-  eventTitle: { color: colors.text, fontWeight: '700', fontSize: 14 },
+  dayHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  todayBlock: { backgroundColor: colors.surfaceElevated, borderRadius: 20, padding: 14, borderWidth: 1, borderColor: colors.primary },
+  todayBadge: { backgroundColor: colors.primary, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 8 },
+  todayBadgeText: { color: colors.black, fontWeight: '900', fontSize: 10, textTransform: 'uppercase' },
+  dayTitleToday: { marginBottom: 0, color: colors.text },
+  eventBlock: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 16, padding: 12 },
+  eventBlockIcon: { fontSize: 18 },
+  eventBlockTitle: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  eventBlockMeta: { color: 'rgba(255,255,255,.85)', fontSize: 12, fontWeight: '600', marginTop: 2 },
   monthHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   cell: { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
@@ -273,7 +293,7 @@ const styles = StyleSheet.create({
   cellText: { color: colors.text, fontSize: 13, fontWeight: '700' },
   cellTextSelected: { color: colors.black },
   cellDot: { position: 'absolute', bottom: 3, width: 4, height: 4, borderRadius: 2, backgroundColor: colors.warning },
-  selectedDayEvents: { marginTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingTop: 10, gap: 4 },
+  selectedDayEvents: { marginTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, paddingTop: 10, gap: 8 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(4,8,14,.82)', alignItems: 'center', justifyContent: 'center', padding: 20 },
   modalCard: { width: '100%', maxWidth: 380, backgroundColor: colors.surface, borderRadius: 24, borderWidth: 1, borderColor: colors.border, padding: 20, gap: 12 },
   modalDate: { color: colors.muted, marginTop: -6, marginBottom: 4 },
