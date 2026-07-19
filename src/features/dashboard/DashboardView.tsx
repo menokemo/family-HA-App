@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { WebView, type ShouldStartLoadRequest } from 'react-native-webview';
 import { ensureFreshToken, normalizeUrl } from '../../api/homeAssistant';
@@ -7,148 +7,76 @@ import type { ConnectionSettings } from '../../types/homeAssistant';
 
 type Props = { settings: ConnectionSettings; dashboardPath: string };
 
-type ExternalAuthMessage =
-  | { kind: 'getExternalAuth'; callback: string }
-  | { kind: 'revokeExternalAuth'; callback: string }
-  | { kind: 'kiosk-ready' }
-  | { kind: 'log'; text: string };
-
 export function DashboardView({ settings, dashboardPath }: Props) {
   const [ready, setReady] = useState(false);
   const [debugLog, setDebugLog] = useState<string[]>([]);
   const [showDebug, setShowDebug] = useState(false);
+  const [bridgeJS, setBridgeJS] = useState<string>();
   const webviewRef = useRef<WebView>(null);
-  const settingsRef = useRef(settings);
-  settingsRef.current = settings;
   const log = (text: string) => setDebugLog(prev => [...prev.slice(-50), `${new Date().toLocaleTimeString()} — ${text}`]);
 
   useEffect(() => { setReady(false); }, [dashboardPath, settings.baseUrl]);
   const baseUrl = normalizeUrl(settings.baseUrl);
-  // external_auth=1 بيفعّل بروتوكول HA الرسمي لتمرير المصادقة من
-  // تطبيق خارجي (External Authentication) - بدل ما نحقن localStorage
-  // يدوي (طلع غير موثوق، بيسبب رجوع لصفحة الدخول أحيانًا)، دلوقتي
-  // بنستخدم نفس الآلية اللي تطبيق HA الرسمي بيستخدمها بالظبط.
-  // ?kiosk بيتطلب إضافة Kiosk Mode متثبتة في HA لإخفاء القائمة/الشريط.
-  const url = `${baseUrl}/${dashboardPath.replace(/^\/+/, '')}?kiosk&external_auth=1`;
+  // بروتوكول External Authentication/External Bus جرّبناه بالكامل
+  // ومطابق للتوثيق الرسمي 100%، بس فضل عالق - غالبًا حاجة في إصدار
+  // HA بتاع المستخدم مش متوافقة معاه. رجعنا للطريقة الأبسط: نخلي
+  // الصفحة تفتح **بالظبط زي متصفح عادي** (من غير external_auth=1،
+  // يعني HA متتعاملش معاها كـ"تطبيق خارجي" خالص) - بس بتوكن صحيح
+  // محقون في localStorage قبل ما الصفحة تحمّل، بالظبط زي جلسة متصفح
+  // عادية شغالة (اتأكدنا إن المصادقة العادية دي شغالة 100% في متصفح
+  // حقيقي، فمفروض تشتغل هنا بنفس الطريقة).
+  const url = `${baseUrl}/${dashboardPath.replace(/^\/+/, '')}?kiosk`;
 
-  // بروتوكول External Authentication الرسمي بتاع HA:
-  // https://developers.home-assistant.io/docs/frontend/external-authentication
-  // واجهة HA بتنادي window.externalAppV2.postMessage(...) لما تحتاج
-  // توكن. إحنا بنمسك النداء ده جوه الصفحة، ونبعته لتطبيقنا (عن طريق
-  // window.ReactNativeWebView.postMessage)، وبعد ما نجيب توكن صالح
-  // فعليًا (مع تجديده لو لازم)، بنرجّع الرد جوه الصفحة تاني عن طريق
-  // injectJavaScript بمناداة دالة الـ callback المطلوبة بالاسم بالظبط.
-  const bridgeJS = `
-    (function () {
-      window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: 'bridge injected, page: ' + location.pathname }));
-
-      function respondToBus(id, result) {
-        try {
-          if (typeof window.externalBus !== 'function') {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '❌ window.externalBus مش معرّفة كدالة!' }));
-            return;
-          }
-          window.externalBus(JSON.stringify({ id: id, type: 'result', success: true, result: result }));
-          window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '✅ رد اتبعت لـ id ' + id }));
-        } catch (e) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '❌ فشل إرسال الرد: ' + e }));
-        }
-      }
-
-      function handleBusMessage(busMsg) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: 'bus msg: ' + busMsg.type + ' (id ' + busMsg.id + ')' }));
-        if (busMsg.type === 'config/get') {
-          // نفس الحقول بالظبط اللي تطبيق Home Assistant الرسمي بيرجّعها
-          // (اتأكدنا منها من لوجات حقيقية للتطبيق الرسمي نفسه)
-          respondToBus(busMsg.id, { hasSettingsScreen: true, canWriteTag: true, hasExoPlayer: true });
-        } else if (busMsg.id) {
-          respondToBus(busMsg.id, null);
-        }
-      }
-
-      // التطبيق الرسمي بيبعت الرسالة دي لواجهة HA بروحه (مش رد على
-      // طلب) فور ما الجسر يتجهّز - بتقول لواجهة HA إن الاتصال شغال.
-      // window.externalBus بتتعرّف من HA نفسها بعد شوية من تحميل
-      // الصفحة، فبنعيد المحاولة كل 150ms لحد ما تنجح (مش مرة واحدة
-      // بدري ممكن تفشل قبل ما HA تجهّزها).
-      var connSent = false;
-      var connAttempts = 0;
-      var sendConnStatus = function () {
-        if (connSent) return;
-        connAttempts++;
-        try {
-          if (typeof window.externalBus === 'function') {
-            window.externalBus(JSON.stringify({ type: 'connection-status', payload: { event: 'connected' } }));
-            connSent = true;
-            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '✅ بعتنا connection-status:connected (محاولة ' + connAttempts + ')' }));
-            return;
-          }
-        } catch (e) {}
-        if (connAttempts < 40) setTimeout(sendConnStatus, 150);
-        else window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '❌ externalBus مانفعش خلال 6 ثواني' }));
+  useEffect(() => {
+    let cancelled = false;
+    void ensureFreshToken(settings).then(token => {
+      if (cancelled) return;
+      const tokens = {
+        hassUrl: baseUrl,
+        clientId: null,
+        refresh_token: settings.authMethod === 'oauth' ? settings.refreshToken ?? '' : '',
+        access_token: token,
+        // المستخدم اليدوي مفيهوش refresh_token حقيقي - صلاحية بعيدة
+        // جدًا (10 سنين) عشان الواجهة متحاولش تجدده بيه فتفشل
+        expires: settings.authMethod === 'oauth' && settings.tokenExpiresAt ? settings.tokenExpiresAt : Date.now() + 10 * 365 * 24 * 60 * 60 * 1000,
+        token_type: 'Bearer',
       };
-      sendConnStatus();
-
-      window.externalAppV2 = {
-        postMessage: function (raw) {
+      setBridgeJS(`
+        (function () {
           try {
-            var msg = JSON.parse(raw);
-            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: 'externalAppV2 raw: ' + raw.slice(0, 300) }));
-            if (msg.type === 'getExternalAuth') {
-              window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'getExternalAuth', callback: msg.payload.callback }));
-            } else if (msg.type === 'revokeExternalAuth') {
-              window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'revokeExternalAuth', callback: msg.payload.callback }));
-            } else if (msg.type === 'externalBus') {
-              var inner = typeof msg.payload === 'string' ? JSON.parse(msg.payload) : msg.payload;
-              handleBusMessage(inner);
-            }
+            localStorage.setItem('hassTokens', ${JSON.stringify(JSON.stringify(tokens))});
+            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '✅ hassTokens اتحقنت، طول القيمة: ' + localStorage.getItem('hassTokens').length }));
           } catch (e) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: 'bridge error: ' + e }));
+            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '❌ فشل حقن hassTokens: ' + e }));
           }
-        }
-      };
-      // مراقبة اختفاء القائمة الجانبية (Kiosk Mode) - بدل ما نستنى
-      // وقت ثابت مخمّن، بنبلّغ التطبيق أول ما نلاحظها مختفية فعليًا.
-      var start = Date.now();
-      var check = function () {
-        var sidebar = document.querySelector('ha-sidebar') || document.querySelector('app-drawer');
-        var hidden = !sidebar || getComputedStyle(sidebar).display === 'none' || sidebar.hasAttribute('hidden');
-        if (hidden || Date.now() - start > 3000) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'kiosk-ready' }));
-        } else {
-          setTimeout(check, 80);
-        }
-      };
-      check();
-    })();
-    true;
-  `;
+          window.addEventListener('DOMContentLoaded', function(){
+            window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: 'DOMContentLoaded' }));
+          });
+          var start = Date.now();
+          var check = function () {
+            var loginForm = document.querySelector('ha-authorize') || document.querySelector('[slot=\\"header\\"]');
+            var sidebar = document.querySelector('ha-sidebar') || document.querySelector('app-drawer');
+            var hidden = !sidebar || getComputedStyle(sidebar).display === 'none' || sidebar.hasAttribute('hidden');
+            if (loginForm) window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '⚠️ صفحة تسجيل دخول ظاهرة!' }));
+            if (hidden || Date.now() - start > 4000) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'kiosk-ready' }));
+            } else {
+              setTimeout(check, 100);
+            }
+          };
+          check();
+        })();
+        true;
+      `);
+    });
+    return () => { cancelled = true; };
+  }, [settings.baseUrl, settings.token, settings.accessToken, settings.tokenExpiresAt]);
 
   const onMessage = (raw: string) => {
-    let message: ExternalAuthMessage;
-    try { message = JSON.parse(raw) as ExternalAuthMessage; } catch { return; }
-    if (message.kind === 'log') { log(message.text); return; }
+    let message: { kind: string; text?: string };
+    try { message = JSON.parse(raw); } catch { return; }
+    if (message.kind === 'log') { log(message.text ?? ''); return; }
     if (message.kind === 'kiosk-ready') { log('kiosk-ready'); setReady(true); return; }
-    if (message.kind === 'revokeExternalAuth') {
-      webviewRef.current?.injectJavaScript(`window.${message.callback}(true); true;`);
-      return;
-    }
-    if (message.kind === 'getExternalAuth') {
-      log('getExternalAuth طُلب، بنجيب توكن...');
-      void ensureFreshToken(settingsRef.current)
-        .then(token => {
-          const expiresIn = settingsRef.current.authMethod === 'oauth' && settingsRef.current.tokenExpiresAt
-            ? Math.max(60, Math.round((settingsRef.current.tokenExpiresAt - Date.now()) / 1000))
-            : 315360000; // توكن يدوي - صلاحية طويلة جدًا عمليًا
-          const payload = JSON.stringify({ access_token: token, expires_in: expiresIn });
-          log(`توكن جاهز (${token.slice(0, 8)}...)، بنرد على callback`);
-          webviewRef.current?.injectJavaScript(`window.${message.callback}(true, ${payload}); true;`);
-        })
-        .catch(e => {
-          log(`❌ فشل جلب التوكن: ${e instanceof Error ? e.message : String(e)}`);
-          webviewRef.current?.injectJavaScript(`window.${message.callback}(false); true;`);
-        });
-    }
   };
 
   // Navigation Guard: بيمنع الخروج من مسار الداشبورد المسموح - بس
@@ -172,6 +100,14 @@ export function DashboardView({ settings, dashboardPath }: Props) {
     }
   };
 
+  if (!bridgeJS) {
+    return (
+      <View style={s.overlay}>
+        <ActivityIndicator color={colors.primary} size="large" />
+      </View>
+    );
+  }
+
   return (
     <View style={s.container}>
       <WebView
@@ -182,7 +118,7 @@ export function DashboardView({ settings, dashboardPath }: Props) {
         startInLoadingState
         onLoadEnd={() => setTimeout(() => setReady(true), 3200)}
         cacheEnabled={false}
-        incognito
+        domStorageEnabled
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         style={{ backgroundColor: colors.background }}
       />
