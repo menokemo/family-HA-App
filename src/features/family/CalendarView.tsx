@@ -44,7 +44,6 @@ export function CalendarView({ calendars, settings }: Props) {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [debugInfo, setDebugInfo] = useState('');
 
   const load = () => {
     setLoading(true);
@@ -54,14 +53,13 @@ export function CalendarView({ calendars, settings }: Props) {
       calendars.map(async (cal, i) => {
         try {
           const raw = await getCalendarEvents(settings, cal.entity_id, start.toISOString(), end.toISOString());
-          return { ok: true as const, id: cal.entity_id, count: raw.length, list: raw.map(e => ({ ...e, color: PALETTE[i % PALETTE.length], calendarName: String(cal.attributes.friendly_name ?? cal.entity_id) })) };
-        } catch (err) {
-          return { ok: false as const, id: cal.entity_id, error: err instanceof Error ? err.message : String(err), list: [] as Event[] };
+          return raw.map(e => ({ ...e, color: PALETTE[i % PALETTE.length], calendarName: String(cal.attributes.friendly_name ?? cal.entity_id) }));
+        } catch {
+          return [] as Event[];
         }
       }),
-    ).then(results => {
-      setEvents(results.flatMap(r => r.list));
-      setDebugInfo(`تقاويم: ${calendars.length} | ${results.map(r => r.ok ? `${r.id}=${r.count}` : `${r.id}=❌${r.error}`).join(' | ')}`);
+    ).then(lists => {
+      setEvents(lists.flat());
       setLoading(false);
     });
   };
@@ -90,7 +88,6 @@ export function CalendarView({ calendars, settings }: Props) {
 
   return (
     <View style={{ gap: 14 }}>
-      {debugInfo ? <Text selectable style={{ color: colors.warning, fontSize: 10, fontFamily: 'monospace' }}>{debugInfo}</Text> : null}
       <View style={styles.headerRow}>
         <Text style={styles.screenTitle}>
           {isToday ? i18n.t('today') : selectedDay.toLocaleDateString(i18n.locale, { weekday: 'long', day: 'numeric', month: 'long' })}

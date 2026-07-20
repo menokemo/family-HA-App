@@ -17,7 +17,6 @@ type Props = {
   camera: HaEntity;
   settings: ConnectionSettings;
   onUnavailable: (reason: string) => void;
-  onLog?: (line: string) => void;
   onAudioChange?: (hasAudio: boolean) => void;
 };
 
@@ -46,13 +45,11 @@ type ClientConfiguration = {
 const websocketUrl = (baseUrl: string) =>
   `${baseUrl.trim().replace(/\/+$/, '').replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:')}/api/websocket`;
 
-export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onLog, onAudioChange }: Props) {
+export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onAudioChange }: Props) {
   const [streamUrl, setStreamUrl] = useState<string>();
   const [status, setStatus] = useState(i18n.t('connecting'));
   const fallbackRef = useRef(onUnavailable);
   fallbackRef.current = onUnavailable;
-  const onLogRef = useRef(onLog);
-  onLogRef.current = onLog;
   const onAudioChangeRef = useRef(onAudioChange);
   onAudioChangeRef.current = onAudioChange;
 
@@ -74,10 +71,8 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onLog, onA
     const pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
 
     const log = (message: string) => {
-      const line = `${new Date().toLocaleTimeString()} — ${message}`;
       // eslint-disable-next-line no-console
-      console.log('[WebRTC]', camera.entity_id, line);
-      onLogRef.current?.(line);
+      console.log('[WebRTC]', camera.entity_id, message);
     };
 
     const fail = (reason: string) => {
