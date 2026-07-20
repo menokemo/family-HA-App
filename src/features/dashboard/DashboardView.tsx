@@ -91,10 +91,21 @@ export function DashboardView({ settings, dashboardPath }: Props) {
             pathFixAttempts++;
             var currentPath = location.pathname.replace(/^\\/+/, '');
             if (currentPath !== wantedPath && currentPath.split('/')[0] !== wantedPath.split('/')[0]) {
-              window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '↩️ HA رجّعت لمسار مختلف (' + currentPath + ') - بنعمل reload حقيقي لـ ' + wantedPath }));
+              // عداد المحاولات لازم يفضل متذكّر عبر إعادة التحميل نفسها
+              // (مش يتصفّر كل مرة) - وإلا لو HA مصرّة ترجّع لمسار تاني،
+              // هنلف في حلقة reload لا نهائية للأبد.
+              var globalAttempts = Number(sessionStorage.getItem('fha_path_fix_attempts') || '0');
+              if (globalAttempts >= 2) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '🛑 استسلمنا بعد ' + globalAttempts + ' محاولات - HA مصرّة على مسار تاني (' + currentPath + ')' }));
+                sessionStorage.removeItem('fha_path_fix_attempts');
+                return;
+              }
+              sessionStorage.setItem('fha_path_fix_attempts', String(globalAttempts + 1));
+              window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '↩️ HA رجّعت لمسار مختلف (' + currentPath + ') - محاولة ' + (globalAttempts + 1) + ' لـ ' + wantedPath }));
               location.replace(location.origin + '/' + wantedPath + '?kiosk');
               return;
             }
+            sessionStorage.removeItem('fha_path_fix_attempts');
             if (pathFixAttempts < 3) setTimeout(enforcePath, 700);
           };
           setTimeout(enforcePath, 500);
