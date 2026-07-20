@@ -181,18 +181,17 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
 
   const navigate = (p: HaEntity) => {
     const c = coord(p);
+    const label = encodeURIComponent(String(p.attributes.friendly_name ?? p.entity_id));
     if (Platform.OS === 'ios') {
-      const label = encodeURIComponent(String(p.attributes.friendly_name ?? p.entity_id));
       void Linking.openURL(`maps://?daddr=${c.latitude},${c.longitude}&q=${label}`).catch(() =>
-        Linking.openURL(`geo:${c.latitude},${c.longitude}?q=${c.latitude},${c.longitude}`),
+        Linking.openURL(`geo:${c.latitude},${c.longitude}?q=${c.latitude},${c.longitude}(${label})`),
       );
       return;
     }
-    // geo: (بدون domain مرتبط بتطبيق افتراضي زي https links) بيخلي أندرويد
-    // يعرض مربع اختيار التطبيق دايمًا بدل ما يفتح Google Maps تلقائيًا،
-    // وصيغة بسيطة (إحداثيات بس، من غير label) بتضمن توافق أوسع مع
-    // تطبيقات خرائط مختلفة بدل ما تتفسر غلط وتفتح خريطة فاضية
-    void Linking.openURL(`geo:${c.latitude},${c.longitude}?q=${c.latitude},${c.longitude}`).catch(() =>
+    // صيغة geo: القياسية: إحداثيات + اسم بين قوسين كتسمية (label) -
+    // ده بيضمن إن اسم الشخص يظهر فعليًا في تطبيق الخرائط اللي هيختاره
+    // المستخدم، بدل ما تظهر إحداثيات رقمية بس من غير أي معنى
+    void Linking.openURL(`geo:${c.latitude},${c.longitude}?q=${c.latitude},${c.longitude}(${label})`).catch(() =>
       Linking.openURL(`https://www.openstreetmap.org/?mlat=${c.latitude}&mlon=${c.longitude}#map=17/${c.latitude}/${c.longitude}`),
     );
   };
