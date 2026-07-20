@@ -91,9 +91,9 @@ export function DashboardView({ settings, dashboardPath }: Props) {
             pathFixAttempts++;
             var currentPath = location.pathname.replace(/^\\/+/, '');
             if (currentPath !== wantedPath && currentPath.split('/')[0] !== wantedPath.split('/')[0]) {
-              window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '↩️ HA رجّعت لمسار مختلف (' + currentPath + ') - بنرجّعه لـ ' + wantedPath }));
-              history.replaceState(null, '', '/' + wantedPath);
-              window.dispatchEvent(new PopStateEvent('popstate'));
+              window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '↩️ HA رجّعت لمسار مختلف (' + currentPath + ') - بنعمل reload حقيقي لـ ' + wantedPath }));
+              location.replace(location.origin + '/' + wantedPath + '?kiosk');
+              return;
             }
             if (pathFixAttempts < 3) setTimeout(enforcePath, 700);
           };
