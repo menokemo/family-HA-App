@@ -81,6 +81,23 @@ export function DashboardView({ settings, dashboardPath }: Props) {
           window.addEventListener('DOMContentLoaded', function(){
             window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: 'DOMContentLoaded' }));
           });
+          // HA بتخزّن "آخر داشبورد افتراضية" في localStorage بتاعتها
+          // وممكن تعيد التوجيه ليها بغض النظر عن الرابط اللي فتحناه -
+          // بنتأكد إن المسار لسه هو اللي طلبناه، ولو HA غيّرته، بنرجّعه
+          // بالقوة (مرتين بس، تحسّبًا لأي إعادة توجيه متأخرة).
+          var wantedPath = ${JSON.stringify(dashboardPath.replace(/^\/+/, ''))};
+          var pathFixAttempts = 0;
+          var enforcePath = function () {
+            pathFixAttempts++;
+            var currentPath = location.pathname.replace(/^\\/+/, '');
+            if (currentPath !== wantedPath && currentPath.split('/')[0] !== wantedPath.split('/')[0]) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '↩️ HA رجّعت لمسار مختلف (' + currentPath + ') - بنرجّعه لـ ' + wantedPath }));
+              history.replaceState(null, '', '/' + wantedPath);
+              window.dispatchEvent(new PopStateEvent('popstate'));
+            }
+            if (pathFixAttempts < 3) setTimeout(enforcePath, 700);
+          };
+          setTimeout(enforcePath, 500);
           var start = Date.now();
           var check = function () {
             var loginForm = document.querySelector('ha-authorize') || document.querySelector('[slot=\\"header\\"]');
