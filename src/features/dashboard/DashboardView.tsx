@@ -26,6 +26,7 @@ export function DashboardView({ settings, dashboardPath }: Props) {
   // عادية شغالة (اتأكدنا إن المصادقة العادية دي شغالة 100% في متصفح
   // حقيقي، فمفروض تشتغل هنا بنفس الطريقة).
   const url = `${baseUrl}/${dashboardPath.replace(/^\/+/, '')}?kiosk`;
+  useEffect(() => { log(`مسار الداشبورد الحالي: ${dashboardPath} | url: ${url}`); }, [url]);
 
   useEffect(() => {
     let cancelled = false;
