@@ -223,6 +223,7 @@ function AddEventModal({
   const [calendarId, setCalendarId] = useState(calendars[0]?.entity_id);
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('10:00');
+  const [repeat, setRepeat] = useState<'none' | 'yearly' | 'monthly' | 'weekly'>('none');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -239,10 +240,12 @@ function AddEventModal({
     setSaving(true);
     setError(undefined);
     try {
+      const rrule = repeat === 'yearly' ? 'FREQ=YEARLY' : repeat === 'monthly' ? 'FREQ=MONTHLY' : repeat === 'weekly' ? 'FREQ=WEEKLY' : undefined;
       await createCalendarEvent(settings, target.entity_id, {
         summary: `${category.emoji} ${summary.trim()}`,
         start_date_time: `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')} ${startTime}:00`,
         end_date_time: `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')} ${endTime}:00`,
+        rrule,
       });
       setSummary('');
       onCreated();
@@ -291,6 +294,15 @@ function AddEventModal({
               <Text style={styles.muted}>{i18n.t('endTime')}</Text>
               <TextInput value={endTime} onChangeText={setEndTime} placeholder="10:00" placeholderTextColor={colors.muted} style={styles.modalInput} keyboardType="numbers-and-punctuation" />
             </View>
+          </View>
+
+          <Text style={styles.muted}>{i18n.t('repeatEvent')}</Text>
+          <View style={styles.calRow}>
+            {(['none', 'weekly', 'monthly', 'yearly'] as const).map(r => (
+              <PressableScale key={r} style={[styles.calChip, repeat === r && styles.calChipActive]} onPress={() => setRepeat(r)}>
+                <Text style={[styles.calChipText, repeat === r && styles.calChipTextActive]}>{i18n.t(`repeat_${r}` as never)}</Text>
+              </PressableScale>
+            ))}
           </View>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}

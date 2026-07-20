@@ -147,7 +147,7 @@ export async function getCalendarEvents(settings: ConnectionSettings, entityId: 
     .filter(e => e.start);
 }
 
-export async function createCalendarEvent(settings: ConnectionSettings, entityId: string, data: { summary: string; start_date_time: string; end_date_time: string; description?: string; location?: string }): Promise<void> {
+export async function createCalendarEvent(settings: ConnectionSettings, entityId: string, data: { summary: string; start_date_time: string; end_date_time: string; description?: string; location?: string; rrule?: string }): Promise<void> {
   await request(settings, '/api/services/calendar/create_event', { method: 'POST', body: JSON.stringify({ entity_id: entityId, ...data }) });
 }
 
