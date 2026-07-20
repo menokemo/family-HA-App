@@ -148,6 +148,12 @@ export function DashboardView({ settings, dashboardPath }: Props) {
         })();
         true;
       `);
+    }).catch(e => {
+      // "أفضل جهد" - لو تجديد التوكن فشل لأي سبب (حتى مؤقتًا)، منخليش
+      // ده يظهر كخطأ غير ممسوك يوقف التطبيق. البروڤايدر بيرجّع للتوكن
+      // الحالي أصلًا كـfallback جوّه ensureFreshToken نفسها، فده حماية
+      // إضافية بس لأي حالة نادرة بترفض بالكامل.
+      if (!cancelled) log(`⚠️ فشل تجديد التوكن (مؤقتًا على الأغلب): ${e instanceof Error ? e.message : String(e)}`);
     });
     return () => { cancelled = true; };
   }, [settings.baseUrl, settings.token, settings.accessToken, settings.tokenExpiresAt]);
