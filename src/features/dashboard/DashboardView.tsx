@@ -83,10 +83,21 @@ export function DashboardView({ settings, dashboardPath }: Props) {
           var start = Date.now();
           var check = function () {
             var loginForm = document.querySelector('ha-authorize') || document.querySelector('[slot=\\"header\\"]');
-            var sidebar = document.querySelector('ha-sidebar') || document.querySelector('app-drawer');
-            var hidden = !sidebar || getComputedStyle(sidebar).display === 'none' || sidebar.hasAttribute('hidden');
+            var sidebar = document.querySelector('ha-sidebar');
+            var cs = sidebar ? getComputedStyle(sidebar) : null;
+            // Kiosk Mode ممكن تستخدم أي طريقة من دول - بنتأكد من كل
+            // الاحتمالات المعروفة بدل الاعتماد على display:none بس
+            var hidden = !sidebar
+              || cs.display === 'none'
+              || cs.visibility === 'hidden'
+              || cs.width === '0px'
+              || sidebar.hasAttribute('hidden')
+              || sidebar.style.display === 'none';
             if (loginForm) window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '⚠️ صفحة تسجيل دخول ظاهرة!' }));
-            if (hidden || Date.now() - start > 4000) {
+            if (hidden || Date.now() - start > 6000) {
+              if (!hidden) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'log', text: '⏱️ خلصت المهلة من غير ما نتأكد من الإخفاء - sidebar: display=' + (cs ? cs.display : 'n/a') + ' visibility=' + (cs ? cs.visibility : 'n/a') + ' width=' + (cs ? cs.width : 'n/a') }));
+              }
               try {
                 var s = document.getElementById('fha-hide-until-ready');
                 if (s) s.remove();
