@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -191,7 +191,9 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
     // صيغة geo: القياسية: إحداثيات + اسم بين قوسين كتسمية (label) -
     // ده بيضمن إن اسم الشخص يظهر فعليًا في تطبيق الخرائط اللي هيختاره
     // المستخدم، بدل ما تظهر إحداثيات رقمية بس من غير أي معنى
-    void Linking.openURL(`geo:${c.latitude},${c.longitude}?q=${c.latitude},${c.longitude}(${label})`).catch(() =>
+    const url = `geo:${c.latitude},${c.longitude}?q=${c.latitude},${c.longitude}(${label})`;
+    Alert.alert('تشخيص مؤقت', `lat=${c.latitude} lng=${c.longitude}\n${url}`);
+    void Linking.openURL(url).catch(() =>
       Linking.openURL(`https://www.openstreetmap.org/?mlat=${c.latitude}&mlon=${c.longitude}#map=17/${c.latitude}/${c.longitude}`),
     );
   };
