@@ -182,8 +182,10 @@ function AddReminderModal({
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [dueTime, setDueTime] = useState('');
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
 
@@ -193,11 +195,13 @@ function AddReminderModal({
       setTitle(stripCategoryEmoji(editItem.summary));
       setNotes(splitCreator(editItem.description).notes);
       setDueDate(editItem.due?.slice(0, 10) ?? '');
+      setDueTime(editItem.due && editItem.due.length > 10 ? editItem.due.slice(11, 16) : '');
       setCategory(detectCategory(editItem.summary));
     } else {
       setTitle('');
       setNotes('');
       setDueDate('');
+      setDueTime('');
       setCategory(CATEGORIES[0]);
     }
     setError(undefined);
@@ -209,15 +213,16 @@ function AddReminderModal({
     setError(undefined);
     try {
       const summary = `${category.emoji} ${title.trim()}`;
+      const dueDateTime = dueDate.trim() && dueTime.trim() ? `${dueDate.trim()} ${dueTime.trim()}:00` : undefined;
       if (editItem) {
         // نحافظ على علامة "أضافه فلان" الأصلية زي ما هي وقت التعديل -
         // مش هي اللي بتتعدّل، بس الملاحظات الحقيقية بس
         const existingCreator = splitCreator(editItem.description).createdBy;
         const description = notes.trim() + (existingCreator ? `${CREATOR_MARKER}${existingCreator}` : '');
-        await updateTodoItemDetails(settings, listEntityId, editItem.uid, { summary, dueDate: dueDate.trim(), description });
+        await updateTodoItemDetails(settings, listEntityId, editItem.uid, { summary, dueDate: dueDate.trim(), dueDateTime, description });
       } else {
         const description = notes.trim() + (myName ? `${CREATOR_MARKER}${myName}` : '');
-        await addTodoItem(settings, listEntityId, summary, dueDate.trim() || undefined, description || undefined);
+        await addTodoItem(settings, listEntityId, summary, dueDate.trim() || undefined, description || undefined, dueDateTime);
       }
       onCreated();
     } catch (e) {
@@ -260,6 +265,33 @@ function AddReminderModal({
                   if (selected) setDueDate(selected.toISOString().slice(0, 10));
                 }}
               />
+            ) : null}
+
+            {dueDate ? (
+              <>
+                <Text style={styles.muted}>{i18n.t('reminderTimeOptional')}</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <PressableScale style={[styles.modalInput, { flex: 1 }]} onPress={() => setShowTimePicker(true)}>
+                    <Text style={{ color: dueTime ? colors.text : colors.muted }}>{dueTime || i18n.t('selectTime')}</Text>
+                  </PressableScale>
+                  {dueTime ? (
+                    <PressableScale style={styles.clearDateBtn} onPress={() => setDueTime('')}>
+                      <Ionicons name="close" size={16} color={colors.muted} />
+                    </PressableScale>
+                  ) : null}
+                </View>
+                {showTimePicker ? (
+                  <DateTimePicker
+                    value={(() => { const d = new Date(); if (dueTime) { const [h, m] = dueTime.split(':').map(Number); d.setHours(h, m); } return d; })()}
+                    mode="time"
+                    display="default"
+                    onChange={(_event, selected) => {
+                      setShowTimePicker(false);
+                      if (selected) setDueTime(`${String(selected.getHours()).padStart(2, '0')}:${String(selected.getMinutes()).padStart(2, '0')}`);
+                    }}
+                  />
+                ) : null}
+              </>
             ) : null}
 
             <Text style={styles.muted}>{i18n.t('category')}</Text>

@@ -204,19 +204,21 @@ export async function getTodoItems(settings: ConnectionSettings, entityId: strin
   return result?.response?.[entityId]?.items ?? [];
 }
 
-export async function addTodoItem(settings: ConnectionSettings, entityId: string, summary: string, dueDate?: string, description?: string): Promise<void> {
+export async function addTodoItem(settings: ConnectionSettings, entityId: string, summary: string, dueDate?: string, description?: string, dueDateTime?: string): Promise<void> {
   const data: Record<string, unknown> = { entity_id: entityId, item: summary };
-  if (dueDate) data.due_date = dueDate;
+  if (dueDateTime) data.due_datetime = dueDateTime;
+  else if (dueDate) data.due_date = dueDate;
   if (description) data.description = description;
   await request(settings, '/api/services/todo/add_item', { method: 'POST', body: JSON.stringify(data) });
 }
 
 // لتعديل عنصر موجود (بدل إضافة عنصر جديد) - HA بتستخدم نفس service
 // بس بتحدد العنصر بـ uid وتديله rename/due_date/description جدد.
-export async function updateTodoItemDetails(settings: ConnectionSettings, entityId: string, uid: string, changes: { summary?: string; dueDate?: string; description?: string }): Promise<void> {
+export async function updateTodoItemDetails(settings: ConnectionSettings, entityId: string, uid: string, changes: { summary?: string; dueDate?: string; description?: string; dueDateTime?: string }): Promise<void> {
   const data: Record<string, unknown> = { entity_id: entityId, item: uid };
   if (changes.summary !== undefined) data.rename = changes.summary;
-  if (changes.dueDate !== undefined) data.due_date = changes.dueDate || null;
+  if (changes.dueDateTime) data.due_datetime = changes.dueDateTime;
+  else if (changes.dueDate !== undefined) data.due_date = changes.dueDate || null;
   if (changes.description !== undefined) data.description = changes.description;
   await request(settings, '/api/services/todo/update_item', { method: 'POST', body: JSON.stringify(data) });
 }
