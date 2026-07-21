@@ -52,5 +52,19 @@
         android:name=".AlarmMonitorService"
         android:exported="false"
         android:foregroundServiceType="dataSync" />
+      <service
+        android:name="com.reactnativeandroidwidget.RNWidgetCollectionService"
+        android:permission="android.permission.BIND_REMOTEVIEWS" />
+      <receiver
+        android:name=".FamilyHaWidget"
+        android:exported="false"
+        android:label="Family HA">
+        <intent-filter>
+          <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+        </intent-filter>
+        <meta-data
+          android:name="android.appwidget.provider"
+          android:resource="@xml/family_ha_widget_info" />
+      </receiver>
     </application>
 </manifest>
