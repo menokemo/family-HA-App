@@ -1,8 +1,8 @@
 import React from 'react';
-import { FlexWidget, TextWidget } from 'react-native-android-widget';
+import { FlexWidget, TextWidget, type ColorProp } from 'react-native-android-widget';
 import type { WidgetData } from './widgetData';
 
-const ALARM_COLORS: Record<string, string> = {
+const ALARM_COLORS: Record<string, ColorProp> = {
   disarmed: '#27C499',
   armed_home: '#5C8DFF',
   armed_away: '#5C8DFF',
@@ -32,7 +32,7 @@ export function FamilyHaWidgetView({ data }: { data: WidgetData }) {
     );
   }
 
-  const color = ALARM_COLORS[data.alarmState] ?? '#8894a8';
+  const color: ColorProp = ALARM_COLORS[data.alarmState] ?? '#8894a8';
 
   return (
     <FlexWidget
@@ -53,13 +53,13 @@ export function FamilyHaWidgetView({ data }: { data: WidgetData }) {
       <FlexWidget style={{ flexDirection: 'row', marginTop: 10 }}>
         <FlexWidget
           clickAction="ARM_HOME"
-          style={{ flex: 1, backgroundColor: '#1a2333', borderRadius: 12, height: 40, justifyContent: 'center', alignItems: 'center', marginEnd: 6 }}
+          style={{ flex: 1, backgroundColor: '#1a2333', borderRadius: 12, height: 40, justifyContent: 'center', alignItems: 'center', marginRight: 6 }}
         >
           <TextWidget text="Home" style={{ fontSize: 12, fontWeight: 'bold', color: '#5C8DFF' }} />
         </FlexWidget>
         <FlexWidget
           clickAction="ARM_AWAY"
-          style={{ flex: 1, backgroundColor: '#1a2333', borderRadius: 12, height: 40, justifyContent: 'center', alignItems: 'center', marginEnd: 6 }}
+          style={{ flex: 1, backgroundColor: '#1a2333', borderRadius: 12, height: 40, justifyContent: 'center', alignItems: 'center', marginRight: 6 }}
         >
           <TextWidget text="Away" style={{ fontSize: 12, fontWeight: 'bold', color: '#5C8DFF' }} />
         </FlexWidget>
@@ -72,20 +72,20 @@ export function FamilyHaWidgetView({ data }: { data: WidgetData }) {
       </FlexWidget>
 
       {data.people.length ? (
-        <FlexWidget style={{ flexDirection: 'row', marginTop: 12, flexWrap: 'wrap' }}>
+        // مكتبة الويدجت مفيهاش flexWrap، فبنحدّد عدد الدوائر (6 × 36dp) عشان تتساع في صف واحد
+        <FlexWidget style={{ flexDirection: 'row', marginTop: 12 }}>
           {data.people.slice(0, 6).map(p => (
             <FlexWidget
               key={p.name}
               clickAction="OPEN_APP"
               style={{
-                width: 34,
-                height: 34,
-                borderRadius: 17,
+                width: 30,
+                height: 30,
+                borderRadius: 15,
                 backgroundColor: p.home ? '#183327' : '#241a1a',
                 justifyContent: 'center',
                 alignItems: 'center',
-                marginEnd: 8,
-                marginTop: 4,
+                marginRight: 6,
               }}
             >
               <TextWidget text={p.name.slice(0, 1).toUpperCase()} style={{ fontSize: 13, fontWeight: 'bold', color: p.home ? '#27C499' : '#8894a8' }} />

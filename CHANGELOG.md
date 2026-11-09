@@ -6,6 +6,53 @@
 
 ## العربية
 
+### [2.16.1] — 2026-11-09
+- **تصحيح أرقام أوضاع التسليح** (Vacation=32، Custom=16 حسب HA/Alarmo): زرار
+  Vacation كان بيظهر حتى لو الوضع مقفول في Alarmo.
+- **تكرار الأحداث** (أسبوعي/شهري/سنوي) بقى بيتبعت عبر WebSocket
+  `calendar/event/create` بدل خدمة مكانتش بتقبله (لسه محتاج تجربة على HA حي).
+- **إصلاح استيراد ناقص** (`updateAlarmMonitorToken`) كان بيقطع تحديث توكن
+  الخدمة الخلفية.
+- **فحص TypeScript حقيقي** (كان بيعدّي من غير ما يفحص) + `npm test` +
+  اختبارات عقد مع HA (أوضاع التسليح، شكل أمر التقويم)، وتصحيح أنواع
+  WebView والويدجت. مفيش تغيير في إصدارات مكتبات التشغيل.
+
+### [2.16.0] — 2026-07-21
+- **Widget** (أول نسخة): حالة الإنذار + أزرار Home/Away/Disarm + مين في
+  البيت + عدد التذكيرات (لسه ما اتجرّبش على جهاز).
+- **صفحة الإنذار**: كارت الحالة بأيقونة دائرية متوهجة، لون مميز لكل وضع،
+  الكروت التلاتة في صف، المستشعرات قابلة للطي، إعدادات الصوت نُقلت لإعدادات
+  الإنذار.
+- **بانر "مستشعرات مفتوحة"** تحت كارت الحالة مع "تجاوز وتسليح" بالبصمة بدل
+  النافذة المنبثقة.
+- أول نسخة **Release** (بدون أدوات المطوّرين).
+
+### [2.15.0] — 2026-07-20
+- **تكرار الأحداث** في التقويم (أسبوعي/شهري/سنوي) — كان فيه غلط اتصحح في
+  2.16.1.
+- زرار التوجيه بيبعت اسم الوجهة لتطبيق الخرائط؛ تنظيف كل أدوات التشخيص
+  المؤقتة؛ أيقونة متمركزة وأكبر؛ تاب "Alarm"؛ لون كارت الإنذار حسب الحالة.
+
+### [2.14.0] — 2026-07-20
+- **اسم مَن أضاف التذكير** بيظهر تحته، واكتشاف "مين أنا" تلقائيًا من حساب
+  الدخول.
+- **الخريطة**: طبقة قمر صناعي (Esri) مع الإمالة/الدوران، وإصلاح وميض
+  الخريطة وصور الدبابيس.
+- **الداشبورد**: حل ومضة لوجو/قوائم HA (إخفاء الصفحة لحد الجاهزية)، تحميل
+  مسبق من أول التطبيق، فرض المسار المختار، وإصلاح كراش تجديد التوكن.
+- **أيقونة Adaptive Icon** حقيقية، ووقت اختياري للتذكيرات.
+
+### [2.13.0] — 2026-07-19
+- **التقويم أبسط**: شريط أيام أفقي + أحداث اليوم المختار + منتقي تاريخ
+  اختياري؛ أحداث "طول اليوم" (أعياد الميلاد) في اليوم الصح.
+- إعدادات منفصلة للتقويم وللتذكيرات (اختيار التقاويم/القوائم).
+- **فئات** بأيقونة ولون للأحداث والتذكيرات (عائلتي، طبيب، تسوق، دراسة،
+  سفر، حيوانات أليفة، صيانة، كنيسة، أعياد ميلاد، مناسبات).
+- **التذكيرات**: نافذة إضافة/تعديل منفصلة (عنوان، ملاحظات، تاريخ بمنتقي
+  حقيقي، فئة) وتعديل بعد الإنشاء.
+- إصلاحات: رابط جلب أحداث التقويم كان غلط (404)، وكراش `Date value out of
+  bounds`.
+
 ### [2.12.0] — 2026-07-19
 - **تصحيح جذري لنظام الثيمات**: تاب العائلة (التقويم والتذكيرات)
   كان بياخد الوضع الغامق ثابت حتى في الوضع الفاتح - كان بيستورد
@@ -108,6 +155,59 @@
 ---
 
 ## English
+
+### [2.16.1] — 2026-11-09
+- **Fixed the arm-mode feature bits** (Vacation=32, Custom=16 per HA/Alarmo):
+  the Vacation button showed even when that mode was off in Alarmo.
+- **Recurring events** (weekly/monthly/yearly) now go through the WebSocket
+  command `calendar/event/create` instead of a service that rejects them
+  (still needs a test on a live HA).
+- **Fixed a missing import** (`updateAlarmMonitorToken`) that blocked the
+  background service's token updates.
+- **A real TypeScript check** (it was passing without checking) plus
+  `npm test` and contract tests against HA (arm modes, calendar command
+  shape), and corrected WebView/widget types. No runtime library versions
+  changed.
+
+### [2.16.0] — 2026-07-21
+- **Widget** (first version): alarm state + Home/Away/Disarm buttons + who is
+  home + reminder count (not yet tried on a device).
+- **Alarm screen**: glowing circular status icon, a distinct color per mode,
+  the three summary cards in one row, collapsible sensors, siren settings
+  moved into the alarm settings.
+- **"Open sensors" banner** under the status card with biometric "Bypass and
+  arm" instead of the pop-up.
+- First **Release** build (no developer tools).
+
+### [2.15.0] — 2026-07-20
+- **Recurring events** in the calendar (weekly/monthly/yearly) — had a bug,
+  fixed in 2.16.1.
+- The navigate button sends the destination name to the maps app; all
+  temporary debug tools removed; larger, centered app icon; "Alarm" tab;
+  alarm card colored by state.
+
+### [2.14.0] — 2026-07-20
+- **Who added a reminder** is shown under it, and "who am I" is detected
+  automatically from the logged-in account.
+- **Map**: satellite layer (Esri) with tilt/rotate kept, and fixes for map
+  flicker and pin photos.
+- **Dashboard**: fixed the HA logo/menu flash (page hidden until ready),
+  preloaded from app start, enforced the chosen path, fixed a token-refresh
+  crash.
+- A real **Adaptive Icon**, and an optional time for reminders.
+
+### [2.13.0] — 2026-07-19
+- **Simpler calendar**: horizontal day strip + selected day's events +
+  optional date picker; all-day events (birthdays) land on the right day.
+- Separate settings for the calendar and for reminders (choose
+  calendars/lists).
+- **Categories** with icon and color for events and reminders (family,
+  doctor, shopping, study, travel, pets, maintenance, church, birthdays,
+  occasions).
+- **Reminders**: a separate add/edit dialog (title, notes, real date picker,
+  category) and editing after creation.
+- Fixes: the calendar events URL was wrong (404), and a `Date value out of
+  bounds` crash.
 
 ### [2.12.0] — 2026-07-19
 - **Root-cause theme fix**: the Family tab (calendar and reminders)

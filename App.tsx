@@ -28,7 +28,7 @@ import { SwipeToConfirm } from './src/components/SwipeToConfirm';
 import { OAuthLoginWebView } from './src/components/OAuthLoginWebView';
 import { PressableScale } from './src/components/PressableScale';
 import { setLiveSettings, onLiveSettingsChange } from './src/storage/liveSettings';
-import { startAlarmMonitor, stopAlarmMonitor, isAlarmMonitorRunning, canUseFullScreenIntent, openFullScreenIntentSettings, canDrawOverlays, openOverlaySettings, setWatchedPersons } from './src/native/AlarmMonitor';
+import { startAlarmMonitor, stopAlarmMonitor, isAlarmMonitorRunning, updateAlarmMonitorToken, canUseFullScreenIntent, openFullScreenIntentSettings, canDrawOverlays, openOverlaySettings, setWatchedPersons } from './src/native/AlarmMonitor';
 import { isBiometricAvailable, enableBiometricDisarm, disableBiometricDisarm, getBiometricCode } from './src/storage/biometric';
 import type { AlarmModeKey, AlarmoEvent, ConnectionSettings, HaEntity, SirenTone } from './src/types/homeAssistant';
 

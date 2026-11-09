@@ -4,10 +4,13 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { Card } from '../../components/Card';
 import { useTheme, type Palette } from '../../theme';
 import { i18n } from '../../i18n';
-import { createCalendarEvent, getCalendarEvents, type CalendarEvent } from '../../api/homeAssistant';
+import { createCalendarEvent, createRecurringCalendarEvent, getCalendarEvents, type CalendarEvent } from '../../api/homeAssistant';
+import type { RecurrenceFreq } from '../../api/calendarCommands';
 import { CATEGORIES, categoryLabel, detectCategory, stripCategoryEmoji } from './categories';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { PressableScale } from '../../components/PressableScale';
+
+const REPEAT_FREQ: Record<'weekly' | 'monthly' | 'yearly', RecurrenceFreq> = { weekly: 'WEEKLY', monthly: 'MONTHLY', yearly: 'YEARLY' };
 
 type Props = { calendars: HaEntity[]; settings: ConnectionSettings };
 type Event = CalendarEvent & { color: string; calendarName: string };
@@ -237,13 +240,21 @@ function AddEventModal({
     setSaving(true);
     setError(undefined);
     try {
-      const rrule = repeat === 'yearly' ? 'FREQ=YEARLY' : repeat === 'monthly' ? 'FREQ=MONTHLY' : repeat === 'weekly' ? 'FREQ=WEEKLY' : undefined;
-      await createCalendarEvent(settings, target.entity_id, {
-        summary: `${category.emoji} ${summary.trim()}`,
-        start_date_time: `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')} ${startTime}:00`,
-        end_date_time: `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')} ${endTime}:00`,
-        rrule,
-      });
+      const title = `${category.emoji} ${summary.trim()}`;
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const dayOf = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      const startAt = `${dayOf(start)} ${pad(sh)}:${pad(sm)}:00`;
+      const endAt = `${dayOf(end)} ${pad(eh)}:${pad(em)}:00`;
+      if (repeat === 'none') {
+        await createCalendarEvent(settings, target.entity_id, { summary: title, start_date_time: startAt, end_date_time: endAt });
+      } else {
+        await createRecurringCalendarEvent(settings, target.entity_id, {
+          summary: title,
+          start: startAt.replace(' ', 'T'),
+          end: endAt.replace(' ', 'T'),
+          freq: REPEAT_FREQ[repeat],
+        });
+      }
       setSummary('');
       onCreated();
     } catch (e) {

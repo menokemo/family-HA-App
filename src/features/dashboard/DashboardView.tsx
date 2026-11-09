@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native';
-import { WebView, type ShouldStartLoadRequest } from 'react-native-webview';
+import { WebView } from 'react-native-webview';
+import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 import { ensureFreshToken, normalizeUrl } from '../../api/homeAssistant';
 import { colors } from '../../theme';
 import type { ConnectionSettings } from '../../types/homeAssistant';
@@ -10,7 +11,9 @@ type Props = { settings: ConnectionSettings; dashboardPath: string };
 export function DashboardView({ settings, dashboardPath }: Props) {
   const [ready, setReady] = useState(false);
   const [bridgeJS, setBridgeJS] = useState<string>();
-  const webviewRef = useRef<WebView>(null);
+  // WebView<P = undefined> في تعريفات المكتبة بيخلّي الـprops من نوع never لو
+  // اتكتب من غير generic، فبنحدد object صراحةً (مجرد تحسين أنواع، مفيش أثر وقت التشغيل)
+  const webviewRef = useRef<WebView<object>>(null);
 
   useEffect(() => { setReady(false); }, [dashboardPath, settings.baseUrl]);
   const baseUrl = normalizeUrl(settings.baseUrl);

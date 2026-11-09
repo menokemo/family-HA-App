@@ -98,7 +98,7 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
   };
   const [avatars, setAvatars] = useState<Record<string, string>>({});
   const [showPlaces, setShowPlaces] = useState(false);
-  const webRef = useRef<WebView>(null);
+  const webRef = useRef<WebView<object>>(null);
 
   useEffect(() => {
     let on = true;

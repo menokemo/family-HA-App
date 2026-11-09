@@ -2,7 +2,7 @@
 
 *[English below Arabic / الإنجليزية أسفل العربية]*
 
-آخر تحديث: 2026-07-19 · Last updated: 2026-07-19
+آخر تحديث: 2026-11-09 · Last updated: 2026-11-09
 
 ---
 
@@ -34,11 +34,12 @@
 | الخريطة: تنبيهات وصول/مغادرة | ✅ | تشتغل حتى لو التطبيق مقفول (نفس بنية خدمة الإنذار الخلفية) |
 | الخريطة: أماكن قريبة (Overpass API) | ✅ | مجاني، بدون مفتاح |
 | الخريطة: مسافة بـ GPS حي | ✅ | `@react-native-community/geolocation` |
-| تاب العائلة: تقويم (أجندة+شهر) | ✅ | تصميم كروت ملوّنة زي FamilyWall، تمييز "النهاردة"، كشف أعياد ميلاد |
-| تاب العائلة: تذكيرات | ✅ | إعادة تسمية/تصميم من "قوائم تسوق" لـ "تذكيرات" (كروت ملوّنة) - نفس `todo.*` من HA |
+| تاب العائلة: تقويم (شريط أيام + منتقي تاريخ) | ✅ | كروت ملوّنة بفئات (أيقونة/لون)، أحداث متكررة أسبوعي/شهري/سنوي عبر WebSocket (لسه محتاجة تجربة على HA حي)، إضافة حدث |
+| تاب العائلة: تذكيرات | ✅ | نافذة إضافة/تعديل: عنوان + ملاحظات + تاريخ ووقت + فئة، واسم من أضافه؛ نفس `todo.*` من HA |
 | إعدادات لامركزية لكل تاب | ✅ | زرار `⋮` جمب مؤشر LIVE (Alarmo، الكاميرات، الداشبورد، الخريطة) |
 | ألوان تفاعلية + عمق بصري | ✅ | رد فعل ضغط موحّد (PressableScale) في كل التطبيق، ظل للبادجات والكروت |
-| Widget على شاشة الموبايل | ❌ | يحتاج مكتبة native جديدة (`react-native-android-widget`) أو Kotlin يدوي كامل — جلسة عمل منفصلة |
+| Widget على شاشة الموبايل | ⚠️ | اتبنى بـ`react-native-android-widget`: حالة الإنذار + Home/Away/Disarm + مين في البيت + عدد التذكيرات؛ لسه ما اتجرّبش على جهاز |
+| حارس توافق HA (اختبارات عقد + فحص دوري لإصدارات HA) | ⚠️ | اتضافت اختبارات عقد (`npm test`) وفحص أنواع حقيقي؛ فحص دوري تلقائي لإصدارات HA مقترح، بانتظار القرار |
 | Week View حقيقي للتقويم (شبكة ساعات) | ❌ | الأجندة والشهر موجودين، الأسبوع لسه لأ |
 | تعطيل بـ NFC | ❌ | البصمة موجودة، NFC محتاج مكتبة native جديدة + تصميم تسجيل كارت |
 | اسم مشروع iOS ("HelloWorld") | ❌ | تعديل محفوظ عمدًا — محتاج macOS/Xcode فعلي للتأكد، غير قابل للاختبار في بيئتنا الحالية |
@@ -100,11 +101,12 @@ it ourselves.**
 | Map: arrival/departure alerts | ✅ | Work even if the app is fully closed (same architecture as the alarm background service) |
 | Map: nearby places (Overpass API) | ✅ | Free, no API key |
 | Map: live-GPS distance | ✅ | `@react-native-community/geolocation` |
-| Family tab: calendar (agenda + month) | ✅ | FamilyWall-style colored cards, "Today" callout, birthday detection |
-| Family tab: reminders | ✅ | Relabeled/restyled from "shopping lists" to "reminders" (colored cards) — still the same HA `todo.*` under the hood |
+| Family tab: calendar (day strip + date picker) | ✅ | Colored category cards (icon/color), weekly/monthly/yearly recurring events via WebSocket (still to be tried on a live HA), add event |
+| Family tab: reminders | ✅ | Add/edit dialog: title + notes + date and time + category, and who added it; still the same HA `todo.*` |
 | Decentralized per-tab settings | ✅ | `⋮` button next to the LIVE indicator (Alarmo, Cameras, Dashboard, Map) |
 | Interactive colors + visual depth | ✅ | Unified press feedback (PressableScale) across the whole app, shadows on badges and cards |
-| Home-screen widget | ❌ | Needs a new native library (`react-native-android-widget`) or fully manual Kotlin — a separate work session |
+| Home-screen widget | ⚠️ | Built with `react-native-android-widget`: alarm state + Home/Away/Disarm + who is home + reminder count; not yet tried on a device |
+| HA compatibility guard (contract tests + periodic check of HA releases) | ⚠️ | Contract tests (`npm test`) and a real type check were added; an automatic periodic check of HA releases is proposed, awaiting a decision |
 | True week view for the calendar | ❌ | Agenda and month exist; week view doesn't yet |
 | NFC disarm | ❌ | Biometric exists; NFC needs a new native library + a tag-enrollment flow |
 | iOS project name ("HelloWorld") | ❌ | Deliberately left as-is — needs real macOS/Xcode to rename safely, untestable in our current environment |

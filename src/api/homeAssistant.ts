@@ -1,4 +1,5 @@
 import type { ConnectionSettings, HaEntity } from '../types/homeAssistant';
+import { buildRecurringEventCommand, type RecurringEventInput } from './calendarCommands';
 import { refreshAccessToken } from './oauth';
 import { getLiveSettings, updateLiveSettings } from '../storage/liveSettings';
 
@@ -147,8 +148,13 @@ export async function getCalendarEvents(settings: ConnectionSettings, entityId: 
     .filter(e => e.start);
 }
 
-export async function createCalendarEvent(settings: ConnectionSettings, entityId: string, data: { summary: string; start_date_time: string; end_date_time: string; description?: string; location?: string; rrule?: string }): Promise<void> {
+export async function createCalendarEvent(settings: ConnectionSettings, entityId: string, data: { summary: string; start_date_time: string; end_date_time: string; description?: string; location?: string }): Promise<void> {
   await request(settings, '/api/services/calendar/create_event', { method: 'POST', body: JSON.stringify({ entity_id: entityId, ...data }) });
+}
+
+// الأحداث المتكررة بتعدّي من WebSocket مش من الخدمة أعلاه (راجع calendarCommands.ts)
+export async function createRecurringCalendarEvent(settings: ConnectionSettings, entityId: string, input: RecurringEventInput): Promise<void> {
+  await wsCommand(settings, buildRecurringEventCommand(entityId, input));
 }
 
 export type TodoItem = { uid: string; summary: string; status: 'needs_action' | 'completed'; due?: string; description?: string };
