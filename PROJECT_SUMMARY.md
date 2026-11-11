@@ -60,6 +60,11 @@
 - **الترجمة في شاشة الإنذار الأصلية منفصلة عن i18n بتاع RN**
   (`AlarmStrings.kt`) لنفس السبب — الكود ده لازم يشتغل من غير أي
   اعتماد على JS.
+- **النشر عبر git bundle على Google Drive** (مش push مباشر) — عشان
+  مانلمسش كونكتور GitHub الأساسي المستخدم في مشروع تاني أهم. تعديلات
+  الـ JS بتتوزّع عبر metro بسكربت السيرفر؛ تعديلات النيتف محتاجة build
+  APK جديد. **التفاصيل الكاملة وطريقة تشغيل السكربت في `DEPLOYMENT.md`،
+  والسكربت نفسه في `scripts/deploy-familyha.sh`.**
 
 ### القيود المعروفة (موثّقة بالتفصيل في `BUGS_AND_FIXES.md`)
 - بيئة التطوير (LXC/Metro) حساسة لتشغيل أكتر من عملية `git pull`/
@@ -129,6 +134,12 @@ it ourselves.**
 - **The alert screen's translations live in their own file**
   (`AlarmStrings.kt`), separate from RN's i18n, for the same reason —
   that code must not depend on JS being alive at all.
+- **Deployment goes through a git bundle on Google Drive** (not a direct
+  push) — so we never touch the primary GitHub connector used by another,
+  more important project. JS changes ship via metro with the server script;
+  native changes need a fresh APK build. **Full details and how to run the
+  script are in `DEPLOYMENT.md`, and the script itself is in
+  `scripts/deploy-familyha.sh`.**
 
 ### Known limitations (fully documented in `BUGS_AND_FIXES.md`)
 - The dev environment (LXC/Metro) is sensitive to running more than
