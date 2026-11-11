@@ -6,6 +6,17 @@
 
 ## العربية
 
+### [2.16.15] — 2026-11-11
+- **طبقة عازلة لمحرّك الإنذار (abstraction layer):** التطبيق بقى يكلّم واجهة
+  `AlarmProvider` بدل ما يكلّم Alarmo مباشرة، وAlarmo أول تطبيق ليها
+  (`src/alarm/`). استبدال المحرّك لاحقًا بقى تغيير سطر واحد من غير لمس أي
+  شاشة. السلوك مطابق تمامًا، ومغطّى باختبارات.
+- **بوابة الشروط وإخلاء المسؤولية:** أول ما تفتح التطبيق لازم توافق على
+  الشروط قبل أي استخدام (الموافقة بتتحفظ محليًا بنسخة الشروط). بتوضّح إن
+  التطبيق مش نظام أمان معتمد، وإن المطوّر غير مسؤول عن أي خسائر، والبيانات
+  كلها على سيرفر العميل. بالثلاث لغات.
+- *(تعديل JS — يتوزّع عبر metro، وبيتضمّن في أي build.)*
+
 ### [2.16.14] — 2026-11-11  ⚠️ محتاج build جديد (تعديل نيتف)
 - **اهتزاز + حركة في شاشة الإنذار النيتف (وقت ما التطبيق مقفول):** الشاشة
   اللي بتظهر لما الإنذار يشتغل والتطبيق في الخلفية كانت صامتة وثابتة. دلوقتي:
@@ -246,6 +257,18 @@
 ---
 
 ## English
+
+### [2.16.15] — 2026-11-11
+- **Alarm engine abstraction layer:** the app now talks to an `AlarmProvider`
+  interface instead of Alarmo directly, with Alarmo as the first
+  implementation (`src/alarm/`). Swapping the engine later is a one-line
+  change with no screen touched. Behavior is identical, and covered by tests.
+- **Terms & liability gate:** on first launch the user must accept the terms
+  before any use (acceptance stored locally by terms version). It states the
+  app is not a certified security system, that the developer is not liable for
+  any loss, and that all data stays on the customer's server. In all three
+  languages.
+- *(JS change — ships via metro and is included in any build.)*
 
 ### [2.16.14] — 2026-11-11  ⚠️ Needs a fresh build (native change)
 - **Vibration + motion on the native alarm screen (when the app is closed):**

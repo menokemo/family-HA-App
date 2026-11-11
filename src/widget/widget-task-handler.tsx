@@ -1,6 +1,6 @@
 import React from 'react';
 import type { WidgetTaskHandlerProps } from 'react-native-android-widget';
-import { callAlarmoArm, callAlarmoDisarm } from '../api/homeAssistant';
+import { alarmProvider } from '../alarm';
 import { FamilyHaWidgetView } from './FamilyHaWidgetView';
 import { loadWidgetData } from './widgetData';
 
@@ -32,9 +32,9 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
         break;
       }
       try {
-        if (props.clickAction === 'ARM_HOME') await callAlarmoArm(settings, settings.alarmEntityId, 'home');
-        else if (props.clickAction === 'ARM_AWAY') await callAlarmoArm(settings, settings.alarmEntityId, 'away');
-        else if (props.clickAction === 'DISARM') await callAlarmoDisarm(settings, settings.alarmEntityId, settings.alarmCode || undefined);
+        if (props.clickAction === 'ARM_HOME') await alarmProvider.arm(settings, settings.alarmEntityId, 'home');
+        else if (props.clickAction === 'ARM_AWAY') await alarmProvider.arm(settings, settings.alarmEntityId, 'away');
+        else if (props.clickAction === 'DISARM') await alarmProvider.disarm(settings, settings.alarmEntityId, settings.alarmCode || undefined);
       } catch {
         // فشل التسليح/التعطيل (زي وجود مستشعرات مفتوحة) - المستخدم
         // هيشوف الحالة الحقيقية لما نحدّث الويدجت تحت، ولو محتاج

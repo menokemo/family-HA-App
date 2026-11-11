@@ -70,9 +70,13 @@
 - **الاسم والهوية:** هيترابرَند باسم **Secure Family** (اللوجو في
   `assets/branding/secure-family-logo.png`). إعادة التسمية الكاملة لاسم
   العرض في التطبيق مؤجّلة كخطوة منفصلة.
-- **طبقة عازلة للإنذار (abstraction layer) — مخطّطة:** التطبيق يكلّم واجهة
-  "AlarmProvider" بدل ما يكلّم Alarmo مباشرة، وAlarmo أول تطبيق ليها. ده
-  بيخلي استبدالها بمحرّك خاص بينا لاحقًا عملية بسيطة ومعزولة.
+- **طبقة عازلة للإنذار (abstraction layer) — ✅ تم:** التطبيق بيكلّم واجهة
+  `AlarmProvider` (`src/alarm/`) بدل ما يكلّم Alarmo مباشرة، وAlarmo أول
+  تطبيق ليها. استبدالها بمحرّك خاص بينا لاحقًا = تغيير سطر واحد في
+  `src/alarm/index.ts`. مغطّى باختبارات.
+- **بوابة الشروط/إخلاء المسؤولية — ✅ تم:** موافقة إجبارية قبل الاستخدام،
+  بتتحفظ محليًا بنسخة الشروط (`src/components/TermsGate.tsx`). النص مسودّة
+  معقولة — تحتاج مراجعة قانونية قبل الإطلاق التجاري.
 - **الترخيص آمن تجاريًا:** Alarmo وHome Assistant الاتنين Apache 2.0
   (استخدام تجاري مسموح، والكود المنشور مايتقفلش بأثر رجعي). فحص رخص كل
   تبعيات npm نضيف — **لا GPL/AGPL** (مفصّل في `LICENSE_AUDIT.md`).
@@ -162,10 +166,13 @@ it ourselves.**
 - **Name and identity:** will be rebranded **Secure Family** (logo at
   `assets/branding/secure-family-logo.png`). The full rename of the app's
   display name is deferred as a separate step.
-- **Alarm abstraction layer — planned:** the app talks to an "AlarmProvider"
-  interface instead of Alarmo directly, with Alarmo as the first
-  implementation. This makes swapping in our own engine later simple and
-  contained.
+- **Alarm abstraction layer — ✅ done:** the app talks to an `AlarmProvider`
+  interface (`src/alarm/`) instead of Alarmo directly, with Alarmo as the
+  first implementation. Swapping in our own engine later is a one-line change
+  in `src/alarm/index.ts`. Covered by tests.
+- **Terms / liability gate — ✅ done:** mandatory acceptance before use, stored
+  locally by terms version (`src/components/TermsGate.tsx`). The text is a
+  reasonable draft — needs legal review before a commercial launch.
 - **Licensing is commercially safe:** Alarmo and Home Assistant are both
   Apache 2.0 (commercial use allowed; released code can't be clawed back).
   A full npm license audit is clean — **no GPL/AGPL** (see `LICENSE_AUDIT.md`).
