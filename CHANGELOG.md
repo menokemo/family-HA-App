@@ -6,6 +6,10 @@
 
 ## العربية
 
+### [2.16.6] — 2026-11-11
+- إضافة ترجمات أسباب فشل التسليح الناقصة (`not_allowed`, `open_sensors`,
+  `invalid_code`) بثلاث لغات — كانت بتظهر كـ`[missing translation]`.
+
 ### [2.16.5] — 2026-11-11
 - كروت أحداث Alarmo بقت **بانرات ملوّنة حسب النوع**: خلفية وعنوان بلون
   الحدث — أحمر للفشل، أخضر للنجاح، أزرق للجاهزية.
@@ -183,6 +187,11 @@
 ---
 
 ## English
+
+### [2.16.6] — 2026-11-11
+- Added the missing arm-failure reason translations (`not_allowed`,
+  `open_sensors`, `invalid_code`) in all three languages — they showed as
+  `[missing translation]`.
 
 ### [2.16.5] — 2026-11-11
 - Alarmo event cards are now **colored banners by type**: tinted background

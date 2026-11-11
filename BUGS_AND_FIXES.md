@@ -126,6 +126,11 @@ build قديم جوه الحزمة مش موجود. الحل: `blockList` في `
 يتجاهل `node_modules/*/(android|ios)/(build|.cxx)` خالص، فمفيش فولدرات
 بناء بتتراقب. (ملحوظة: react-native-webrtc مرحلة لاحقة ومش مستخدم حاليًا.)
 
+**ترجمات أسباب فشل التسليح ناقصة (2.16.6)** — في كارت حدث "Arming failed"
+كان السبب بيظهر `[missing "en.not_allowed" translation]`، لأن `EventCard`
+بيعمل `i18n.t(data.reason)` لأي سبب، والمفاتيح `not_allowed` و`open_sensors`
+و`invalid_code` مكانتش معرّفة. الحل: اتضافت المفاتيح التلاتة بثلاث لغات.
+
 ### ⚠️ قيود معروفة (مش أخطاء، قرارات واعية)
 - **`jest` غير مثبَّتة عمدًا** — مذكورة في `jest.config.js` بس مش في
   `package.json`. جُرِّب تثبيتها (`jest`/`@types/jest`/`react-test-
