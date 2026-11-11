@@ -6,6 +6,10 @@
 
 ## العربية
 
+### [2.16.5] — 2026-11-11
+- كروت أحداث Alarmo بقت **بانرات ملوّنة حسب النوع**: خلفية وعنوان بلون
+  الحدث — أحمر للفشل، أخضر للنجاح، أزرق للجاهزية.
+
 ### [2.16.4] — 2026-11-11
 - تصغير الهيدر العلوي (اسم التطبيق والإصدار) عشان ياخد مساحة أقل.
 - إصلاح: metro كان بيقع على السيرفر بسبب مراقبة فولدر build قديم في
@@ -179,6 +183,10 @@
 ---
 
 ## English
+
+### [2.16.5] — 2026-11-11
+- Alarmo event cards are now **colored banners by type**: tinted background
+  and colored title — red for failures, green for success, blue for readiness.
 
 ### [2.16.4] — 2026-11-11
 - Smaller top header (app name + version) so it takes less space.
