@@ -66,6 +66,23 @@
   APK جديد. **التفاصيل الكاملة وطريقة تشغيل السكربت في `DEPLOYMENT.md`،
   والسكربت نفسه في `scripts/deploy-familyha.sh`.**
 
+### التوجه التجاري (قرارات ومخطط)
+- **الاسم والهوية:** هيترابرَند باسم **Secure Family** (اللوجو في
+  `assets/branding/secure-family-logo.png`). إعادة التسمية الكاملة لاسم
+  العرض في التطبيق مؤجّلة كخطوة منفصلة.
+- **طبقة عازلة للإنذار (abstraction layer) — مخطّطة:** التطبيق يكلّم واجهة
+  "AlarmProvider" بدل ما يكلّم Alarmo مباشرة، وAlarmo أول تطبيق ليها. ده
+  بيخلي استبدالها بمحرّك خاص بينا لاحقًا عملية بسيطة ومعزولة.
+- **الترخيص آمن تجاريًا:** Alarmo وHome Assistant الاتنين Apache 2.0
+  (استخدام تجاري مسموح، والكود المنشور مايتقفلش بأثر رجعي). فحص رخص كل
+  تبعيات npm نضيف — **لا GPL/AGPL** (مفصّل في `LICENSE_AUDIT.md`).
+- **قرار معماري:** مخ نظام الأمان يفضل في السيرفر (HA) اللي شغّال 24/7،
+  مش في الموبايل.
+- **قبل الإطلاق (to-do):** شروط استخدام + إخلاء مسؤولية؛ ملف إشعارات
+  تراخيص الطرف الثالث (NOTICES)؛ تبريرات صلاحيات Google Play.
+- **الخصوصية:** مفيش سيرفر عندنا — كل البيانات في الـ HA بتاع العميل،
+  والعميل مسؤول عن سيرفره. ده بيقلّل التزامات GDPR جدًا.
+
 ### القيود المعروفة (موثّقة بالتفصيل في `BUGS_AND_FIXES.md`)
 - بيئة التطوير (LXC/Metro) حساسة لتشغيل أكتر من عملية `git pull`/
   `gradle` في نفس الوقت — دايمًا اتأكد من جلسة `tmux` واحدة نضيفة.
@@ -140,6 +157,24 @@ it ourselves.**
   native changes need a fresh APK build. **Full details and how to run the
   script are in `DEPLOYMENT.md`, and the script itself is in
   `scripts/deploy-familyha.sh`.**
+
+### Commercial direction (decisions and plan)
+- **Name and identity:** will be rebranded **Secure Family** (logo at
+  `assets/branding/secure-family-logo.png`). The full rename of the app's
+  display name is deferred as a separate step.
+- **Alarm abstraction layer — planned:** the app talks to an "AlarmProvider"
+  interface instead of Alarmo directly, with Alarmo as the first
+  implementation. This makes swapping in our own engine later simple and
+  contained.
+- **Licensing is commercially safe:** Alarmo and Home Assistant are both
+  Apache 2.0 (commercial use allowed; released code can't be clawed back).
+  A full npm license audit is clean — **no GPL/AGPL** (see `LICENSE_AUDIT.md`).
+- **Architecture rule:** the security "brain" stays server-side (HA), running
+  24/7, not on the phone.
+- **Before release (to-do):** Terms of Service + liability disclaimer; a
+  third-party license NOTICES file; Google Play permission justifications.
+- **Privacy:** we run no server — all data lives in the customer's own HA, and
+  the customer owns their server. This greatly reduces GDPR obligations.
 
 ### Known limitations (fully documented in `BUGS_AND_FIXES.md`)
 - The dev environment (LXC/Metro) is sensitive to running more than

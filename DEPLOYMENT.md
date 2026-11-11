@@ -44,6 +44,10 @@
    > الأساس `4d66fbb` لازم يفضل ثابت — لأنه commit موجود في تاريخ السيرفر،
    > فالـ bundle التراكمي بيتطبّق صح.
 5. رفع الـ bundle على Google Drive وأخذ الـ **FILE_ID**.
+6. **مهم:** مشاركة الملف **عام (anyone with link, reader)** — السيرفر بيحمّل
+   بـ curl من غير تسجيل دخول، فلو الملف مش متشارك عام، Drive بيرجّع صفحة HTML
+   بدل الـ bundle والسكربت بيفشل بـ
+   `does not look like a v2 or v3 bundle file`.
 
 **الخطوة (من ناحيتك / على السيرفر):**
 
@@ -136,6 +140,10 @@ primary GitHub connector (used by another, more important project).
    > The base `4d66fbb` must stay fixed — it's a commit present in the
    > server's history, so the cumulative bundle applies cleanly.
 5. Upload the bundle to Google Drive and take the **FILE_ID**.
+6. **Important:** share the file **publicly (anyone with link, reader)** — the
+   server downloads it with curl and no auth, so if it isn't shared publicly
+   Drive returns an HTML page instead of the bundle and the script fails with
+   `does not look like a v2 or v3 bundle file`.
 
 **Step (your side / on the server):**
 
