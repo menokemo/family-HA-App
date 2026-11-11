@@ -6,6 +6,17 @@
 
 ## العربية
 
+### [2.16.13] — 2026-11-11
+- **تحسين الترجمة العربية (لهجة مصرية):** كل النصوص العربية اتعادت صياغتها
+  باللهجة المصرية بدل الفصحى — مثلاً "مفيش" بدل "لا يوجد"، "عايز" بدل "هل تريد"،
+  "تفعيل/إيقاف" بدل "تسليح/إلغاء التسليح"، و"حساسات" بدل "مستشعرات". التعبيرات
+  بقت أوضح وأقرب للمستخدم العادي، والمصطلحات التقنية (Alarmo وHome Assistant
+  وREST وWebRTC وOAuth) زي ما هي.
+- **تحديث الهولندي للغة العصرية:** كل النصوص الهولندية بقت بصيغة غير رسمية
+  (je/jij) ثابتة بدل خلط الرسمي (u) بغير الرسمي.
+- **إصلاح مفتاح ناقص:** `cameraSettings` كان ناقص في الهولندي؛ اتضاف.
+- *(تعديل JS فقط — يتوزّع عن طريق metro من غير build.)*
+
 ### [2.16.12] — 2026-11-11
 - **إصلاح صمت الإنذار داخل التطبيق:** الصوت كان بيتكتم لمجرد إن المراقبة في
   الخلفية مفعّلة. دلوقتي بيشتغل طول ما التطبيق في الواجهة (بـAppState)،
@@ -223,6 +234,18 @@
 ---
 
 ## English
+
+### [2.16.13] — 2026-11-11
+- **Arabic rewritten in Egyptian dialect:** every Arabic string was reworded
+  from formal MSA into colloquial Egyptian — e.g. "مفيش" instead of "لا يوجد",
+  "عايز" instead of "هل تريد", "تفعيل/إيقاف" instead of "تسليح/إلغاء التسليح",
+  and "حساسات" instead of "مستشعرات". Wording is clearer and more natural for
+  everyday users; technical terms (Alarmo, Home Assistant, REST, WebRTC, OAuth)
+  are left unchanged.
+- **Dutch modernised:** all Dutch strings now use a consistent informal register
+  (je/jij) instead of mixing formal (u) with informal.
+- **Missing key fixed:** `cameraSettings` was missing in Dutch; added.
+- *(JS-only change — ships via metro, no build.)*
 
 ### [2.16.12] — 2026-11-11
 - **Fixed in-app alarm being silent:** the siren was muted just because the
