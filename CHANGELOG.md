@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.16.8] — 2026-11-11
+- في إعدادات "حسابي في Home Assistant": بقى يعرض **المستخدم اللي سجّل دخول
+  بس** (بمطابقة `user_id` بتاع الشخص مع المستخدم الحالي من `auth/current_user`)
+  بدل قائمة كل المستخدمين. لو ماقدرناش نحدد المستخدم، بترجع القائمة الكاملة
+  عشان تقدر تختار يدويًا.
+
 ### [2.16.7] — 2026-11-11
 - إزالة الظل من أيقونات كروت الأحداث — كان بيبان كعيب حوالين الأيقونة على
   خلفية البانر الملوّنة.
@@ -191,6 +197,12 @@
 ---
 
 ## English
+
+### [2.16.8] — 2026-11-11
+- The "My Home Assistant person" setting now shows **only the logged-in user**
+  (matching the person's `user_id` to the current user from `auth/current_user`)
+  instead of listing every user. If the user can't be identified, it falls back
+  to the full list so you can still pick manually.
 
 ### [2.16.7] — 2026-11-11
 - Removed the shadow from event-card icons — it looked like a defect around
