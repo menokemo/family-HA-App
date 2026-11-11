@@ -13,6 +13,18 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**شاشة الإنذار (لما التطبيق مقفول) كانت بتظهر صامتة وثابتة** — أول ما
+المراقبة في الخلفية اشتغلت، بقت شاشة الإنذار تظهر لكن من غير اهتزاز ولا
+أي حركة، مجرد خلفية حمرا وزر. **السبب الجذري المهم:** الأنيميشن والعدّاد
+والنبض اللي اتضافوا في `App.tsx` بتاعين شاشة React Native اللي بتظهر لما
+التطبيق **قدّام** بس. لما التطبيق مقفول/في الخلفية، اللي بيظهر هو
+`AlarmActivity` **النيتف** (Kotlin) — شاشة تانية خالص مالهاش علاقة بكود
+React، وكانت بسيطة من غير اهتزاز ولا أنيميشن. الحل: إضافة صلاحية
+`VIBRATE`، واهتزاز متكرر زي المكالمة (على قناة الإنذار عشان يتخطى الصامت)،
+ونبض على الدرع + تدرّج في لون الخلفية، جوه `AlarmActivity` نفسها. **درس:**
+أي تحسين بصري لشاشة الإنذار لازم يتعمل في **الاتنين** (RN للواجهة +
+النيتف للخلفية). تعديل نيتف = محتاج build جديد، مش metro.
+
 **مجلد `src/` كان ناقص من الرفعة الأولى** — `App.tsx` كان بيستورد من
 10 مسارات تحت `src/` غير موجودة خالص، فالمشروع ما كانش بيُبنى. اتصلح
 برفع `src/`/`android/`/`ios/`/`assets/` كاملين.
@@ -164,6 +176,21 @@ build قديم جوه الحزمة مش موجود. الحل: `blockList` في `
 ## English
 
 ### ✅ Resolved
+
+**Background alarm screen appeared silent and static** — once background
+monitoring started working, the alarm screen showed up but with no
+vibration and no motion — just a red background and a button. **Important
+root cause:** the pulse/countdown/animations added to `App.tsx` belong to
+the React Native screen, which only appears when the app is in the
+**foreground**. When the app is closed/backgrounded, the screen shown is
+the **native** `AlarmActivity` (Kotlin) — a completely separate screen
+unrelated to the React code — and it was plain, with no vibration or
+animation. Fix: added the `VIBRATE` permission, a call-like repeating
+vibration (on the alarm channel so it bypasses silent mode), and a pulsing
+shield + background gradient, inside `AlarmActivity` itself. **Lesson:**
+any visual polish for the alarm screen must be done in **both** places (RN
+for foreground, native for background). A native change needs a fresh
+build, not metro.
 
 **`src/` folder missing from the first upload** — `App.tsx` imported
 from 10 paths under `src/` that didn't exist, so the project couldn't

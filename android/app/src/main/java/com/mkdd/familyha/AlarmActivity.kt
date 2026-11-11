@@ -1,5 +1,9 @@
 package com.mkdd.familyha
 
+import android.animation.ArgbEvaluator
+import android.animation.ObjectAnimator
+import android.animation.PropertyValuesHolder
+import android.animation.ValueAnimator
 import android.app.Activity
 import android.app.KeyguardManager
 import android.content.Context
@@ -12,9 +16,14 @@ import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
 import android.os.CancellationSignal
+import android.os.VibrationAttributes
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.TextView
 import okhttp3.Call
@@ -35,6 +44,9 @@ import java.util.concurrent.Executor
  */
 class AlarmActivity : Activity() {
   private var mediaPlayer: MediaPlayer? = null
+  private var vibrator: Vibrator? = null
+  private var shieldAnim: ObjectAnimator? = null
+  private var bgAnim: ValueAnimator? = null
   private var dX = 0f
   private var maxTranslation = 0f
   private var slideTriggered = false
@@ -63,6 +75,8 @@ class AlarmActivity : Activity() {
     }
 
     playSiren()
+    startVibration()
+    startAnimations(findViewById(R.id.rootLayout), findViewById(R.id.shieldText))
 
     track.post {
       val marginPx = (7 * resources.displayMetrics.density)
@@ -149,7 +163,7 @@ class AlarmActivity : Activity() {
     disarmAlarm { success ->
       runOnUiThread {
         if (success) {
-          stopSiren()
+          stopAllAlerts()
           finish()
         } else {
           statusText.text = AlarmStrings.get(lang(), "disarm_failed")
@@ -224,6 +238,88 @@ class AlarmActivity : Activity() {
     mediaPlayer = null
   }
 
+  /** اهتزاز متكرر زي المكالمة الواردة، على قناة الإنذار عشان يتخطى الوضع الصامت. */
+  private fun startVibration() {
+    try {
+      val vib = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        (getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager).defaultVibrator
+      } else {
+        @Suppress("DEPRECATION")
+        getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+      }
+      vibrator = vib
+      if (!vib.hasVibrator()) return
+      // صمت 0 ← اهتزاز 500 ← سكون 350 ← اهتزاز 500 ← سكون 900 ← يكرر
+      val pattern = longArrayOf(0, 500, 350, 500, 900)
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val effect = VibrationEffect.createWaveform(pattern, 0)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+          val attrs = VibrationAttributes.Builder()
+            .setUsage(VibrationAttributes.USAGE_ALARM)
+            .build()
+          vib.vibrate(effect, attrs)
+        } else {
+          val attrs = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ALARM)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+          vib.vibrate(effect, attrs)
+        }
+      } else {
+        @Suppress("DEPRECATION")
+        vib.vibrate(pattern, 0)
+      }
+    } catch (e: Exception) {
+      // الجهاز مفيهوش اهتزاز أو الصلاحية مرفوضة - نكمل من غير اهتزاز
+    }
+  }
+
+  private fun stopVibration() {
+    try { vibrator?.cancel() } catch (e: Exception) { /* ignore */ }
+    vibrator = null
+  }
+
+  /** نبض على الدرع وتدرّج بسيط في لون الخلفية عشان الشاشة تبان حية ومُلحّة. */
+  private fun startAnimations(root: View?, shield: View?) {
+    if (shield != null) {
+      shieldAnim = ObjectAnimator.ofPropertyValuesHolder(
+        shield,
+        PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.14f),
+        PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.14f),
+      ).apply {
+        duration = 620
+        repeatCount = ValueAnimator.INFINITE
+        repeatMode = ValueAnimator.REVERSE
+        interpolator = AccelerateDecelerateInterpolator()
+        start()
+      }
+    }
+    if (root != null) {
+      bgAnim = ValueAnimator.ofObject(ArgbEvaluator(), 0xFFC62E44.toInt(), 0xFF8E1230.toInt()).apply {
+        duration = 900
+        repeatCount = ValueAnimator.INFINITE
+        repeatMode = ValueAnimator.REVERSE
+        interpolator = AccelerateDecelerateInterpolator()
+        addUpdateListener { root.setBackgroundColor(it.animatedValue as Int) }
+        start()
+      }
+    }
+  }
+
+  private fun stopAnimations() {
+    try { shieldAnim?.cancel() } catch (e: Exception) { /* ignore */ }
+    try { bgAnim?.cancel() } catch (e: Exception) { /* ignore */ }
+    shieldAnim = null
+    bgAnim = null
+  }
+
+  /** يوقف الصوت والاهتزاز والأنيميشن كلهم مرة واحدة. */
+  private fun stopAllAlerts() {
+    stopSiren()
+    stopVibration()
+    stopAnimations()
+  }
+
   private fun disarmAlarm(callback: (Boolean) -> Unit) {
     val prefs = getSharedPreferences(AlarmMonitorService.PREFS, Context.MODE_PRIVATE)
     val baseUrl = prefs.getString("baseUrl", null)
@@ -252,7 +348,7 @@ class AlarmActivity : Activity() {
   }
 
   override fun onDestroy() {
-    stopSiren()
+    stopAllAlerts()
     super.onDestroy()
   }
 }

@@ -6,6 +6,18 @@
 
 ## العربية
 
+### [2.16.14] — 2026-11-11  ⚠️ محتاج build جديد (تعديل نيتف)
+- **اهتزاز + حركة في شاشة الإنذار النيتف (وقت ما التطبيق مقفول):** الشاشة
+  اللي بتظهر لما الإنذار يشتغل والتطبيق في الخلفية كانت صامتة وثابتة. دلوقتي:
+  - **اهتزاز متكرر زي المكالمة الواردة** — على قناة الإنذار عشان يتخطى
+    الوضع الصامت وعدم الإزعاج. (أُضيفت صلاحية `VIBRATE`.)
+  - **نبض على الدرع + تدرّج في لون الخلفية** عشان الشاشة تبان حية ومُلحّة.
+- **لمسات على النصوص العربية النيتف** لتتماشى مع لهجة التطبيق المصرية
+  (الإنذار اشتغل / اسحب عشان توقّفه / بيتوقّف...).
+- ملاحظة تقنية: الأنيميشن اللي في `App.tsx` بتاع شاشة الواجهة (RN) بس؛ شاشة
+  الخلفية نيتف (Kotlin) ولازم تتظبط لوحدها. (مفصّلة في BUGS_AND_FIXES.)
+- *(تعديل نيتف — لازم build APK جديد على ويندوز، مش بيتوزّع عبر metro.)*
+
 ### [2.16.13] — 2026-11-11
 - **تحسين الترجمة العربية (لهجة مصرية):** كل النصوص العربية اتعادت صياغتها
   باللهجة المصرية بدل الفصحى — مثلاً "مفيش" بدل "لا يوجد"، "عايز" بدل "هل تريد"،
@@ -234,6 +246,22 @@
 ---
 
 ## English
+
+### [2.16.14] — 2026-11-11  ⚠️ Needs a fresh build (native change)
+- **Vibration + motion on the native alarm screen (when the app is closed):**
+  the screen shown when the alarm fires while the app is backgrounded was
+  silent and static. Now:
+  - **Call-like repeating vibration** — on the alarm channel so it bypasses
+    silent mode and Do Not Disturb. (`VIBRATE` permission added.)
+  - **Pulsing shield + background gradient** so the screen feels alive and
+    urgent.
+- **Egyptian-dialect touch-ups** to the native Arabic strings to match the
+  app's tone.
+- Technical note: the animations in `App.tsx` are for the React Native
+  (foreground) screen only; the background screen is native (Kotlin) and must
+  be styled separately. (Detailed in BUGS_AND_FIXES.)
+- *(Native change — requires a fresh APK build on Windows; does NOT ship via
+  metro.)*
 
 ### [2.16.13] — 2026-11-11
 - **Arabic rewritten in Egyptian dialect:** every Arabic string was reworded
