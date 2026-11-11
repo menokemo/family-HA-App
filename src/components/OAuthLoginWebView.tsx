@@ -5,6 +5,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { colors } from '../theme';
 import { i18n } from '../i18n';
 import { buildAuthorizeUrl, extractAuthCode, exchangeCodeForTokens } from '../api/oauth';
+import { normalizeUrl } from '../api/url';
 import { PressableScale } from './PressableScale';
 
 type Props = {
@@ -22,6 +23,8 @@ export function OAuthLoginWebView({ visible, baseUrl, onClose, onSuccess, onErro
   // أكواد OAuth بتُستخدم مرة واحدة بس - تبديلها مرتين يفشل بـ 401 في
   // المحاولة التانية حتى لو الأولى نجحت فعليًا.
   const handledRef = useRef(false);
+  // ‎<object> عشان نوع الـprops مايبقاش never (WebView<P = undefined>).
+  const webRef = useRef<WebView<object>>(null);
   const [loading, setLoading] = useState(false);
 
   if (!visible) return null;
@@ -58,6 +61,7 @@ export function OAuthLoginWebView({ visible, baseUrl, onClose, onSuccess, onErro
         </View>
       ) : (
         <WebView
+          ref={webRef}
           source={{ uri: buildAuthorizeUrl(baseUrl) }}
           onShouldStartLoadWithRequest={request => {
             const code = extractAuthCode(request.url);
@@ -65,6 +69,16 @@ export function OAuthLoginWebView({ visible, baseUrl, onClose, onSuccess, onErro
             return true;
           }}
           startInLoadingState
+          renderError={() => (
+            <View style={s.errorWrap}>
+              <Ionicons name="cloud-offline-outline" size={56} color={colors.muted} />
+              <Text style={s.errorTitle}>{i18n.t('oauthLoadError')}</Text>
+              <Text style={s.errorAddress}>{normalizeUrl(baseUrl)}</Text>
+              <PressableScale onPress={() => webRef.current?.reload()} style={s.retryBtn} hitSlop={8}>
+                <Text style={s.retryText}>{i18n.t('tryAgain')}</Text>
+              </PressableScale>
+            </View>
+          )}
         />
       )}
     </View>
@@ -78,4 +92,9 @@ const s = StyleSheet.create({
   title: { color: colors.text, fontWeight: '800', fontSize: 16 },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
   muted: { color: colors.muted },
+  errorWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, backgroundColor: colors.background },
+  errorTitle: { color: colors.text, fontSize: 16, fontWeight: '700', textAlign: 'center', marginTop: 16, lineHeight: 24 },
+  errorAddress: { color: colors.muted, fontSize: 13, textAlign: 'center', marginTop: 12 },
+  retryBtn: { marginTop: 24, backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 32 },
+  retryText: { color: colors.black, fontSize: 15, fontWeight: '900' },
 });

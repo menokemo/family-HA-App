@@ -2,8 +2,9 @@ import type { ConnectionSettings, HaEntity } from '../types/homeAssistant';
 import { buildRecurringEventCommand, type RecurringEventInput } from './calendarCommands';
 import { refreshAccessToken } from './oauth';
 import { getLiveSettings, updateLiveSettings } from '../storage/liveSettings';
+import { normalizeUrl } from './url';
 
-export const normalizeUrl = (url: string) => url.trim().replace(/\/+$/, '');
+export { normalizeUrl };
 const headers = (token: string) => ({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' });
 
 async function readError(response: Response): Promise<string> {

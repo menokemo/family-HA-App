@@ -108,6 +108,16 @@ schema خدمة `calendar.create_event` مفيهاش `rrule` وبترفض أي �
 موجودة في المكتبة (`marginEnd`، `flexWrap`) اتبدّلت بـ`marginRight` وعدد
 ثابت للدوائر، ونوع `ColorProp` للألوان.
 
+**`net::ERR_NAME_NOT_RESOLVED` في شاشة تسجيل الدخول (2.16.2)** — المستخدم
+بيكتب عنوان السيرفر، و`normalizeUrl` كانت بتشيل آخر `/` بس من غير ما
+تضيف بروتوكول. لو العنوان اتكتب من غير `https://`/`http://`، الـWebView
+مكانش بيعرف يحمّله فبيطلع خطأ DNS الخام (شاشة بيضا بـ Error Code -2).
+الحل: `normalizeUrl` اتنقلت لملف نقي `src/api/url.ts` (عشان تتختبر من غير
+استيراد native) وبقت تضيف البروتوكول تلقائيًا — https للدومينات العامة،
+http للعناوين المحلية (IP داخلي / localhost / `.local`) لأن تنصيبات HA
+المحلية غالبًا http. وكمان اتضافت شاشة خطأ واضحة بزرار "جرب تاني" وعرض
+العنوان اللي حاول يوصله بدل الصفحة الخام، واختبارات لـ`normalizeUrl`.
+
 ### ⚠️ قيود معروفة (مش أخطاء، قرارات واعية)
 - **`jest` غير مثبَّتة عمدًا** — مذكورة في `jest.config.js` بس مش في
   `package.json`. جُرِّب تثبيتها (`jest`/`@types/jest`/`react-test-
@@ -237,6 +247,18 @@ the service; only recurring ones use WebSocket (`src/api/calendarCommands.ts`
 `react-native-webview/lib/WebViewTypes`; in the widget, style props the
 library lacks (`marginEnd`, `flexWrap`) were replaced with `marginRight` and
 a fixed number of circles, plus the `ColorProp` type for colors.
+
+**`net::ERR_NAME_NOT_RESOLVED` on the login screen (2.16.2)** — the user
+types the server address, and `normalizeUrl` only stripped trailing slashes
+without adding a scheme. If the address was entered without `https://`/
+`http://`, the WebView couldn't load it and showed the raw DNS error (blank
+screen, Error Code -2). Fix: `normalizeUrl` was moved to a pure
+`src/api/url.ts` (so it can be tested without native imports) and now adds
+the scheme automatically — https for public domains, http for local
+addresses (private IP / localhost / `.local`) since local HA installs are
+usually http. Also added a clear error screen with a "Try again" button
+showing the address it tried, instead of the raw page, plus `normalizeUrl`
+tests.
 
 ### ⚠️ Known limitations (deliberate decisions, not bugs)
 - **`jest` is deliberately not installed** — referenced in

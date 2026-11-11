@@ -6,6 +6,15 @@
 
 ## العربية
 
+### [2.16.2] — 2026-11-11
+- **إدخال عنوان Home Assistant أسهل**: لو كتبت الدومين من غير `https://`
+  التطبيق بيضيف البروتوكول تلقائيًا — https للدومينات العامة، http للعناوين
+  المحلية (IP داخلي / localhost / `.local`). ده بيمنع خطأ
+  `net::ERR_NAME_NOT_RESOLVED` اللي كان بيظهر لما العنوان يتكتب من غير بروتوكول.
+- **رسالة خطأ واضحة** في شاشة تسجيل الدخول بدل الصفحة الخام، مع زرار "جرب تاني"
+  وعرض العنوان اللي حاول يوصله (بثلاث لغات).
+- اختبارات جديدة لـ`normalizeUrl` (إجمالي الاختبارات بقى 19).
+
 ### [2.16.1] — 2026-11-09
 - **تصحيح أرقام أوضاع التسليح** (Vacation=32، Custom=16 حسب HA/Alarmo): زرار
   Vacation كان بيظهر حتى لو الوضع مقفول في Alarmo.
@@ -155,6 +164,15 @@
 ---
 
 ## English
+
+### [2.16.2] — 2026-11-11
+- **Easier Home Assistant address entry**: if you type the domain without
+  `https://`, the app now adds the scheme automatically — https for public
+  domains, http for local addresses (private IP / localhost / `.local`). This
+  prevents the `net::ERR_NAME_NOT_RESOLVED` failure seen for schemeless addresses.
+- **Clear error screen** on the login page instead of the raw error page, with
+  a "Try again" button and the address it tried to reach (in all three languages).
+- New `normalizeUrl` tests (19 tests total).
 
 ### [2.16.1] — 2026-11-09
 - **Fixed the arm-mode feature bits** (Vacation=32, Custom=16 per HA/Alarmo):
