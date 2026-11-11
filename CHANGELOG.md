@@ -6,6 +6,14 @@
 
 ## العربية
 
+### [2.16.17] — 2026-11-11
+- **شاشة الترحيب (تسجيل الدخول):**
+  - **اللوجو** بقى ظاهر فوق في النص بدل اسم نصّي.
+  - **شيل جزء التوكن اليدوي** ("Advanced: use a manual access token") بالكامل
+    — بقى تسجيل الدخول عن طريق Home Assistant بس (أنظف للمستخدم غير التقني).
+  - تعديل نص العنوان الفرعي إنه مايذكرش "access token".
+- *(تعديل JS — يتوزّع عبر metro، ويتضمّن في build 2.16.16.)*
+
 ### [2.16.16] — 2026-11-11  ⚠️ محتاج build جديد (أيقونة + اسم)
 - **الهوية الجديدة Secure Family:** اسم التطبيق الظاهر اتغيّر من "Family HA"
   لـ **Secure Family** في كل مكان (اللانشر، شاشة الترحيب، الهيدر، الويدجت،
@@ -269,6 +277,15 @@
 ---
 
 ## English
+
+### [2.16.17] — 2026-11-11
+- **Welcome (login) screen:**
+  - The **logo** now appears at the top instead of a text name.
+  - **Removed the manual-token part** ("Advanced: use a manual access token")
+    entirely — sign-in is now only via Home Assistant (cleaner for
+    non-technical users).
+  - Subtitle reworded to no longer mention an "access token".
+- *(JS change — ships via metro, and is included in the 2.16.16 build.)*
 
 ### [2.16.16] — 2026-11-11  ⚠️ Needs a fresh build (icon + name)
 - **New Secure Family identity:** the app's display name changed from
