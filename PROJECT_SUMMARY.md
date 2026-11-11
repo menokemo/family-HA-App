@@ -138,3 +138,32 @@ it ourselves.**
   `@types/react-native` as a transitive dependency, causing a cosmetic
   type-checking warning under `npm run typecheck` (without the
   implicit `--skipLibCheck`) — it does not affect the actual build.
+
+### Professional polish roadmap — "a real security system"
+Agreed direction (2026-11-11): take the app from "works" to something that,
+at a glance, reads as a genuine security system. Four tracks, in priority
+order:
+1. **Critical security moments** — in progress (first batch in 2.16.10:
+   triggered-state pulse + "intrusion detected" alert; arming/entry
+   countdown). Next: make the whole triggered view more dramatic (fuller
+   red, very prominent disarm).
+2. **Visual consistency** — unify every screen and sheet (events, sensors,
+   cameras, map, settings) into one design language: spacing, type, icons,
+   colors.
+3. **Information clarity and honesty** — open/closed sensors shown clearly,
+   correct per-reason event messages, connection and last-updated indicators.
+4. **Micro-interactions** — haptics on arm/disarm, smooth transitions,
+   instant button feedback.
+
+### خارطة طريق التلميع الاحترافي — "نظام أمان حقيقي"
+اتجاه متفق عليه (2026-11-11): ننقل التطبيق من "بيشتغل" لحاجة من أول نظرة
+تحس إنها نظام أمان جاد. أربع مسارات بالأولوية:
+1. **لحظات الأمان الحرجة** — جارية (أول دفعة في 2.16.10: نبض حالة triggered
+   + تنبيه "تم اكتشاف دخول"؛ عدّاد التسليح/الدخول). التالي: شاشة triggered
+   أكثر دراما (أحمر أوضح، إلغاء بارز جدًا).
+2. **اتساق بصري** — توحيد كل الشاشات والقوائم (أحداث/مستشعرات/كاميرات/خريطة/
+   إعدادات) على لغة تصميم واحدة: مسافات، خطوط، أيقونات، ألوان.
+3. **وضوح وصدق المعلومات** — مستشعرات مفتوح/مقفول بوضوح، رسائل أحداث صحيحة لكل
+   سبب، مؤشرات اتصال وآخر تحديث.
+4. **تفاصيل دقيقة** — اهتزاز عند التسليح/الإلغاء، انتقالات ناعمة، رد فعل فوري
+   على الأزرار.

@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.16.10] — 2026-11-11
+- **لحظات الأمان الحرجة (أول دفعة):**
+  - حالة **Triggered**: الأيقونة بتنبض وبيظهر تنبيه بارز "تم اكتشاف دخول"
+    (مع الصوت اللي كان شغّال أصلًا).
+  - **عدّاد تنازلي** كبير وقت التسليح/الدخول (arming/pending) لما Alarmo
+    يوفّر مدة التأخير (`delay`)، بيعدّ الثواني المتبقية.
+
 ### [2.16.9] — 2026-11-11
 - إزالة كارت "Secure login" وحقل "Access token" من إعدادات التطبيق — بقوا
   من بقايا النظام القديم (التوكن اليدوي). التطبيق دلوقتي بيجيب التوكن ويحفظه
@@ -203,6 +210,13 @@
 ---
 
 ## English
+
+### [2.16.10] — 2026-11-11
+- **Critical security moments (first batch):**
+  - **Triggered** state: the icon pulses and a bold "Intrusion detected" alert
+    appears (alongside the siren that already played).
+  - A large **countdown** during arming/pending (exit/entry delay) when Alarmo
+    provides the delay duration (`delay`), ticking down the remaining seconds.
 
 ### [2.16.9] — 2026-11-11
 - Removed the "Secure login" card and the "Access token" field from App
