@@ -26,7 +26,7 @@ export function FamilyHaWidgetView({ data }: { data: WidgetData }) {
         clickAction="OPEN_APP"
         style={{ height: 'match_parent', width: 'match_parent', backgroundColor: '#0e1420', borderRadius: 20, padding: 16, justifyContent: 'center', alignItems: 'center' }}
       >
-        <TextWidget text="Family HA" style={{ fontSize: 15, fontWeight: 'bold', color: '#fff' }} />
+        <TextWidget text="Secure Family" style={{ fontSize: 15, fontWeight: 'bold', color: '#fff' }} />
         <TextWidget text="Open the app to sign in" style={{ fontSize: 11, color: '#8894a8', marginTop: 4 }} />
       </FlexWidget>
     );
@@ -47,7 +47,7 @@ export function FamilyHaWidgetView({ data }: { data: WidgetData }) {
     >
       <FlexWidget clickAction="OPEN_APP" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <TextWidget text={alarmLabel(data.alarmState)} style={{ fontSize: 21, fontWeight: 'bold', color }} />
-        <TextWidget text="Family HA" style={{ fontSize: 10, color: '#5b6b82' }} />
+        <TextWidget text="Secure Family" style={{ fontSize: 10, color: '#5b6b82' }} />
       </FlexWidget>
 
       <FlexWidget style={{ flexDirection: 'row', marginTop: 10 }}>

@@ -87,7 +87,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Family HA"
+        android:text="Secure Family"
         android:textColor="#FFFFFF"
         android:alpha="0.55"
         android:textSize="12sp"

@@ -59,7 +59,7 @@
       <receiver
         android:name=".FamilyHaWidget"
         android:exported="false"
-        android:label="Family HA">
+        android:label="Secure Family">
         <intent-filter>
           <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
         </intent-filter>

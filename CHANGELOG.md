@@ -6,6 +6,18 @@
 
 ## العربية
 
+### [2.16.16] — 2026-11-11  ⚠️ محتاج build جديد (أيقونة + اسم)
+- **الهوية الجديدة Secure Family:** اسم التطبيق الظاهر اتغيّر من "Family HA"
+  لـ **Secure Family** في كل مكان (اللانشر، شاشة الترحيب، الهيدر، الويدجت،
+  شاشة الإنذار النيتف، الإشعارات).
+- **أيقونة التطبيق الجديدة:** اتولّدت من اللوجو لكل الكثافات (legacy +
+  adaptive). الأيقونة التكيّفية بتحط اللوجو جوه المنطقة الآمنة فنص
+  "Secure Family" مايتقصّش بأي قناع. (مولّد قابل لإعادة التشغيل:
+  `scripts/gen_icons.py`.)
+- **مهم:** اسم التسجيل الداخلي (`FamilyHA`) ومعرّف الحزمة
+  (`com.mkdd.familyha`) زي ما هما — عشان مايكسرش التثبيت أو التوقيع.
+- *(تعديل نيتف — محتاج build APK جديد.)*
+
 ### [2.16.15] — 2026-11-11
 - **طبقة عازلة لمحرّك الإنذار (abstraction layer):** التطبيق بقى يكلّم واجهة
   `AlarmProvider` بدل ما يكلّم Alarmo مباشرة، وAlarmo أول تطبيق ليها
@@ -257,6 +269,19 @@
 ---
 
 ## English
+
+### [2.16.16] — 2026-11-11  ⚠️ Needs a fresh build (icon + name)
+- **New Secure Family identity:** the app's display name changed from
+  "Family HA" to **Secure Family** everywhere (launcher, welcome screen,
+  header, widget, native alarm screen, notifications).
+- **New app icon:** generated from the logo for every density (legacy +
+  adaptive). The adaptive icon keeps the logo inside the safe zone so the
+  "Secure Family" text is never cropped by a mask. (Re-runnable generator:
+  `scripts/gen_icons.py`.)
+- **Note:** the internal registration name (`FamilyHA`) and package id
+  (`com.mkdd.familyha`) are unchanged — changing them would break installs
+  and signing.
+- *(Native change — requires a fresh APK build.)*
 
 ### [2.16.15] — 2026-11-11
 - **Alarm engine abstraction layer:** the app now talks to an `AlarmProvider`

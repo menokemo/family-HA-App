@@ -137,7 +137,7 @@ export async function getCurrentUserId(settings: ConnectionSettings): Promise<st
 // العمر (بينتهي بعد ~نص ساعة)، والخدمة النيتف مش بتقدر تجدده والتطبيق مقفول
 // فبتفشل المصادقة وتموت. LLAT بيدوم سنين، فالمراقبة تفضل شغّالة بإستمرار.
 export async function createMonitorToken(settings: ConnectionSettings): Promise<string | undefined> {
-  const result = await wsCommand(settings, { type: 'auth/long_lived_access_token', client_name: `Family HA Monitor ${Date.now()}`, lifespan: 3650 });
+  const result = await wsCommand(settings, { type: 'auth/long_lived_access_token', client_name: `Secure Family Monitor ${Date.now()}`, lifespan: 3650 });
   return typeof result === 'string' ? result : undefined;
 }
 

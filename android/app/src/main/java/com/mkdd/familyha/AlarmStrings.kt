@@ -5,7 +5,7 @@ package com.mkdd.familyha
 object AlarmStrings {
   private val strings = mapOf(
     "ar" to mapOf(
-      "monitor_title" to "Family HA",
+      "monitor_title" to "Secure Family",
       "monitor_text" to "المراقبة شغّالة في الخلفية",
       "alert_title" to "🚨 الإنذار اشتغل",
       "alert_default_text" to "افتح عشان توقّفه",
@@ -18,7 +18,7 @@ object AlarmStrings {
       "familyLocation" to "موقع العيلة",
     ),
     "en" to mapOf(
-      "monitor_title" to "Family HA",
+      "monitor_title" to "Secure Family",
       "monitor_text" to "Alarm monitoring active in background",
       "alert_title" to "🚨 Alarm triggered",
       "alert_default_text" to "Open to disarm",
@@ -31,7 +31,7 @@ object AlarmStrings {
       "familyLocation" to "Family location",
     ),
     "nl" to mapOf(
-      "monitor_title" to "Family HA",
+      "monitor_title" to "Secure Family",
       "monitor_text" to "Alarmbewaking actief op de achtergrond",
       "alert_title" to "🚨 Alarm geactiveerd",
       "alert_default_text" to "Open om uit te schakelen",

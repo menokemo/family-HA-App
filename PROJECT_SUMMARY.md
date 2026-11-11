@@ -67,9 +67,10 @@
   والسكربت نفسه في `scripts/deploy-familyha.sh`.**
 
 ### التوجه التجاري (قرارات ومخطط)
-- **الاسم والهوية:** هيترابرَند باسم **Secure Family** (اللوجو في
-  `assets/branding/secure-family-logo.png`). إعادة التسمية الكاملة لاسم
-  العرض في التطبيق مؤجّلة كخطوة منفصلة.
+- **الاسم والهوية — ✅ تم:** اترابرَند باسم **Secure Family** في كل مكان
+  (اسم العرض، الأيقونة لكل الكثافات، كل النصوص). الاسم الداخلي `FamilyHA`
+  ومعرّف الحزمة `com.mkdd.familyha` زي ما هما عمدًا. اللوجو في
+  `assets/branding/`، ومولّد الأيقونة `scripts/gen_icons.py`.
 - **طبقة عازلة للإنذار (abstraction layer) — ✅ تم:** التطبيق بيكلّم واجهة
   `AlarmProvider` (`src/alarm/`) بدل ما يكلّم Alarmo مباشرة، وAlarmo أول
   تطبيق ليها. استبدالها بمحرّك خاص بينا لاحقًا = تغيير سطر واحد في
@@ -163,9 +164,10 @@ it ourselves.**
   `scripts/deploy-familyha.sh`.**
 
 ### Commercial direction (decisions and plan)
-- **Name and identity:** will be rebranded **Secure Family** (logo at
-  `assets/branding/secure-family-logo.png`). The full rename of the app's
-  display name is deferred as a separate step.
+- **Name and identity — ✅ done:** rebranded **Secure Family** everywhere
+  (display name, icon at every density, all text). The internal name
+  `FamilyHA` and package id `com.mkdd.familyha` are deliberately unchanged.
+  Logo in `assets/branding/`, icon generator at `scripts/gen_icons.py`.
 - **Alarm abstraction layer — ✅ done:** the app talks to an `AlarmProvider`
   interface (`src/alarm/`) instead of Alarmo directly, with Alarmo as the
   first implementation. Swapping in our own engine later is a one-line change
