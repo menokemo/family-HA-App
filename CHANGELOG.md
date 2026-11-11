@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.16.9] — 2026-11-11
+- إزالة كارت "Secure login" وحقل "Access token" من إعدادات التطبيق — بقوا
+  من بقايا النظام القديم (التوكن اليدوي). التطبيق دلوقتي بيجيب التوكن ويحفظه
+  لوحده عبر تسجيل الدخول، فاتشالوا من الواجهة عشان مستخدم غير تقني ما يعبثش
+  بيهم. التوكن يفضل محفوظ وشغّال، وشاشة تسجيل الدخول نفسها ما اتأثرتش.
+
 ### [2.16.8] — 2026-11-11
 - في إعدادات "حسابي في Home Assistant": بقى يعرض **المستخدم اللي سجّل دخول
   بس** (بمطابقة `user_id` بتاع الشخص مع المستخدم الحالي من `auth/current_user`)
@@ -197,6 +203,13 @@
 ---
 
 ## English
+
+### [2.16.9] — 2026-11-11
+- Removed the "Secure login" card and the "Access token" field from App
+  settings — leftovers from the old manual-token system. The app now obtains
+  and stores the token itself via sign-in, so these were hidden to stop a
+  non-technical user from tampering with them. The token stays saved and
+  working, and the sign-in screen itself is unchanged.
 
 ### [2.16.8] — 2026-11-11
 - The "My Home Assistant person" setting now shows **only the logged-in user**
