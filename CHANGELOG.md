@@ -6,6 +6,10 @@
 
 ## العربية
 
+### [2.16.7] — 2026-11-11
+- إزالة الظل من أيقونات كروت الأحداث — كان بيبان كعيب حوالين الأيقونة على
+  خلفية البانر الملوّنة.
+
 ### [2.16.6] — 2026-11-11
 - إضافة ترجمات أسباب فشل التسليح الناقصة (`not_allowed`, `open_sensors`,
   `invalid_code`) بثلاث لغات — كانت بتظهر كـ`[missing translation]`.
@@ -187,6 +191,10 @@
 ---
 
 ## English
+
+### [2.16.7] — 2026-11-11
+- Removed the shadow from event-card icons — it looked like a defect around
+  the icon on the colored banner background.
 
 ### [2.16.6] — 2026-11-11
 - Added the missing arm-failure reason translations (`not_allowed`,
