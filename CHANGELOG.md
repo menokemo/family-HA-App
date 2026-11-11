@@ -6,6 +6,15 @@
 
 ## العربية
 
+### [2.16.3] — 2026-11-11
+- **تصميم جديد لأعلى صفحة الإنذار**: بدل كارت الحالة الكبير، هيدر بتدرّج لوني
+  مدوّر من تحت، فيه أيقونة الحالة واسمها وأزرار التسليح/الإلغاء.
+- **التدرّج بيتلوّن بحالة الإنذار** (أخضر disarmed، أزرق مسلّح، أصفر أثناء
+  العد، أحمر triggered) عشان الحالة تفضل واضحة فورًا في تطبيق إنذار.
+- الملخصات (أحداث/تحذيرات/مستشعرات) وبانر المستشعرات المفتوحة تحت الهيدر.
+- التدرّج بخاصية RN المدمجة `experimental_backgroundImage` — JS فقط، من غير
+  مكتبة native ولا إعادة build.
+
 ### [2.16.2] — 2026-11-11
 - **إدخال عنوان Home Assistant أسهل**: لو كتبت الدومين من غير `https://`
   التطبيق بيضيف البروتوكول تلقائيًا — https للدومينات العامة، http للعناوين
@@ -164,6 +173,15 @@
 ---
 
 ## English
+
+### [2.16.3] — 2026-11-11
+- **New alarm screen header**: the big status card is replaced by a rounded
+  gradient header holding the status icon, its name, and the arm/disarm buttons.
+- **The gradient is tinted by alarm state** (green disarmed, blue armed, amber
+  during the countdown, red triggered) so the state stays obvious at a glance.
+- Summaries (events/warnings/sensors) and the open-sensors banner sit below the header.
+- Gradient via RN's built-in `experimental_backgroundImage` — JS only, no native
+  library and no rebuild.
 
 ### [2.16.2] — 2026-11-11
 - **Easier Home Assistant address entry**: if you type the domain without
