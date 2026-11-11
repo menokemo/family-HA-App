@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.16.4] — 2026-11-11
+- تصغير الهيدر العلوي (اسم التطبيق والإصدار) عشان ياخد مساحة أقل.
+- إصلاح: metro كان بيقع على السيرفر بسبب مراقبة فولدر build قديم في
+  `react-native-webrtc` — اتضاف `blockList` في `metro.config.js` يتجاهل
+  فولدرات build جوه node_modules.
+
 ### [2.16.3] — 2026-11-11
 - **تصميم جديد لأعلى صفحة الإنذار**: بدل كارت الحالة الكبير، هيدر بتدرّج لوني
   مدوّر من تحت، فيه أيقونة الحالة واسمها وأزرار التسليح/الإلغاء.
@@ -173,6 +179,12 @@
 ---
 
 ## English
+
+### [2.16.4] — 2026-11-11
+- Smaller top header (app name + version) so it takes less space.
+- Fix: metro crashed on the server while watching a stale
+  `react-native-webrtc` build folder — added a `blockList` in
+  `metro.config.js` to ignore node_modules build folders.
 
 ### [2.16.3] — 2026-11-11
 - **New alarm screen header**: the big status card is replaced by a rounded

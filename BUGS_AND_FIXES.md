@@ -118,6 +118,14 @@ http للعناوين المحلية (IP داخلي / localhost / `.local`) لأ
 المحلية غالبًا http. وكمان اتضافت شاشة خطأ واضحة بزرار "جرب تاني" وعرض
 العنوان اللي حاول يوصله بدل الصفحة الخام، واختبارات لـ`normalizeUrl`.
 
+**كراش metro على السيرفر (2.16.4)** — لما شغّلنا metro على سيرفر لينكس
+صغير (headless) عشان الموبايل يحمّل منه، metro كان بيقع بخطأ
+`ENOENT: ... watch ... react-native-webrtc/android/build/...`. السبب إن
+مراقب ملفات metro (FallbackWatcher، من غير watchman) بيحاول يراقب فولدر
+build قديم جوه الحزمة مش موجود. الحل: `blockList` في `metro.config.js`
+يتجاهل `node_modules/*/(android|ios)/(build|.cxx)` خالص، فمفيش فولدرات
+بناء بتتراقب. (ملحوظة: react-native-webrtc مرحلة لاحقة ومش مستخدم حاليًا.)
+
 ### ⚠️ قيود معروفة (مش أخطاء، قرارات واعية)
 - **`jest` غير مثبَّتة عمدًا** — مذكورة في `jest.config.js` بس مش في
   `package.json`. جُرِّب تثبيتها (`jest`/`@types/jest`/`react-test-
