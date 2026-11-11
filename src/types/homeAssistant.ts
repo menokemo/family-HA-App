@@ -9,6 +9,7 @@ export interface ConnectionSettings {
   refreshToken?: string;
   accessToken?: string;
   tokenExpiresAt?: number;
+  monitorToken?: string;
   alarmCode: string;
   alarmEntityId?: string;
   language?: 'ar' | 'en' | 'nl';

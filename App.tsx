@@ -3,7 +3,7 @@ import { Alert, Animated, Easing, FlatList, I18nManager, Image, Modal, ScrollVie
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useSirenPlayers } from './src/audio/useSirenPlayers';
-import { absoluteHaUrl, authHeaders, callAlarmoArm, callAlarmoDisarm, findAlarmoEntities, findPersonByUserId, getCurrentUserId, getStates, listDashboards, skipAlarmoDelay, testConnection, type DashboardInfo } from './src/api/homeAssistant';
+import { absoluteHaUrl, authHeaders, callAlarmoArm, callAlarmoDisarm, createMonitorToken, findAlarmoEntities, findPersonByUserId, getCurrentUserId, getStates, listDashboards, skipAlarmoDelay, testConnection, type DashboardInfo } from './src/api/homeAssistant';
 import { HomeAssistantSocket } from './src/api/socket';
 import { entitiesByIds, isProblemState, sensorIdsFromAlarm, supportedModes } from './src/features/alarmo/model';
 import { CameraBrowser } from './src/features/cameras/CameraBrowser';
@@ -28,7 +28,7 @@ import { SwipeToConfirm } from './src/components/SwipeToConfirm';
 import { OAuthLoginWebView } from './src/components/OAuthLoginWebView';
 import { PressableScale } from './src/components/PressableScale';
 import { setLiveSettings, onLiveSettingsChange } from './src/storage/liveSettings';
-import { startAlarmMonitor, stopAlarmMonitor, isAlarmMonitorRunning, updateAlarmMonitorToken, canUseFullScreenIntent, openFullScreenIntentSettings, canDrawOverlays, openOverlaySettings, setWatchedPersons } from './src/native/AlarmMonitor';
+import { startAlarmMonitor, stopAlarmMonitor, isAlarmMonitorRunning, canUseFullScreenIntent, openFullScreenIntentSettings, canDrawOverlays, openOverlaySettings, setWatchedPersons } from './src/native/AlarmMonitor';
 import { isBiometricAvailable, enableBiometricDisarm, disableBiometricDisarm, getBiometricCode } from './src/storage/biometric';
 import type { AlarmModeKey, AlarmoEvent, ConnectionSettings, HaEntity, SirenTone } from './src/types/homeAssistant';
 
@@ -48,8 +48,7 @@ function AppContent({themeMode,onThemeModeChange}:{themeMode:ThemeMode;onThemeMo
  },[settings.baseUrl,settings.token,JSON.stringify(settings.zoneWatchPersonIds??[]),settings.language]);
  useEffect(()=>onLiveSettingsChange(fresh=>{
   setSettings(cur=>cur.baseUrl===fresh.baseUrl&&cur.accessToken!==fresh.accessToken?fresh:cur);
-  if(backgroundMonitorActive&&fresh.authMethod==='oauth'&&fresh.accessToken)updateAlarmMonitorToken(fresh.accessToken).catch(()=>undefined);
- }),[backgroundMonitorActive]);
+ }),[]);
  const {classic,digital,pulse}=useSirenPlayers();
  i18n.locale=settings.language ?? detectDeviceLanguage();
  const alarms=useMemo(()=>findAlarmoEntities(states),[states]); const alarm=alarms.find(x=>x.entity_id===settings.alarmEntityId)??alarms[0]; const cameras=useMemo(()=>states.filter(x=>x.entity_id.startsWith('camera.')),[states]);
@@ -178,7 +177,7 @@ function AlarmoSettings({draft,setDraft,alarms,sensors,states,onImmediateSave}:{
   }
   setMonitorBusy(true);
   try{
-   if(value)await startAlarmMonitor(draft.baseUrl,draft.token,draft.alarmEntityId,draft.alarmCode,draft.language??'en',draft.sirenTone??'classic',draft.biometricDisarmEnabled===true);
+   if(value){let monitorToken=draft.token;if(draft.authMethod==='oauth'){let mt=draft.monitorToken;if(!mt){mt=await createMonitorToken(draft);if(mt)await onImmediateSave({monitorToken:mt});}if(mt)monitorToken=mt;}await startAlarmMonitor(draft.baseUrl,monitorToken,draft.alarmEntityId,draft.alarmCode,draft.language??'en',draft.sirenTone??'classic',draft.biometricDisarmEnabled===true);}
    else await stopAlarmMonitor();
    setMonitorOn(value);
   }catch(e){

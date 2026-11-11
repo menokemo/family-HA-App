@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.16.11] — 2026-11-11
+- **إصلاح جوهري للمراقبة في الخلفية:** خدمة الإنذار كانت بتموت لما التطبيق
+  يتقفل لأنها بتستخدم توكن OAuth قصير العمر ومابتقدرش تجدده. دلوقتي بتستخدم
+  **Long-Lived Access Token** (لا ينتهي) فتفضل شغّالة وتكتشف الـtriggers حتى
+  والتطبيق مقفول. (لازم كمان إعفاء البطارية على سامسونج.)
+
 ### [2.16.10] — 2026-11-11
 - **لحظات الأمان الحرجة (أول دفعة):**
   - حالة **Triggered**: الأيقونة بتنبض وبيظهر تنبيه بارز "تم اكتشاف دخول"
@@ -210,6 +216,13 @@
 ---
 
 ## English
+
+### [2.16.11] — 2026-11-11
+- **Core background-monitoring fix:** the alarm service died once the app was
+  closed because it used a short-lived OAuth token it couldn't refresh. It now
+  uses a **Long-Lived Access Token** (non-expiring), so it keeps running and
+  detecting triggers even with the app closed. (Still needs battery-optimization
+  exemption on Samsung.)
 
 ### [2.16.10] — 2026-11-11
 - **Critical security moments (first batch):**
