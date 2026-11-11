@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.16.12] — 2026-11-11
+- **إصلاح صمت الإنذار داخل التطبيق:** الصوت كان بيتكتم لمجرد إن المراقبة في
+  الخلفية مفعّلة. دلوقتي بيشتغل طول ما التطبيق في الواجهة (بـAppState)،
+  والمراقبة النيتف بتتكفّل بالصوت لما يكون مقفول.
+- **عرض سبب التريجر:** في حالة Triggered بتظهر أسماء المستشعرات اللي سبّبت
+  الإنذار (من `open_sensors`) تحت "تم اكتشاف دخول".
+
 ### [2.16.11] — 2026-11-11
 - **إصلاح جوهري للمراقبة في الخلفية:** خدمة الإنذار كانت بتموت لما التطبيق
   يتقفل لأنها بتستخدم توكن OAuth قصير العمر ومابتقدرش تجدده. دلوقتي بتستخدم
@@ -216,6 +223,14 @@
 ---
 
 ## English
+
+### [2.16.12] — 2026-11-11
+- **Fixed in-app alarm being silent:** the siren was muted just because the
+  background monitor was enabled. It now plays whenever the app is in the
+  foreground (via AppState); the native monitor handles sound when it's closed.
+- **Show the trigger reason:** in the Triggered state, the names of the sensors
+  that set off the alarm (from `open_sensors`) now appear under "Intrusion
+  detected".
 
 ### [2.16.11] — 2026-11-11
 - **Core background-monitoring fix:** the alarm service died once the app was
