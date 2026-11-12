@@ -6,6 +6,10 @@
 
 ## العربية
 
+### [2.16.44] — 2026-11-12
+- **هيدر البروفايل ثابت في صفحة الإعدادات:** بيفضل مثبّت فوق حتى لو الصفحة
+  بتعمل اسكرول، وبظل أقوى يبان بروزه، وبلون جراديانت.
+
 ### [2.16.43] — 2026-11-12
 - **الإعداد المركزي (مرحلة ٢ — قفل واجهة الأفراد):** غير الأدمن مابقاش يشوف
   إعدادات **الكاميرات** و**الداشبورد** خالص. وفي **الإنذار** اختفى عنده
@@ -439,6 +443,11 @@
 ---
 
 ## English
+
+### [2.16.44] — 2026-11-12
+- **Sticky profile header on the Settings page:** it now stays pinned at the
+  top while the page scrolls, with a stronger shadow for depth and a gradient
+  color.
 
 ### [2.16.43] — 2026-11-12
 - **Central config (phase 2 — member UI lock):** non-admins no longer see the
