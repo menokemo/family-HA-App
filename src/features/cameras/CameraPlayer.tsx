@@ -3,19 +3,19 @@ import { Animated, Image, PanResponder, StyleSheet, Text, View } from 'react-nat
 import Orientation from 'react-native-orientation-locker';
 import { PressableScale } from '../../components/PressableScale';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
-import { authHeaders, cameraSnapshotUrl, cameraHasPtz, ptzMove, ptzStop, type PtzDirection } from '../../api/homeAssistant';
+import { authHeaders, cameraSnapshotUrl, cameraHasPtz, ptzMove, ptzStop, type PtzDirection, type RegistryEntry } from '../../api/homeAssistant';
 import { colors } from '../../theme';
 import { i18n } from '../../i18n';
 import { WebRtcCameraPlayer } from './WebRtcCameraPlayer';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
-type CameraPlayerProps = { camera: HaEntity; settings: ConnectionSettings; states: HaEntity[]; title: string; onClose: () => void };
+type CameraPlayerProps = { camera: HaEntity; settings: ConnectionSettings; states: HaEntity[]; registry: RegistryEntry[]; title: string; onClose: () => void };
 type Mode = 'webrtc' | 'snapshot';
 
-function PtzPad({ camera, settings, states }: { camera: HaEntity; settings: ConnectionSettings; states: HaEntity[] }) {
+function PtzPad({ camera, settings, states, registry }: { camera: HaEntity; settings: ConnectionSettings; states: HaEntity[]; registry: RegistryEntry[] }) {
   const busy = useRef(false);
-  const start = (direction: PtzDirection) => { busy.current = true; void ptzMove(settings, states, camera.entity_id, direction); };
-  const stop = () => { if (busy.current) { busy.current = false; void ptzStop(settings, states, camera.entity_id); } };
+  const start = (direction: PtzDirection) => { busy.current = true; void ptzMove(settings, registry, states, camera.entity_id, direction); };
+  const stop = () => { if (busy.current) { busy.current = false; void ptzStop(settings, registry, states, camera.entity_id); } };
   const Btn = ({ direction, icon }: { direction: PtzDirection; icon: string }) => (
     <PressableScale style={ptz.btn} onPressIn={() => start(direction)} onPressOut={stop}>
       <Ionicons name={icon} size={20} color="#fff" />
@@ -99,13 +99,13 @@ function useZoomPan(onTap: () => void) {
   return { scale, translateX, translateY, panHandlers: responder.panHandlers, zoomed, zoomIn, zoomOut };
 }
 
-export function CameraPlayer({ camera, settings, states, title, onClose }: CameraPlayerProps) {
+export function CameraPlayer({ camera, settings, states, registry, title, onClose }: CameraPlayerProps) {
   const [mode, setMode] = useState<Mode>('webrtc');
   const [error, setError] = useState<string>();
   const [nonce, setNonce] = useState(Date.now());
   const [chromeVisible, setChromeVisible] = useState(true);
   const [showPtz, setShowPtz] = useState(false);
-  const hasPtz = useMemo(() => cameraHasPtz(states, camera.entity_id), [states, camera.entity_id]);
+  const hasPtz = useMemo(() => cameraHasPtz(registry, states, camera.entity_id), [registry, states, camera.entity_id]);
   const [isLandscape, setIsLandscape] = useState(false);
   const [hasAudio, setHasAudio] = useState(false);
   const { scale, translateX, translateY, panHandlers, zoomed, zoomIn, zoomOut } = useZoomPan(() => setChromeVisible(v => !v));
@@ -201,7 +201,7 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
       </>
     ) : null}
 
-    {showPtz && hasPtz ? <PtzPad camera={camera} settings={settings} states={states} /> : null}
+    {showPtz && hasPtz ? <PtzPad camera={camera} settings={settings} states={states} registry={registry} /> : null}
   </View>;
 }
 

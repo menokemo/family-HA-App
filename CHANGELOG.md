@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.16.41] — 2026-11-12
+- **اكتشاف PTZ أدق (بدون أي إعداد يدوي):** بقى بيعتمد على **سجل الكيانات/
+  الأجهزة** في Home Assistant — بيجمع كل كيانات كل كاميرا حسب الجهاز (device)
+  بتاعها، ويكتشف الـPTZ من أي كيان تحكّم عليه (pan/tilt/zoom/ptz). عام لأي
+  ماركة أو تكامل، من غير الاعتماد على اسم أو نوع معيّن.
+- الحركة بتستخدم أزرار الـPTZ بتاعة نفس الجهاز، ولو مفيش بترجع لـONVIF.
+
 ### [2.16.40] — 2026-11-12
 - **زر طريقة العرض للكاميرات:** زرار فوق تبويب الكاميرات يبدّل بين عرض
   كاميرتين في الصف (شبكة) أو واحدة في الصف، والاختيار بيتحفظ.
@@ -414,6 +421,14 @@
 ---
 
 ## English
+
+### [2.16.41] — 2026-11-12
+- **More accurate PTZ detection (no manual setup):** now based on Home
+  Assistant's entity/device registry — it groups every camera's entities by
+  its device and detects PTZ from any control entity on it (pan/tilt/zoom/
+  ptz). Works for any brand or integration, without relying on a specific
+  name or type.
+- Movement uses the device's own PTZ buttons, falling back to ONVIF.
 
 ### [2.16.40] — 2026-11-12
 - **Camera view toggle:** a button above the Cameras tab switches between a

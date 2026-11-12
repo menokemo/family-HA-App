@@ -63,37 +63,66 @@ export async function pressButton(settings: ConnectionSettings, entityId: string
 
 export type PtzDirection = 'left' | 'right' | 'up' | 'down' | 'zoomIn' | 'zoomOut';
 
-export function findReolinkPtzButtons(states: HaEntity[], cameraEntityId: string): Partial<Record<PtzDirection | 'stop', string>> {
+export type RegistryEntry = { entity_id: string; device_id?: string | null };
+
+// سجل الكيانات من Home Assistant (أمر WebSocket). بيدّينا device_id لكل
+// كيان عشان نقدر نجمع كيانات كل كاميرا مع بعض مهما كان التكامل أو الماركة.
+export async function getEntityRegistry(settings: ConnectionSettings): Promise<RegistryEntry[]> {
+  try {
+    const result = await wsCommand(settings, { type: 'config/entity_registry/list' });
+    if (Array.isArray(result)) return result as RegistryEntry[];
+  } catch {
+    // السجل مش متاح أو فشل الاتصال.
+  }
+  return [];
+}
+
+// كل الكيانات اللي على نفس جهاز الكاميرا. بنعتمد على السجل عشان نجمع كيانات
+// كل كاميرا بشكل عام لأي ماركة. لو السجل مش متاح نرجع لمطابقة أجزاء الاسم.
+export function cameraSiblings(registry: RegistryEntry[], states: HaEntity[], cameraEntityId: string): string[] {
+  const reg = registry.find(e => e.entity_id === cameraEntityId);
+  const deviceId = reg?.device_id ?? null;
+  if (deviceId) return registry.filter(e => e.device_id === deviceId).map(e => e.entity_id);
   const slug = cameraEntityId.split('.')[1] ?? '';
   const parts = slug.split('_').filter(p => p.length > 2);
-  const candidates = states.filter(s => s.entity_id.startsWith('button.') && parts.some(p => s.entity_id.includes(p)));
-  const find = (...keywords: string[]) => candidates.find(s => keywords.every(k => s.entity_id.includes(k)))?.entity_id;
+  return parts.length ? states.filter(s => parts.some(p => s.entity_id.includes(p))).map(s => s.entity_id) : [];
+}
+
+const PTZ_DIR: Record<PtzDirection, RegExp> = {
+  left: /(^|[_-])left([_-]|$)/i,
+  right: /(^|[_-])right([_-]|$)/i,
+  up: /(^|[_-])up([_-]|$)/i,
+  down: /(^|[_-])down([_-]|$)/i,
+  zoomIn: /zoom[_-]?(in|tele)|(^|[_-])tele([_-]|$)/i,
+  zoomOut: /zoom[_-]?(out|wide)|(^|[_-])wide([_-]|$)/i,
+};
+
+const PTZ_RE = /ptz|pan|tilt|zoom/i;
+
+// أزرار الحركة (button) من كيانات نفس جهاز الكاميرا اللي ليها علاقة بـPTZ.
+// عام لأي ماركة — مش معتمد على اسم أو تكامل معيّن.
+export function ptzButtons(registry: RegistryEntry[], states: HaEntity[], cameraEntityId: string): Partial<Record<PtzDirection | 'stop', string>> {
+  const ctrl = cameraSiblings(registry, states, cameraEntityId).filter(id => id.startsWith('button.') && PTZ_RE.test(id));
+  const pick = (re: RegExp) => ctrl.find(id => re.test(id));
   return {
-    left: find('ptz', 'left'),
-    right: find('ptz', 'right'),
-    up: find('ptz', 'up'),
-    down: find('ptz', 'down'),
-    zoomIn: find('zoom', 'in'),
-    zoomOut: find('zoom', 'out'),
-    stop: find('ptz', 'stop'),
+    left: pick(PTZ_DIR.left), right: pick(PTZ_DIR.right),
+    up: pick(PTZ_DIR.up), down: pick(PTZ_DIR.down),
+    zoomIn: pick(PTZ_DIR.zoomIn), zoomOut: pick(PTZ_DIR.zoomOut),
+    stop: ctrl.find(id => /stop/i.test(id)),
   };
 }
 
-// اكتشاف PTZ تلقائيًا من بيانات Home Assistant: الكاميرا تعتبر PTZ لو
-// ليها entities تحكّم مطابقة لاسمها (أزرار ptz/zoom زي Reolink)، أو لو
-// attributes الكاميرا نفسها فيها إشارة pan/tilt/ptz.
-export function cameraHasPtz(states: HaEntity[], cameraEntityId: string): boolean {
+// الكاميرا تعتبر PTZ لو attributes بتاعتها فيها pan/tilt/ptz، أو لو على نفس
+// جهازها أي كيان تحكّم (button/switch/select/number/cover) ليه علاقة بـPTZ.
+export function cameraHasPtz(registry: RegistryEntry[], states: HaEntity[], cameraEntityId: string): boolean {
   const cam = states.find(s => s.entity_id === cameraEntityId);
-  if (cam) {
-    for (const key of Object.keys(cam.attributes)) {
-      if (/ptz|pan[_-]?tilt|^pan$|^tilt$/i.test(key)) return true;
-    }
-  }
-  const b = findReolinkPtzButtons(states, cameraEntityId);
-  return !!(b.left || b.right || b.up || b.down || b.zoomIn || b.zoomOut);
+  if (cam) for (const key of Object.keys(cam.attributes)) if (/ptz|pan[_-]?tilt|^pan$|^tilt$/i.test(key)) return true;
+  return cameraSiblings(registry, states, cameraEntityId).some(id => /^(button|switch|select|number|cover)\./.test(id) && PTZ_RE.test(id));
 }
 
-export async function ptzMove(settings: ConnectionSettings, states: HaEntity[], cameraEntityId: string, direction: PtzDirection): Promise<void> {
+export async function ptzMove(settings: ConnectionSettings, registry: RegistryEntry[], states: HaEntity[], cameraEntityId: string, direction: PtzDirection): Promise<void> {
+  const id = ptzButtons(registry, states, cameraEntityId)[direction];
+  if (id) { await pressButton(settings, id); return; }
   try {
     const data: Record<string, unknown> = { move_mode: 'ContinuousMove', speed: 1, distance: 0.5 };
     if (direction === 'left' || direction === 'right') data.pan = direction.toUpperCase();
@@ -101,21 +130,18 @@ export async function ptzMove(settings: ConnectionSettings, states: HaEntity[], 
     if (direction === 'zoomIn') data.zoom = 'ZOOM_IN';
     if (direction === 'zoomOut') data.zoom = 'ZOOM_OUT';
     await callOnvifPtz(settings, cameraEntityId, data);
-    return;
   } catch {
-    const buttons = findReolinkPtzButtons(states, cameraEntityId);
-    const id = buttons[direction];
-    if (id) await pressButton(settings, id);
+    // مفيش طريقة متاحة لهذه الكاميرا.
   }
 }
 
-export async function ptzStop(settings: ConnectionSettings, states: HaEntity[], cameraEntityId: string): Promise<void> {
+export async function ptzStop(settings: ConnectionSettings, registry: RegistryEntry[], states: HaEntity[], cameraEntityId: string): Promise<void> {
+  const stop = ptzButtons(registry, states, cameraEntityId).stop;
+  if (stop) { await pressButton(settings, stop); return; }
   try {
     await callOnvifPtz(settings, cameraEntityId, { move_mode: 'Stop' });
-    return;
   } catch {
-    const buttons = findReolinkPtzButtons(states, cameraEntityId);
-    if (buttons.stop) await pressButton(settings, buttons.stop);
+    // مفيش أمر إيقاف متاح.
   }
 }
 
