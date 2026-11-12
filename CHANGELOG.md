@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.16.47] — 2026-11-12
+- **فصل التسجيل عن الموقع:** الموبايل بيتسجّل في Home Assistant **تلقائيًا** أول
+  ما يتصل (مستقل عن الموقع)، فالجهاز يفضل موجود وياخد بيانات الجهاز (بطارية/
+  واي‑فاي/نشاط — جايين نيتف) حتى لو الموقع مقفول. الموقع يفضل **opt-in** بمفتاحه.
+
 ### [2.16.46] — 2026-11-12
 - **جسر mobile_app (مرحلة A):** التطبيق يقدر يسجّل الموبايل في Home Assistant
   (زي التطبيق الرسمي) ويبعت موقعك — فبيظهر كـ`device_tracker` وتشتغل الخريطة
@@ -456,6 +461,13 @@
 ---
 
 ## English
+
+### [2.16.47] — 2026-11-12
+- **Registration decoupled from location:** the phone now registers with Home
+  Assistant **automatically** on connect (independent of location), so the
+  device exists and carries device data (battery/WiFi/activity — coming in a
+  native build) even if location is off. Location stays **opt-in** via its own
+  switch.
 
 ### [2.16.46] — 2026-11-12
 - **mobile_app bridge (phase A):** the app can register the phone with Home
