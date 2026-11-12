@@ -13,6 +13,13 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**علامات أفراد جداد مكانتش بتظهر على الخريطة غير بعد reload** — دالة
+`updateMarkers` في الخريطة كانت بتحدّث العلامات الموجودة وتشيل اللي اختفى بس،
+ومكانش فيها مسار لإضافة فرد ظهر بعد تحميل الصفحة. **الحل:** استخرجنا بناء
+العلامة في دالة `addPerson` واحدة بتستخدمها الخريطة عند التحميل الأول وعند
+`updateMarkers` لأي فرد جديد — دلوقتي أي فرد يظهر بيترسم فورًا من غير reload.
+(ضمن إعادة تصميم الخريطة 2.16.65)
+
 **الإعداد العائلي المنشور مابيترجعش بعد تثبيت جديد ("No Alarmo entity found")** —
 الأدمن نشر الإعداد والمكوّن حفظه في HA، لكن التطبيق مكانش بيطبّقه. **السبب
 الجذري:** التطبيق بيدوّر على الكيان بالاسم الثابت `sensor.secure_family_config`،
@@ -215,6 +222,13 @@ build قديم جوه الحزمة مش موجود. الحل: `blockList` في `
 ## English
 
 ### ✅ Resolved
+
+**New member markers only appeared after a full reload** — the map's
+`updateMarkers` only updated existing markers and removed missing ones; it had
+no path to add a person who appeared after page load. **Fix:** marker creation
+was extracted into a single `addPerson` function used both on first load and in
+`updateMarkers` for any new person — a newly appearing member is now drawn
+immediately, no reload. (part of the 2.16.65 map redesign)
 
 **Background alarm never fires while the service is running** — the "Alarm
 monitoring active" notification is shown (native service running) and the

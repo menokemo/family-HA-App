@@ -6,6 +6,25 @@
 
 ## العربية
 
+### [2.16.65] — 2026-11-12
+- **الخريطة بستايل Life360:** إعادة تصميم كاملة لتبويب الخريطة بشكل عام زي Life360
+  مع إمكانيات أكتر مش أقل:
+  - **Bottom sheet قابل للسحب** فيه لستة كل أفراد العائلة: صورة دائرية بحلقة
+    ملونة ثابتة لكل فرد + الاسم + **العنوان/المكان الحالي** + نسبة البطارية بأيقونة
+    + آخر ظهور. تسحبه لفوق يملى الشاشة، لتحت يبقى شريط صغير. اختيار أي فرد بيركّز
+    عليه على الخريطة ويفتح تفاصيله (مسافة/وصول/دقة + زر التوجيه + مسار اليوم).
+  - **ستايل الخريطة بيحترم الثيم:** فاتح نظيف (OpenFreeMap positron) في الوضع
+    النهاري، وغامق (OpenFreeMap dark) في الوضع الليلي — بدل اللون الثابت.
+  - **المناطق (Places):** مناطق Home Assistant (`zone.*`) بتترسم كدوائر ملونة
+    بأسمائها على الخريطة (بيت/شغل/مدرسة…) زي أماكن Life360.
+  - **العناوين الحقيقية:** مكان مين بره منطقة بيتحوّل لاسم شارع/منطقة مقروء
+    (BigDataCloud مجاني، بيدعم العربية) بدل الإحداثيات.
+  - **نقطة موقعي:** نقطة زرقاء حية لموقع موبايلك على الخريطة.
+  - **أزرار تحكم:** رجّعني لموقعي، اعرض الكل، قمر صناعي، أماكن قريبة.
+  - كل الإمكانيات القديمة اتحافظ عليها (مسار OSRM، مسار الحركة، قمر صناعي،
+    أماكن قريبة، مسافة بـ GPS حي، خريطة ثلاثية الأبعاد بالإمالة بإصبعين).
+  - تعديل JS بالكامل — بيتنشر على metro من غير build APK.
+
 ### [2.16.64] — 2026-11-12  ⚠️ محتاج build APK على ويندوز (فيه تعديلات نيتف)
 - **حسّاس النشاط (mobile_app):** التطبيق بيكتشف نشاطك (ثابت/ماشي/بيجري/بيقود)
   عبر Google Play Services وبيبعته كحسّاس في Home Assistant — سياق إضافي للحضور.
@@ -546,6 +565,26 @@
 ---
 
 ## English
+
+### [2.16.65] — 2026-11-12
+- **Life360-style Map:** full redesign of the Map tab to match Life360's overall
+  look, with more capabilities, not fewer:
+  - **Draggable bottom sheet** listing every family member: circular avatar with a
+    stable per-person colored ring + name + **current address/place** + battery
+    (icon + %) + last-seen. Drag up to fill the screen, down to a small peek.
+    Selecting a member focuses them on the map and expands their detail
+    (distance/ETA/accuracy + navigate + today's trail).
+  - **Theme-aware map style:** clean light (OpenFreeMap positron) in day mode,
+    dark (OpenFreeMap dark) in night mode — instead of a fixed palette.
+  - **Places:** Home Assistant `zone.*` entities drawn as labeled colored circles
+    (home/work/school…), like Life360 Places.
+  - **Real addresses:** anyone outside a zone shows a readable street/area name
+    (BigDataCloud, free, Arabic-capable) instead of raw coordinates.
+  - **My-location dot:** a live blue dot for the phone's own position.
+  - **Controls:** recenter-on-me, fit-all, satellite, nearby places.
+  - All previous capabilities kept (OSRM route, movement timeline, satellite,
+    nearby places, live-GPS distance, 3D tilt).
+  - JS-only change — deploys over metro, no APK build needed.
 
 ### [2.16.64] — 2026-11-12  ⚠️ Requires a Windows APK build (native changes)
 - **Activity sensor (mobile_app):** the app detects your activity

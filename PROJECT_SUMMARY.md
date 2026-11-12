@@ -20,7 +20,7 @@
 |---|---|---|
 | اتصال HA + تسجيل دخول | ✅ | **OAuth2 رسمي** (زي تطبيق HA نفسه) هو الطريقة الأساسية دلوقتي؛ التوكن اليدوي لسه موجود كخيار متقدم للتوافق الخلفي |
 | كشف لغة الجهاز تلقائيًا | ✅ | عربي/إنجليزي/هولندي، افتراضي إنجليزي لأي حاجة تانية |
-| نظام الثيمات (فاتح/غامق/تلقائي) | ⚠️ | شغال في الشاشات الرئيسية وتاب العائلة (اتصلح)؛ الخريطة والكاميرا لسه بتاخد ألوان ثابتة (WebView/native، مش نفس القيد) |
+| نظام الثيمات (فاتح/غامق/تلقائي) | ⚠️ | شغال في الشاشات الرئيسية وتاب العائلة والخريطة (اتصلحت — الخريطة بقت تحترم الثيم)؛ الكاميرا لسه بتاخد ألوان ثابتة (native) |
 | Alarmo: تسليح/تعطيل ببادجات + سحب للتأكيد | ✅ | |
 | Alarmo: بصمة/رقم للتأكيد | ✅ | داخل التطبيق وفي شاشة التنبيه الخارجية |
 | Alarmo: تنبيه فوق شاشة القفل (أي وقت) | ✅ | Foreground Service + Full-Screen Intent + Display-over-apps؛ نغمة مخصصة على قناة الإنذار (بتتخطى الصامت)؛ سبب التريجر؛ مترجمة native؛ سلايدر تعطيل بصمة/رقم |
@@ -28,6 +28,11 @@
 | الكاميرات: WebRTC + Snapshot fallback | ✅ | إعادة محاولة تلقائية بدون صوت لو الطلب الأول فشل |
 | الكاميرات: تكبير/صوت/PTZ/تدوير | ✅ | تدوير شاشة حقيقي، زوم بإصبع واحد (زوم بإصبعين قيد حقيقي في أندرويد مع WebRTC)، صوت مُصلَّح (react-native-incall-manager) |
 | تاب الداشبورد (جديد) | ⚠️ | WebView لداشبورد Lovelace حقيقية، Kiosk Mode، حماية تنقّل؛ **معلّق**: صفحة تحميل HA بتفضل عالقة (بروتوكول External Bus، محتاج دليل console حقيقي - راجع BUGS_AND_FIXES) |
+| الخريطة: ستايل Life360 | ✅ | Bottom sheet قابل للسحب بلستة الأعضاء (صورة + حلقة ملونة + عنوان + بطارية + آخر ظهور)، علامات دائرية، أزرار تحكم |
+| الخريطة: ستايل بيحترم الثيم | ✅ | فاتح (positron) نهاري / غامق (dark) ليلي — OpenFreeMap مجاني |
+| الخريطة: المناطق كدوائر (Places) | ✅ | `zone.*` من HA بتترسم كدوائر ملونة بأسمائها |
+| الخريطة: عناوين حقيقية | ✅ | BigDataCloud مجاني (عربي)، مكان مين بره منطقة |
+| الخريطة: نقطة موقعي الحية | ✅ | نقطة زرقاء لموقع الموبايل |
 | الخريطة: MapLibre GL ثلاثية الأبعاد | ✅ | استبدلت Leaflet بالكامل - مباني بارتفاعات، إمالة/دوران بإصبعين، OpenFreeMap مجاني |
 | الخريطة: مسار حي على الطريق | ✅ | OSRM مجاني، مسافة/وقت وصول بيتحدّثوا تلقائي |
 | الخريطة: مسار الحركة (Timeline) | ✅ | دوسة طويلة على صورة الشخص، آخر 24 ساعة |
@@ -156,7 +161,7 @@ it ourselves.**
 |---|---|---|
 | HA connection + login | ✅ | **Official OAuth2** (same as the HA app) is now the primary path; manual token remains as an advanced fallback for backward compatibility |
 | Automatic device-language detection | ✅ | Arabic/English/Dutch, defaults to English for anything else |
-| Theme system (Light/Dark/Auto) | ⚠️ | Works on main screens and the Family tab (fixed); map and camera still use fixed colors (WebView/native, a different constraint) |
+| Theme system (Light/Dark/Auto) | ⚠️ | Works on main screens, the Family tab and the Map (fixed — the map now follows the theme); camera still uses fixed colors (native) |
 | Alarmo: arm/disarm via badges + swipe-to-confirm | ✅ | |
 | Alarmo: biometric/PIN confirmation | ✅ | Both in-app and on the native lock-screen alert |
 | Alarmo: lock-screen alert (any time) | ✅ | Foreground Service + Full-Screen Intent + Display-over-other-apps; custom siren on the alarm audio channel (bypasses silent mode); shows trigger reason; natively localized; biometric/PIN disarm slider |
@@ -164,6 +169,11 @@ it ourselves.**
 | Cameras: WebRTC + snapshot fallback | ✅ | Automatic no-audio retry if the first attempt fails |
 | Cameras: zoom/audio/PTZ/rotation | ✅ | Real screen rotation, one-finger zoom (two-finger pinch is a genuine Android+WebRTC limitation), fixed audio (react-native-incall-manager) |
 | Dashboard tab (new) | ⚠️ | WebView for a real Lovelace dashboard, Kiosk Mode, navigation guard; **open issue**: HA's loading splash gets stuck (External Bus protocol, needs real console evidence — see BUGS_AND_FIXES) |
+| Map: Life360-style look | ✅ | Draggable member-list bottom sheet (avatar + colored ring + address + battery + last-seen), circular markers, control buttons |
+| Map: theme-aware style | ✅ | Light (positron) by day / dark by night — free OpenFreeMap |
+| Map: zones as Places circles | ✅ | HA `zone.*` drawn as labeled colored circles |
+| Map: real addresses | ✅ | BigDataCloud free (Arabic), for anyone outside a zone |
+| Map: live my-location dot | ✅ | Blue dot for the phone's own position |
 | Map: real 3D via MapLibre GL | ✅ | Fully replaced Leaflet — extruded buildings, two-finger tilt/rotate, free OpenFreeMap tiles |
 | Map: live road route | ✅ | Free OSRM, distance/ETA update automatically |
 | Map: movement timeline | ✅ | Long-press a person's photo, last 24 hours |

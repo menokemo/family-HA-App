@@ -1,21 +1,33 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Dimensions, Image, Linking, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { absoluteHaUrl, authHeaders, getPersonHistory } from '../../api/homeAssistant';
-import { colors } from '../../theme';
+import { useTheme, type Palette } from '../../theme';
 import { i18n } from '../../i18n';
 import { requestLocationPermission, watchLiveLocation, type LiveLocation } from '../../native/liveLocation';
 import { PressableScale } from '../../components/PressableScale';
 
 type Props = { people: HaEntity[]; home?: HaEntity; states: HaEntity[]; selectedPersonId?: string; settings: ConnectionSettings };
-type Point = { id: string; name: string; lat: number; lng: number; picture?: string };
+type Point = { id: string; name: string; lat: number; lng: number; color: string; picture?: string };
+type Zone = { id: string; name: string; lat: number; lng: number; radius: number };
 
 // نغيّر الرقم ده لو عملنا تعديل جوهري في mapHtml، عشان نجبر الـ WebView
-// يعمل remount كامل بدل ما يحاول يحدّث المحتوى القديم في مكانه.
-const MAP_TEMPLATE_VERSION = 'v11-live-photo';
+// يعمل remount كامل بدل ما يحاول يحدّث المحتوى القديم في مكانه. بنضيف
+// وضع الثيم (فاتح/غامق) في الـ key كمان عشان تبديل الثيم يعيد بناء
+// الخريطة بالستايل الصح.
+const MAP_TEMPLATE_VERSION = 'v12-life360';
+
+// ألوان ثابتة لكل فرد (حلقة الصورة على الخريطة + في اللستة) - توقيعة
+// Life360 إن كل شخص ليه لونه الخاص الثابت.
+const PERSON_RING = ['#5C8DFF', '#2EE6A6', '#FFB020', '#FF4D6D', '#9B6DFF', '#12C2E9', '#FF7A45', '#39C36E'];
+
+const WIN_H = Dimensions.get('window').height;
+const SHEET_H = Math.min(560, Math.round(WIN_H * 0.72));
+const PEEK = 160;
+const COLLAPSED = SHEET_H - PEEK;
 
 const coord = (e: HaEntity) => ({ latitude: Number(e.attributes.latitude), longitude: Number(e.attributes.longitude) });
 
@@ -73,33 +85,93 @@ function battery(p: HaEntity, states: HaEntity[]) {
   return e ? `${e.state}%` : '—';
 }
 
+function batteryIcon(pct: number): string {
+  if (!Number.isFinite(pct)) return 'battery-dead-outline';
+  if (pct >= 95) return 'battery-full';
+  if (pct >= 45) return 'battery-half';
+  return 'battery-dead';
+}
+
+// العنوان العكسي: من إحداثيات لاسم شارع/منطقة مقروء، زي ما Life360
+// بيعرض العنوان مش أرقام. بنستخدم BigDataCloud (مجاني تمامًا، بدون
+// مفتاح API، وبيدعم العربية) مع كاش بالإحداثيات المقرّبة عشان ما
+// نكررش الطلبات.
+const addrCache = new Map<string, string>();
+async function reverseGeocode(lat: number, lng: number, lang: string): Promise<string | undefined> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+  const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  const hit = addrCache.get(key);
+  if (hit !== undefined) return hit;
+  try {
+    const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=${lang}`);
+    const d = (await res.json()) as { locality?: string; city?: string; principalSubdivision?: string };
+    const parts = [d.locality || d.city, d.principalSubdivision].filter(Boolean) as string[];
+    const line = parts.slice(0, 2).join('، ');
+    if (line) {
+      addrCache.set(key, line);
+      return line;
+    }
+  } catch {
+    /* بدون إنترنت أو الخدمة مش متاحة - نرجع للإحداثيات/الوضع العام */
+  }
+  return undefined;
+}
+
+function placeLabel(p: HaEntity, addrMap: Record<string, string>): string {
+  const st = String(p.state ?? '');
+  if (st === 'home') return i18n.t('placeHome');
+  if (st && !['not_home', 'unknown', 'unavailable', ''].includes(st)) return st; // منطقة مسمّاة من HA
+  return addrMap[p.entity_id] || i18n.t('placeAway');
+}
+
 export function PeopleMapWeb({ people, home, states, selectedPersonId, settings }: Props) {
+  const { colors, resolvedMode } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
+
   const [selected, setSelected] = useState<HaEntity | null>(null);
   const [routeInfo, setRouteInfo] = useState<{ distanceMeters: number; durationSeconds: number } | null>(null);
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [timelineActive, setTimelineActive] = useState(false);
-
-  const toggleTimeline = async () => {
-    if (!selected) return;
-    if (timelineActive) {
-      webRef.current?.injectJavaScript(`window.hideTimeline && window.hideTimeline(); true;`);
-      setTimelineActive(false);
-      return;
-    }
-    setTimelineLoading(true);
-    try {
-      const points = await getPersonHistory(settings, selected.entity_id, 24);
-      if (points.length < 2) return;
-      webRef.current?.injectJavaScript(`window.showTimeline && window.showTimeline(${JSON.stringify(JSON.stringify(points))}); true;`);
-      setTimelineActive(true);
-    } finally {
-      setTimelineLoading(false);
-    }
-  };
   const [avatars, setAvatars] = useState<Record<string, string>>({});
+  const [addrMap, setAddrMap] = useState<Record<string, string>>({});
   const [showPlaces, setShowPlaces] = useState(false);
+  const [satelliteOn, setSatelliteOn] = useState(false);
   const webRef = useRef<WebView<object>>(null);
 
+  const colorFor = useMemo(() => {
+    const m: Record<string, string> = {};
+    people.forEach((p, i) => (m[p.entity_id] = PERSON_RING[i % PERSON_RING.length]));
+    return m;
+  }, [people.map(p => p.entity_id).join('|')]);
+
+  // ====== السحب للـ bottom sheet (Animated + PanResponder، بدون أي مكتبة) ======
+  const sheetY = useRef(new Animated.Value(COLLAPSED)).current;
+  const expandedRef = useRef(false);
+  const [expanded, setExpanded] = useState(false);
+  const snapTo = (to: number) => {
+    Animated.spring(sheetY, { toValue: to, useNativeDriver: true, bounciness: 2, speed: 14 }).start();
+    expandedRef.current = to === 0;
+    setExpanded(to === 0);
+  };
+  const pan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dy) > 6 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderMove: (_e, g) => {
+        const base = expandedRef.current ? 0 : COLLAPSED;
+        let ny = base + g.dy;
+        if (ny < 0) ny = 0;
+        if (ny > COLLAPSED) ny = COLLAPSED;
+        sheetY.setValue(ny);
+      },
+      onPanResponderRelease: (_e, g) => {
+        const base = expandedRef.current ? 0 : COLLAPSED;
+        const ny = base + g.dy;
+        snapTo(ny < COLLAPSED / 2 ? 0 : COLLAPSED);
+      },
+    }),
+  ).current;
+
+  // ====== صور الأفراد (كاش محلي) ======
   useEffect(() => {
     let on = true;
     void Promise.all(people.map(async p => [p.entity_id, await avatar(p, settings)] as const)).then(xs => {
@@ -110,6 +182,24 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
     };
   }, [people.map(p => `${p.entity_id}:${String(p.attributes.entity_picture ?? '')}`).join('|'), settings.baseUrl, settings.token]);
 
+  // ====== العناوين العكسية لمن هم خارج المناطق ======
+  useEffect(() => {
+    let on = true;
+    void (async () => {
+      const updates: Record<string, string> = {};
+      for (const p of people) {
+        if (String(p.state) !== 'not_home') continue;
+        const a = await reverseGeocode(Number(p.attributes.latitude), Number(p.attributes.longitude), i18n.locale || 'en');
+        if (a) updates[p.entity_id] = a;
+      }
+      if (on && Object.keys(updates).length) setAddrMap(m => ({ ...m, ...updates }));
+    })();
+    return () => {
+      on = false;
+    };
+  }, [people.map(p => `${p.entity_id}:${p.state}:${p.attributes.latitude},${p.attributes.longitude}`).join('|'), i18n.locale]);
+
+  // ====== موقعي الحي من الموبايل (نقطة زرقاء زي Life360) ======
   const me = people.find(p => p.entity_id === selectedPersonId) ?? people[0];
   const [liveLocation, setLiveLocation] = useState<LiveLocation | null>(null);
   useEffect(() => {
@@ -120,6 +210,11 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
     return () => stopWatch?.();
   }, []);
   const myCoord = liveLocation ?? (me ? coord(me) : undefined);
+  useEffect(() => {
+    if (liveLocation) webRef.current?.injectJavaScript(`window.setMe && window.setMe(${liveLocation.longitude},${liveLocation.latitude}); true;`);
+  }, [liveLocation?.latitude, liveLocation?.longitude]);
+
+  // ====== المسار من موقعي للشخص المختار ======
   const selectedCoordKey = selected ? `${selected.attributes.latitude},${selected.attributes.longitude}` : undefined;
   useEffect(() => {
     if (!selected || !myCoord || selected.entity_id === me?.entity_id) {
@@ -133,32 +228,54 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
       `window.showRoute && window.showRoute(${myCoord.longitude},${myCoord.latitude},${target.longitude},${target.latitude}); true;`,
     );
   }, [selected?.entity_id, selectedCoordKey, myCoord?.latitude, myCoord?.longitude]);
+
   useEffect(() => {
     if (timelineActive) {
       webRef.current?.injectJavaScript(`window.hideTimeline && window.hideTimeline(); true;`);
       setTimelineActive(false);
     }
   }, [selected?.entity_id]);
+
+  // ====== النقاط والمناطق ======
   const points: Point[] = people.map(p => ({
     id: p.entity_id,
     name: String(p.attributes.friendly_name ?? p.entity_id),
     lat: Number(p.attributes.latitude),
     lng: Number(p.attributes.longitude),
+    color: colorFor[p.entity_id] ?? PERSON_RING[0],
     picture: avatars[p.entity_id],
   }));
 
-  // بنولّد الـ HTML مرة واحدة بس (أول ظهور) ومنعملوش refresh تاني -
-  // أي تحديث لاحق لمواقع الأشخاص بيتبعت بـ updateMarkers() جوه
-  // الصفحة نفسها (injectJavaScript) بدل إعادة تحميل الصفحة بالكامل،
-  // اللي كانت بتعمل وميض/إعادة ضبط لأي حالة مؤقتة زي وضع القمر
-  // الصناعي المفعّل.
-  const [html] = useState(() =>
-    mapHtml(points, home ? { lat: Number(home.attributes.latitude), lng: Number(home.attributes.longitude), name: String(home.attributes.friendly_name ?? 'Home') } : undefined),
+  const zones: Zone[] = useMemo(
+    () =>
+      states
+        .filter(e => e.entity_id.startsWith('zone.') && Number.isFinite(Number(e.attributes.latitude)) && Number.isFinite(Number(e.attributes.longitude)))
+        .map(z => ({
+          id: z.entity_id,
+          name: String(z.attributes.friendly_name ?? z.entity_id.replace('zone.', '')),
+          lat: Number(z.attributes.latitude),
+          lng: Number(z.attributes.longitude),
+          radius: Number(z.attributes.radius ?? 100),
+        })),
+    [states.filter(e => e.entity_id.startsWith('zone.')).map(z => `${z.entity_id}:${z.attributes.latitude},${z.attributes.longitude}:${z.attributes.radius}`).join('|')],
   );
+
+  // بنولّد الـ HTML مرة واحدة ونعيد توليده بس لو الثيم اتغيّر (فاتح/غامق)،
+  // عشان ستايل الخريطة يتبدّل. تحديثات مواقع الأشخاص بتتبعت عبر
+  // injectJavaScript من غير إعادة توليد (عشان ما نعملش reload للخريطة).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const html = useMemo(() => mapHtml(points, zones, resolvedMode, colors), [resolvedMode]);
   const pointsKey = JSON.stringify(points.map(p => [p.id, p.lat, p.lng]));
   useEffect(() => {
     webRef.current?.injectJavaScript(`window.updateMarkers && window.updateMarkers(${JSON.stringify(JSON.stringify(points))}); true;`);
   }, [pointsKey]);
+
+  useEffect(() => {
+    webRef.current?.injectJavaScript(`window.${showPlaces ? 'showPlaces' : 'hidePlaces'} && window.${showPlaces ? 'showPlaces' : 'hidePlaces'}(); true;`);
+  }, [showPlaces]);
+  useEffect(() => {
+    webRef.current?.injectJavaScript(`window.toggleSatellite && window.toggleSatellite(${satelliteOn}); true;`);
+  }, [satelliteOn]);
 
   const focusPerson = (person: HaEntity) => {
     setSelected(person);
@@ -166,18 +283,26 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
     if (Number.isFinite(c.latitude) && Number.isFinite(c.longitude)) {
       webRef.current?.injectJavaScript(`window.focusPerson && window.focusPerson('${person.entity_id}'); true;`);
     }
+    if (!expandedRef.current) snapTo(0);
   };
 
-  useEffect(() => {
-    webRef.current?.injectJavaScript(`window.${showPlaces ? 'showPlaces' : 'hidePlaces'} && window.${showPlaces ? 'showPlaces' : 'hidePlaces'}(); true;`);
-  }, [showPlaces]);
-
-  const [satelliteOn, setSatelliteOn] = useState(false);
-  useEffect(() => {
-    webRef.current?.injectJavaScript(`window.toggleSatellite && window.toggleSatellite(${satelliteOn}); true;`);
-  }, [satelliteOn]);
-
-  if (!people.length) return <View style={s.empty}><Text style={s.muted}>{i18n.t('noPeople')}</Text></View>;
+  const toggleTimeline = async () => {
+    if (!selected) return;
+    if (timelineActive) {
+      webRef.current?.injectJavaScript(`window.hideTimeline && window.hideTimeline(); true;`);
+      setTimelineActive(false);
+      return;
+    }
+    setTimelineLoading(true);
+    try {
+      const pts = await getPersonHistory(settings, selected.entity_id, 24);
+      if (pts.length < 2) return;
+      webRef.current?.injectJavaScript(`window.showTimeline && window.showTimeline(${JSON.stringify(JSON.stringify(pts))}); true;`);
+      setTimelineActive(true);
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
 
   const navigate = (p: HaEntity) => {
     const c = coord(p);
@@ -188,19 +313,38 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
       );
       return;
     }
-    // صيغة geo: القياسية: إحداثيات + اسم بين قوسين كتسمية (label) -
-    // ده بيضمن إن اسم الشخص يظهر فعليًا في تطبيق الخرائط اللي هيختاره
-    // المستخدم، بدل ما تظهر إحداثيات رقمية بس من غير أي معنى
     const url = `geo:${c.latitude},${c.longitude}?q=${c.latitude},${c.longitude}(${label})`;
     void Linking.openURL(url).catch(() =>
       Linking.openURL(`https://www.openstreetmap.org/?mlat=${c.latitude}&mlon=${c.longitude}#map=17/${c.latitude}/${c.longitude}`),
     );
   };
 
+  const recenterMe = () => {
+    if (myCoord) webRef.current?.injectJavaScript(`window.recenter && window.recenter(${myCoord.longitude},${myCoord.latitude}); true;`);
+    else webRef.current?.injectJavaScript(`window.fitAll && window.fitAll(); true;`);
+  };
+  const fitAll = () => webRef.current?.injectJavaScript(`window.fitAll && window.fitAll(); true;`);
+
+  if (!people.length)
+    return (
+      <View style={s.empty}>
+        <Text style={s.muted}>{i18n.t('noPeople')}</Text>
+      </View>
+    );
+
+  const detailFromMe = (person: HaEntity) =>
+    !myCoord
+      ? '—'
+      : me && person.entity_id === me.entity_id
+      ? distance(0)
+      : routeInfo && selected?.entity_id === person.entity_id
+      ? distance(routeInfo.distanceMeters)
+      : distance(haversine(coord(person), myCoord));
+
   return (
     <View style={s.screen}>
       <WebView
-        key={MAP_TEMPLATE_VERSION}
+        key={`${MAP_TEMPLATE_VERSION}-${resolvedMode}`}
         ref={webRef}
         source={{ html }}
         originWhitelist={['*']}
@@ -208,173 +352,260 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
         domStorageEnabled
         cacheEnabled={false}
         onMessage={e => {
-          if (e.nativeEvent.data === 'MAP_HTML_V2_LOADED') return;
-          if (e.nativeEvent.data.startsWith('TILE_TEST')) {
-            const g = globalThis as unknown as { __familyHaLog?: (level: string, args: unknown[]) => void };
-            g.__familyHaLog?.('trace', [e.nativeEvent.data]);
+          const data = e.nativeEvent.data;
+          if (data === 'MAP_HTML_V2_LOADED') {
+            if (myCoord && liveLocation) webRef.current?.injectJavaScript(`window.setMe && window.setMe(${liveLocation.longitude},${liveLocation.latitude}); true;`);
             return;
           }
-          if (e.nativeEvent.data.startsWith('JS_ERROR:') || e.nativeEvent.data.startsWith('MAP_ERROR:') || e.nativeEvent.data.startsWith('HOUSENUM_ERR:') || e.nativeEvent.data.startsWith('SAT_ERR:')) {
+          if (data.startsWith('JS_ERROR:') || data.startsWith('MAP_ERROR:') || data.startsWith('HOUSENUM_ERR:') || data.startsWith('SAT_ERR:') || data.startsWith('ZONE_ERR:')) {
             const g = globalThis as unknown as { __familyHaLog?: (level: string, args: unknown[]) => void };
-            g.__familyHaLog?.('warn', [e.nativeEvent.data]);
+            g.__familyHaLog?.('warn', [data]);
             return;
           }
-          if (e.nativeEvent.data.startsWith('ROUTE_INFO:')) {
+          if (data.startsWith('ROUTE_INFO:')) {
             try {
-              const info = JSON.parse(e.nativeEvent.data.slice('ROUTE_INFO:'.length)) as { distance: number; duration: number };
+              const info = JSON.parse(data.slice('ROUTE_INFO:'.length)) as { distance: number; duration: number };
               setRouteInfo({ distanceMeters: info.distance, durationSeconds: info.duration });
-            } catch { /* ignore */ }
+            } catch {
+              /* ignore */
+            }
             return;
           }
-          setSelected(people.find(p => p.entity_id === e.nativeEvent.data) ?? null);
+          const person = people.find(p => p.entity_id === data);
+          if (person) focusPerson(person);
         }}
         style={s.web}
       />
 
-      <PressableScale style={[s.satelliteToggle, satelliteOn && s.satelliteToggleActive]} onPress={() => setSatelliteOn(v => !v)}>
-        <Ionicons name="globe-outline" size={18} color={satelliteOn ? colors.black : colors.text} />
-      </PressableScale>
-
+      {/* شريط علوي: اسم العائلة */}
       <View style={s.topBar} pointerEvents="box-none">
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.avatarRow}>
-          <View style={s.avatarPillCount}><Ionicons name="people" size={16} color={colors.primary} /></View>
-          {people.map(p => {
-            const isSelected = selected?.entity_id === p.entity_id;
-            return (
-              <PressableScale key={p.entity_id} onPress={() => focusPerson(p)} style={[s.avatarWrap, isSelected && s.avatarWrapSelected]}>
-                {avatars[p.entity_id] ? (
-                  <Image source={{ uri: avatars[p.entity_id] }} style={s.avatarImg} />
-                ) : (
-                  <View style={[s.avatarImg, s.avatarFallback]}><Ionicons name="person" size={20} color={colors.primary} /></View>
-                )}
-              </PressableScale>
-            );
-          })}
-          <PressableScale style={[s.placesToggle, showPlaces && s.placesToggleActive]} onPress={() => setShowPlaces(v => !v)}>
-            <Ionicons name="storefront" size={16} color={showPlaces ? colors.black : colors.text} />
-          </PressableScale>
-        </ScrollView>
+        <View style={s.titlePill}>
+          <Ionicons name="people" size={15} color={colors.primary} />
+          <Text style={s.titlePillText}>{i18n.t('mapMembers')}</Text>
+          <View style={s.titleCount}>
+            <Text style={s.titleCountText}>{people.length}</Text>
+          </View>
+        </View>
       </View>
 
-      {selected && me ? (
-        <View style={s.sheet}>
-          <View style={s.head}>
-            <Pressable onLongPress={() => void toggleTimeline()} delayLongPress={450}>
-              {avatars[selected.entity_id] ? (
-                <Image source={{ uri: avatars[selected.entity_id] }} style={s.avatar} />
-              ) : (
-                <View style={[s.avatar, s.avatarFallback]}><Ionicons name="person" size={26} color={colors.primary} /></View>
-              )}
-              {timelineLoading ? (
-                <View style={s.timelineLoading}><ActivityIndicator color="#fff" size="small" /></View>
-              ) : timelineActive ? (
-                <View style={s.timelineBadge}><Ionicons name="time" size={12} color="#fff" /></View>
-              ) : null}
-            </Pressable>
-            <View style={{ flex: 1 }}>
-              <Text style={s.name}>{String(selected.attributes.friendly_name ?? selected.entity_id)}</Text>
-              <Text style={s.muted}>{selected.state} · {timeAgo(selected.last_changed)} · {distance(home ? haversine(coord(selected), coord(home)) : undefined)}</Text>
+      {/* عمود أزرار التحكم على اليمين (زي Life360) */}
+      <View style={s.controls} pointerEvents="box-none">
+        <PressableScale style={s.ctrlBtn} onPress={recenterMe}>
+          <Ionicons name="locate" size={19} color={myCoord ? colors.primary : colors.muted} />
+        </PressableScale>
+        <PressableScale style={s.ctrlBtn} onPress={fitAll}>
+          <Ionicons name="scan-outline" size={19} color={colors.text} />
+        </PressableScale>
+        <PressableScale style={[s.ctrlBtn, satelliteOn && s.ctrlBtnActive]} onPress={() => setSatelliteOn(v => !v)}>
+          <Ionicons name="globe-outline" size={19} color={satelliteOn ? colors.black : colors.text} />
+        </PressableScale>
+        <PressableScale style={[s.ctrlBtn, showPlaces && s.ctrlBtnActive]} onPress={() => setShowPlaces(v => !v)}>
+          <Ionicons name="storefront-outline" size={18} color={showPlaces ? colors.black : colors.text} />
+        </PressableScale>
+      </View>
+
+      {/* ====== Bottom sheet: لستة الأعضاء (قابلة للسحب) ====== */}
+      <Animated.View style={[s.sheet, { height: SHEET_H, transform: [{ translateY: sheetY }] }]}>
+        <View {...pan.panHandlers}>
+          <Pressable onPress={() => snapTo(expanded ? COLLAPSED : 0)} style={s.handleArea}>
+            <View style={s.handle} />
+            <View style={s.sheetHeader}>
+              <Text style={s.sheetTitle}>{i18n.t('mapMembers')}</Text>
+              <Ionicons name={expanded ? 'chevron-down' : 'chevron-up'} size={18} color={colors.muted} />
             </View>
-            <PressableScale onPress={() => setSelected(null)} style={s.close}><Ionicons name="close" size={20} color={colors.text} /></PressableScale>
-          </View>
-          {!timelineActive && !timelineLoading ? <Text style={s.timelineHint}>{i18n.t('longPressForTimeline')}</Text> : null}
-          <View style={s.details}>
-            <Box label={i18n.t('battery')} value={battery(selected, states)} />
-            <Box
-              label={i18n.t('fromMe')}
-              value={
-                !myCoord
-                  ? '—'
-                  : me && selected.entity_id === me.entity_id
-                  ? distance(0)
-                  : routeInfo
-                  ? distance(routeInfo.distanceMeters)
-                  : distance(haversine(coord(selected), myCoord))
-              }
-            />
-            {routeInfo && !(me && selected.entity_id === me.entity_id) ? (
-              <Box label={i18n.t('eta')} value={etaText(routeInfo.durationSeconds)} />
-            ) : (
-              <Box label={i18n.t('locationAccuracy')} value={Number.isFinite(Number(selected.attributes.gps_accuracy)) ? distance(Number(selected.attributes.gps_accuracy)) : '—'} />
-            )}
-          </View>
-          <PressableScale style={s.navigate} onPress={() => navigate(selected)}>
-            <Ionicons name="navigate" size={20} color={colors.black} />
-            <Text style={s.navigateText}>{i18n.t('navigateToPerson')}</Text>
-          </PressableScale>
+          </Pressable>
         </View>
-      ) : null}
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.listContent}>
+          {people.map(p => {
+            const isSel = selected?.entity_id === p.entity_id;
+            const ring = colorFor[p.entity_id] ?? PERSON_RING[0];
+            const pct = Number(battery(p, states).replace('%', ''));
+            return (
+              <View key={p.entity_id} style={[s.row, isSel && s.rowSelected]}>
+                <Pressable
+                  style={s.rowMain}
+                  onPress={() => focusPerson(p)}
+                  onLongPress={() => {
+                    setSelected(p);
+                    void toggleTimeline();
+                  }}
+                  delayLongPress={450}
+                >
+                  <View style={[s.rowAvatarRing, { borderColor: ring }]}>
+                    {avatars[p.entity_id] ? (
+                      <Image source={{ uri: avatars[p.entity_id] }} style={s.rowAvatar} />
+                    ) : (
+                      <View style={[s.rowAvatar, s.avatarFallback]}>
+                        <Ionicons name="person" size={20} color={ring} />
+                      </View>
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.rowName} numberOfLines={1}>
+                      {String(p.attributes.friendly_name ?? p.entity_id)}
+                    </Text>
+                    <Text style={s.rowPlace} numberOfLines={1}>
+                      {placeLabel(p, addrMap)} · {timeAgo(p.last_changed)}
+                    </Text>
+                  </View>
+                  <View style={s.rowBattery}>
+                    <Ionicons name={batteryIcon(pct)} size={15} color={Number.isFinite(pct) && pct < 20 ? colors.danger : colors.muted} />
+                    <Text style={s.rowBatteryText}>{battery(p, states)}</Text>
+                  </View>
+                </Pressable>
+
+                {isSel ? (
+                  <View style={s.detailWrap}>
+                    {timelineLoading ? (
+                      <View style={s.timelineRow}>
+                        <ActivityIndicator color={colors.primary} size="small" />
+                      </View>
+                    ) : null}
+                    <View style={s.details}>
+                      <Box s={s} label={i18n.t('battery')} value={battery(p, states)} />
+                      <Box s={s} label={i18n.t('fromMe')} value={detailFromMe(p)} />
+                      {routeInfo && !(me && p.entity_id === me.entity_id) ? (
+                        <Box s={s} label={i18n.t('eta')} value={etaText(routeInfo.durationSeconds)} />
+                      ) : (
+                        <Box
+                          s={s}
+                          label={i18n.t('locationAccuracy')}
+                          value={Number.isFinite(Number(p.attributes.gps_accuracy)) ? distance(Number(p.attributes.gps_accuracy)) : '—'}
+                        />
+                      )}
+                    </View>
+                    <View style={s.actionsRow}>
+                      <PressableScale style={s.navigate} onPress={() => navigate(p)}>
+                        <Ionicons name="navigate" size={18} color={colors.black} />
+                        <Text style={s.navigateText}>{i18n.t('navigateToPerson')}</Text>
+                      </PressableScale>
+                      <PressableScale style={[s.timelineBtn, timelineActive && s.timelineBtnActive]} onPress={() => void toggleTimeline()}>
+                        <Ionicons name="time-outline" size={18} color={timelineActive ? colors.black : colors.text} />
+                      </PressableScale>
+                    </View>
+                  </View>
+                ) : null}
+              </View>
+            );
+          })}
+          <View style={{ height: 20 }} />
+        </ScrollView>
+      </Animated.View>
     </View>
   );
 }
 
-function Box({ label, value }: { label: string; value: string }) {
-  return <View style={s.box}><Text style={s.boxLabel}>{label}</Text><Text style={s.boxValue}>{value}</Text></View>;
+function Box({ s, label, value }: { s: ReturnType<typeof makeStyles>; label: string; value: string }) {
+  return (
+    <View style={s.box}>
+      <Text style={s.boxLabel}>{label}</Text>
+      <Text style={s.boxValue}>{value}</Text>
+    </View>
+  );
 }
 
-function mapHtml(points: Point[], home?: { lat: number; lng: number; name: string }) {
-  const all = [...points.map(p => [p.lat, p.lng]), ...(home ? [[home.lat, home.lng]] : [])];
-  const c = all[0] ?? [52.1, 5.1];
-  // MapLibre GL بدل Leaflet - خريطة ثلاثية الأبعاد حقيقية (مباني
-  // بارتفاعات، إمالة ودوران بإصبعين) من غير أي مفتاح API مدفوع.
-  // OpenFreeMap بيوفّر بلاطات متجهية (vector tiles) مجانية بالكامل
-  // ومن غير حد استخدام، بديل مجاني حقيقي لـ Mapbox.
-  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"><style>html,body,#map{height:100%;margin:0;background:#0b1220}.pin{width:44px;height:56px;position:relative}.pin-tail{position:absolute;bottom:6px;left:50%;width:16px;height:16px;background:#3d5fef;transform:translateX(-50%) rotate(45deg);border-radius:0 0 4px 0;box-shadow:1px 1px 3px rgba(0,0,0,.3)}.pin-photo{position:absolute;top:0;left:2px;width:40px;height:40px;border-radius:50%;overflow:hidden;border:3px solid #3d5fef;background:#152238;box-shadow:0 2px 6px rgba(0,0,0,.35);z-index:1;display:flex;align-items:center;justify-content:center}.pin-photo img{width:100%;height:100%;object-fit:cover}.pin-initial{color:#fff;font:700 16px sans-serif}.home{width:40px;height:40px;border-radius:50%;background:#27c499;color:#fff;text-align:center;line-height:40px;font-size:20px;border:3px solid #fff}.place{width:30px;height:30px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 8px #0007}.maplibregl-popup-content{background:#152238;color:#fff;font:600 13px sans-serif;border-radius:8px}.maplibregl-popup-tip{border-top-color:#152238 !important;border-bottom-color:#152238 !important}</style></head><body><div id="map"></div><script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script><script>
-window.onerror=function(msg,src,line,col,err){try{window.ReactNativeWebView.postMessage('JS_ERROR:'+msg+' @'+line+':'+col);}catch(e){}};
-const map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/liberty',center:[${c[1]},${c[0]}],zoom:16,pitch:55,bearing:-10,antialias:true,attributionControl:false});
+function mapHtml(points: Point[], zones: Zone[], mode: 'light' | 'dark', c: Palette) {
+  const all = [...points.map(p => [p.lat, p.lng]), ...zones.map(z => [z.lat, z.lng])];
+  const center = all.find(x => Number.isFinite(x[0]) && Number.isFinite(x[1])) ?? [52.1, 5.1];
+  const style = mode === 'dark' ? 'https://tiles.openfreemap.org/styles/dark' : 'https://tiles.openfreemap.org/styles/positron';
+  const popupBg = mode === 'dark' ? '#182535' : '#ffffff';
+  const popupText = mode === 'dark' ? '#F5F8FC' : '#0E1620';
+  const pts = points.map(p => ({ id: p.id, name: p.name, lat: p.lat, lng: p.lng, color: p.color, picture: p.picture }));
+  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"><style>
+html,body,#map{height:100%;margin:0;background:${c.background}}
+.pin{width:44px;height:56px;position:relative}
+.pin-tail{position:absolute;bottom:6px;left:50%;width:16px;height:16px;transform:translateX(-50%) rotate(45deg);border-radius:0 0 4px 0;box-shadow:1px 1px 3px rgba(0,0,0,.3)}
+.pin-photo{position:absolute;top:0;left:2px;width:40px;height:40px;border-radius:50%;overflow:hidden;border:3px solid #3d5fef;background:${c.surfaceElevated};box-shadow:0 2px 7px rgba(0,0,0,.35);z-index:1;display:flex;align-items:center;justify-content:center}
+.pin-photo img{width:100%;height:100%;object-fit:cover}
+.pin-initial{color:#fff;font:700 16px sans-serif}
+.me-dot{width:20px;height:20px;border-radius:50%;background:#2a7bff;border:3px solid #fff;box-shadow:0 0 0 4px rgba(42,123,255,.3),0 1px 4px rgba(0,0,0,.4)}
+.zone-chip{padding:3px 9px;border-radius:12px;background:${popupBg};color:${popupText};font:700 11px sans-serif;box-shadow:0 1px 5px rgba(0,0,0,.25);white-space:nowrap;opacity:.95}
+.place{width:30px;height:30px;border-radius:9px;background:${popupBg};display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.maplibregl-popup-content{background:${popupBg};color:${popupText};font:600 13px sans-serif;border-radius:9px;box-shadow:0 2px 10px rgba(0,0,0,.3)}
+.maplibregl-popup-tip{border-top-color:${popupBg} !important;border-bottom-color:${popupBg} !important}
+</style></head><body><div id="map"></div><script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script><script>
+window.onerror=function(msg,src,line,col){try{window.ReactNativeWebView.postMessage('JS_ERROR:'+msg+' @'+line+':'+col);}catch(e){}};
+const map=new maplibregl.Map({container:'map',style:'${style}',center:[${center[1]},${center[0]}],zoom:15,pitch:0,bearing:0,antialias:true,attributionControl:false});
 map.on('error',function(e){try{window.ReactNativeWebView.postMessage('MAP_ERROR:'+(e&&e.error?String(e.error.message||e.error):JSON.stringify(e)));}catch(x){}});
-map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'top-right');
+map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'bottom-right');
 map.addControl(new maplibregl.AttributionControl({compact:true}));
 const b=new maplibregl.LngLatBounds();
 const markers={};
-map.on('load',()=>{
-try{map.addLayer({id:'housenumbers',type:'symbol',source:'openmaptiles','source-layer':'housenumber',minzoom:17,layout:{'text-field':['get','housenumber'],'text-size':10,'text-font':['Noto Sans Regular']},paint:{'text-color':'#3a4a5c','text-halo-color':'#ffffff','text-halo-width':1.3}});}catch(e){window.ReactNativeWebView.postMessage('HOUSENUM_ERR:'+String(e));}
+let meMarker=null;
+const POINTS=${JSON.stringify(pts)};
+const ZONES=${JSON.stringify(zones)};
 
-// طبقة قمر صناعي مجانية بالكامل (Esri World Imagery، من غير مفتاح
-// API) - بتتحط فوق خلفية الخريطة مباشرة وتحت الطرق/المباني/الأسماء،
-// فبتبقى "هجينة" (صور حقيقية + خطوط الطرق فوقها للمرجعية) زي وضع
-// Hybrid في خرائط جوجل. الإمالة والدوران بتاعت الكاميرا شغالين
-// بنفس الطريقة بغض النظر عن الطبقة دي - مش مرتبطين بيها خالص.
-try{
-  map.addSource('satellite-src',{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],tileSize:256,attribution:'Esri'});
-  const firstSymbolLayer=map.getStyle().layers.find(l=>l.type==='symbol'||l.type==='line'||l.type==='fill-extrusion');
-  map.addLayer({id:'satellite-layer',type:'raster',source:'satellite-src',layout:{visibility:'none'},paint:{'raster-opacity':1}},firstSymbolLayer?firstSymbolLayer.id:undefined);
-}catch(e){window.ReactNativeWebView.postMessage('SAT_ERR:'+String(e));}
-window.toggleSatellite=function(on){
-  if(map.getLayer('satellite-layer'))map.setLayoutProperty('satellite-layer','visibility',on?'visible':'none');
-};
-${home ? `{const el=document.createElement('div');el.innerHTML='<div class="home">⌂</div>';new maplibregl.Marker({element:el.firstChild}).setLngLat([${home.lng},${home.lat}]).setPopup(new maplibregl.Popup({offset:24,closeButton:false}).setText(\`${esc(home.name)}\`)).addTo(map);b.extend([${home.lng},${home.lat}]);}` : ''}
-${points
-  .map(
-    p => `{const el=document.createElement('div');el.innerHTML=\`<div class="pin-marker"><div class="pin"><div class="pin-tail"></div><div class="pin-photo">${p.picture ? `<img src="${p.picture}">` : `<div class="pin-initial">${esc(p.name.slice(0, 1).toUpperCase())}</div>`}</div></div></div></div>\`;const node=el.firstChild;node.addEventListener('click',()=>window.ReactNativeWebView.postMessage('${p.id}'));const m=new maplibregl.Marker({element:node,anchor:'bottom'}).setLngLat([${p.lng},${p.lat}]).setPopup(new maplibregl.Popup({offset:36,closeButton:false}).setText(\`${esc(p.name)}\`)).addTo(map);markers['${p.id}']=m;b.extend([${p.lng},${p.lat}]);}`,
-  )
-  .join('')}
-if(!b.isEmpty())map.fitBounds(b,{padding:70,maxZoom:17,duration:0});
-});
-window.focusPerson=function(id){const m=markers[id];if(!m)return;map.flyTo({center:m.getLngLat(),zoom:17,pitch:55,duration:800});m.togglePopup();};
+function circlePoly(lng,lat,radiusM){
+  const pts=[];const R=6378137;const d=(radiusM||100)/R;const latR=lat*Math.PI/180;const lngR=lng*Math.PI/180;
+  for(let i=0;i<=64;i++){const brng=i*2*Math.PI/64;const lat2=Math.asin(Math.sin(latR)*Math.cos(d)+Math.cos(latR)*Math.sin(d)*Math.cos(brng));const lng2=lngR+Math.atan2(Math.sin(brng)*Math.sin(d)*Math.cos(latR),Math.cos(d)-Math.sin(latR)*Math.sin(lat2));pts.push([lng2*180/Math.PI,lat2*180/Math.PI]);}
+  return {type:'Feature',geometry:{type:'Polygon',coordinates:[pts]}};
+}
+function makePersonEl(p){
+  const el=document.createElement('div');
+  el.innerHTML='<div class="pin"><div class="pin-tail" style="background:'+p.color+'"></div><div class="pin-photo" data-pic="'+(p.picture||'')+'" style="border-color:'+p.color+'">'+(p.picture?('<img src="'+p.picture+'">'):('<div class="pin-initial">'+(p.name?p.name.slice(0,1).toUpperCase():'?')+'</div>'))+'</div></div>';
+  const node=el.firstChild;
+  node.addEventListener('click',function(){try{window.ReactNativeWebView.postMessage(p.id);}catch(e){}});
+  return node;
+}
+function addPerson(p){
+  if(!isFinite(p.lng)||!isFinite(p.lat))return;
+  const m=new maplibregl.Marker({element:makePersonEl(p),anchor:'bottom'}).setLngLat([p.lng,p.lat]).setPopup(new maplibregl.Popup({offset:36,closeButton:false}).setText(p.name)).addTo(map);
+  markers[p.id]=m;
+}
 
-// بيحدّث مواقع العلامات الموجودة (وبيضيف/يشيل لو حد اتضاف أو اختفى)
-// من غير إعادة تحميل الصفحة كلها خالص - قبل كده كنا بنغيّر "key"
-// الـWebView كل ما عدد الأشخاص يتغيّر (حتى تذبذب مؤقت بسيط في GPS)،
-// وده كان بيعمل إعادة تحميل كاملة (وميض + فقدان أي حالة مؤقتة زي
-// وضع القمر الصناعي المفعّل).
-window.updateMarkers=function(pointsJson){
-  const pts=JSON.parse(pointsJson);
-  const seen={};
-  pts.forEach(p=>{
-    seen[p.id]=true;
-    const m=markers[p.id];
-    if(m){
-      m.setLngLat([p.lng,p.lat]);
-      const el=m.getElement();
-      const photoEl=el&&el.querySelector('.pin-photo');
-      if(photoEl&&photoEl.getAttribute('data-pic')!==(p.picture||'')){
-        photoEl.setAttribute('data-pic',p.picture||'');
-        photoEl.innerHTML=p.picture?('<img src="'+p.picture+'">'):('<div class="pin-initial">'+(p.name?p.name.slice(0,1).toUpperCase():'?')+'</div>');
-      }
+map.on('load',function(){
+  try{map.addLayer({id:'housenumbers',type:'symbol',source:'openmaptiles','source-layer':'housenumber',minzoom:17,layout:{'text-field':['get','housenumber'],'text-size':10,'text-font':['Noto Sans Regular']},paint:{'text-color':'${c.muted}','text-halo-color':'${popupBg}','text-halo-width':1.3}});}catch(e){window.ReactNativeWebView.postMessage('HOUSENUM_ERR:'+String(e));}
+
+  // طبقة قمر صناعي مجانية (Esri World Imagery، بدون مفتاح) تحت الطرق والأسماء
+  try{
+    map.addSource('satellite-src',{type:'raster',tiles:['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],tileSize:256,attribution:'Esri'});
+    const firstSymbol=map.getStyle().layers.find(function(l){return l.type==='symbol'||l.type==='line'||l.type==='fill-extrusion';});
+    map.addLayer({id:'satellite-layer',type:'raster',source:'satellite-src',layout:{visibility:'none'},paint:{'raster-opacity':1}},firstSymbol?firstSymbol.id:undefined);
+  }catch(e){window.ReactNativeWebView.postMessage('SAT_ERR:'+String(e));}
+
+  // مناطق Home Assistant كدوائر (Places زي Life360)
+  try{
+    const feats=ZONES.filter(function(z){return isFinite(z.lng)&&isFinite(z.lat);}).map(function(z){return circlePoly(z.lng,z.lat,z.radius);});
+    if(feats.length){
+      map.addSource('zones',{type:'geojson',data:{type:'FeatureCollection',features:feats}});
+      map.addLayer({id:'zones-fill',type:'fill',source:'zones',paint:{'fill-color':'${c.primary}','fill-opacity':0.12}});
+      map.addLayer({id:'zones-line',type:'line',source:'zones',paint:{'line-color':'${c.primary}','line-opacity':0.55,'line-width':2,'line-dasharray':[2,2]}});
     }
+    ZONES.forEach(function(z){if(!isFinite(z.lng)||!isFinite(z.lat))return;const el=document.createElement('div');el.className='zone-chip';el.textContent=(z.id==='zone.home'?'⌂ ':'')+z.name;new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([z.lng,z.lat]).addTo(map);b.extend([z.lng,z.lat]);});
+  }catch(e){window.ReactNativeWebView.postMessage('ZONE_ERR:'+String(e));}
+
+  window.toggleSatellite=function(on){if(map.getLayer('satellite-layer'))map.setLayoutProperty('satellite-layer','visibility',on?'visible':'none');};
+
+  POINTS.forEach(function(p){addPerson(p);if(isFinite(p.lng)&&isFinite(p.lat))b.extend([p.lng,p.lat]);});
+  if(!b.isEmpty())map.fitBounds(b,{padding:{top:90,bottom:200,left:50,right:50},maxZoom:16,duration:0});
+});
+
+window.focusPerson=function(id){const m=markers[id];if(!m)return;map.flyTo({center:m.getLngLat(),zoom:16.5,duration:800});m.togglePopup();};
+window.setMe=function(lng,lat){
+  if(!isFinite(lng)||!isFinite(lat)){if(meMarker){meMarker.remove();meMarker=null;}return;}
+  if(meMarker){meMarker.setLngLat([lng,lat]);return;}
+  const el=document.createElement('div');el.className='me-dot';
+  meMarker=new maplibregl.Marker({element:el}).setLngLat([lng,lat]).addTo(map);
+};
+window.recenter=function(lng,lat){if(isFinite(lng)&&isFinite(lat))map.flyTo({center:[lng,lat],zoom:16,duration:700});};
+window.fitAll=function(){
+  const bb=new maplibregl.LngLatBounds();
+  Object.keys(markers).forEach(function(id){bb.extend(markers[id].getLngLat());});
+  if(meMarker)bb.extend(meMarker.getLngLat());
+  if(!bb.isEmpty())map.fitBounds(bb,{padding:{top:90,bottom:200,left:50,right:50},maxZoom:16,duration:600});
+};
+
+window.updateMarkers=function(pointsJson){
+  const pts=JSON.parse(pointsJson);const seen={};
+  pts.forEach(function(p){
+    seen[p.id]=true;const m=markers[p.id];
+    if(m){
+      if(isFinite(p.lng)&&isFinite(p.lat))m.setLngLat([p.lng,p.lat]);
+      const el=m.getElement();const photoEl=el&&el.querySelector('.pin-photo');
+      if(photoEl&&photoEl.getAttribute('data-pic')!==(p.picture||'')){photoEl.setAttribute('data-pic',p.picture||'');photoEl.innerHTML=p.picture?('<img src="'+p.picture+'">'):('<div class="pin-initial">'+(p.name?p.name.slice(0,1).toUpperCase():'?')+'</div>');}
+    }else{addPerson(p);}
   });
-  Object.keys(markers).forEach(id=>{if(!seen[id]){markers[id].remove();delete markers[id];}});
+  Object.keys(markers).forEach(function(id){if(!seen[id]){markers[id].remove();delete markers[id];}});
 };
 
 let routeAbort=null;
@@ -399,14 +630,14 @@ window.showRoute=async function(fromLng,fromLat,toLng,toLat){
 };
 window.hideRoute=function(){
   if(routeAbort)routeAbort.abort();
-  ['route-casing','route-line'].forEach(id=>{if(map.getLayer(id))map.removeLayer(id);});
+  ['route-casing','route-line'].forEach(function(id){if(map.getLayer(id))map.removeLayer(id);});
   if(map.getSource('route'))map.removeSource('route');
 };
 
 window.showTimeline=function(pointsJson){
   const pts=JSON.parse(pointsJson);
   if(pts.length<2)return;
-  const coords=pts.map(p=>[p.lng,p.lat]);
+  const coords=pts.map(function(p){return [p.lng,p.lat];});
   const geojson={type:'Feature',geometry:{type:'LineString',coordinates:coords}};
   if(map.getSource('timeline')){map.getSource('timeline').setData(geojson);}
   else{
@@ -414,7 +645,7 @@ window.showTimeline=function(pointsJson){
     map.addLayer({id:'timeline-line',type:'line',source:'timeline',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#ffb020','line-width':4,'line-dasharray':[0.3,1.6]}});
   }
   const b2=new maplibregl.LngLatBounds();
-  coords.forEach(c=>b2.extend(c));
+  coords.forEach(function(ci){b2.extend(ci);});
   map.fitBounds(b2,{padding:70,maxZoom:16,duration:600});
 };
 window.hideTimeline=function(){
@@ -425,7 +656,7 @@ window.hideTimeline=function(){
 const placeIcons={restaurant:'🍽️',cafe:'☕',fast_food:'🍔',pharmacy:'💊',hospital:'🏥',bank:'🏦',fuel:'⛽',supermarket:'🛒',school:'🏫',bakery:'🥖',bar:'🍺'};
 let placeMarkers=[];
 let placesTimer=null;
-function clearPlaces(){placeMarkers.forEach(m=>m.remove());placeMarkers=[];}
+function clearPlaces(){placeMarkers.forEach(function(m){m.remove();});placeMarkers=[];}
 async function loadPlaces(){
   const bounds=map.getBounds();
   const bbox=[bounds.getSouth(),bounds.getWest(),bounds.getNorth(),bounds.getEast()].join(',');
@@ -434,7 +665,7 @@ async function loadPlaces(){
     const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:query});
     const data=await res.json();
     clearPlaces();
-    (data.elements||[]).forEach(el=>{
+    (data.elements||[]).forEach(function(el){
       const amenity=el.tags&&el.tags.amenity;
       const emoji=placeIcons[amenity]||'📍';
       const name=(el.tags&&el.tags.name)||amenity||'Place';
@@ -452,34 +683,51 @@ window.ReactNativeWebView.postMessage('MAP_HTML_V2_LOADED');
 </script></body></html>`;
 }
 
-const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  web: { flex: 1, backgroundColor: colors.background },
-  empty: { padding: 24 },
-  muted: { color: colors.muted },
-  topBar: { position: 'absolute', top: 14, left: 0, right: 0 },
-  avatarRow: { paddingHorizontal: 14, gap: 9, alignItems: 'center' },
-  avatarPillCount: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(16,24,38,.94)', borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  avatarWrap: { width: 46, height: 46, borderRadius: 23, borderWidth: 2, borderColor: 'rgba(16,24,38,.5)', padding: 1, backgroundColor: 'rgba(16,24,38,.94)' },
-  avatarWrapSelected: { borderColor: colors.primary },
-  avatarImg: { width: '100%', height: '100%', borderRadius: 20 },
-  avatarFallback: { backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
-  timelineLoading: { position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,.6)', alignItems: 'center', justifyContent: 'center' },
-  timelineBadge: { position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.warning, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.surface },
-  timelineHint: { color: colors.muted, fontSize: 11, marginBottom: 8 },
-  placesToggle: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(16,24,38,.94)', borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  satelliteToggle: { position: 'absolute', zIndex: 5, bottom: 100, right: 14, width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(16,24,38,.9)', borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  satelliteToggleActive: { backgroundColor: colors.primary },
-  placesToggleActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  sheet: { position: 'absolute', left: 14, right: 14, bottom: 14, backgroundColor: colors.surface, borderRadius: 24, borderWidth: 1, borderColor: colors.border, padding: 16, elevation: 8 },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
-  avatar: { width: 58, height: 58, borderRadius: 29 },
-  name: { color: colors.text, fontSize: 19, fontWeight: '800' },
-  close: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
-  details: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
-  box: { width: '31%', backgroundColor: colors.surfaceElevated, borderRadius: 14, padding: 11 },
-  boxLabel: { color: colors.muted, fontSize: 11, fontWeight: '700' },
-  boxValue: { color: colors.text, fontSize: 15, fontWeight: '800', marginTop: 4 },
-  navigate: { marginTop: 14, backgroundColor: colors.primary, borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 },
-  navigateText: { color: colors.black, fontWeight: '900' },
-});
+function makeStyles(colors: Palette) {
+  return StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.background },
+    web: { flex: 1, backgroundColor: colors.background },
+    empty: { padding: 24 },
+    muted: { color: colors.muted },
+
+    topBar: { position: 'absolute', top: 14, left: 14, right: 14, flexDirection: 'row' },
+    titlePill: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: colors.surface, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: colors.border, elevation: 4, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+    titlePillText: { color: colors.text, fontWeight: '800', fontSize: 14 },
+    titleCount: { minWidth: 20, height: 20, borderRadius: 10, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
+    titleCountText: { color: colors.black, fontWeight: '900', fontSize: 11 },
+
+    controls: { position: 'absolute', right: 14, top: 64, gap: 10 },
+    ctrlBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', elevation: 4, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+    ctrlBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+
+    sheet: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: colors.surface, borderTopLeftRadius: 26, borderTopRightRadius: 26, borderWidth: 1, borderColor: colors.border, elevation: 20, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 18, shadowOffset: { width: 0, height: -4 } },
+    handleArea: { paddingTop: 10, paddingBottom: 6 },
+    handle: { alignSelf: 'center', width: 42, height: 5, borderRadius: 3, backgroundColor: colors.border },
+    sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 8 },
+    sheetTitle: { color: colors.text, fontSize: 18, fontWeight: '900' },
+    listContent: { paddingHorizontal: 12, paddingTop: 6 },
+
+    row: { borderRadius: 18, marginBottom: 8, backgroundColor: colors.surface },
+    rowSelected: { backgroundColor: colors.surfaceElevated },
+    rowMain: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10 },
+    rowAvatarRing: { width: 50, height: 50, borderRadius: 25, borderWidth: 2.5, padding: 1.5 },
+    rowAvatar: { width: '100%', height: '100%', borderRadius: 22 },
+    avatarFallback: { backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
+    rowName: { color: colors.text, fontSize: 16, fontWeight: '800' },
+    rowPlace: { color: colors.muted, fontSize: 12.5, marginTop: 2 },
+    rowBattery: { alignItems: 'center', gap: 2, minWidth: 42 },
+    rowBatteryText: { color: colors.muted, fontSize: 11, fontWeight: '700' },
+
+    detailWrap: { paddingHorizontal: 10, paddingBottom: 12 },
+    timelineRow: { alignItems: 'center', paddingVertical: 6 },
+    details: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+    box: { flexGrow: 1, flexBasis: '30%', backgroundColor: colors.background, borderRadius: 13, padding: 10 },
+    boxLabel: { color: colors.muted, fontSize: 11, fontWeight: '700' },
+    boxValue: { color: colors.text, fontSize: 15, fontWeight: '800', marginTop: 4 },
+    actionsRow: { flexDirection: 'row', gap: 8 },
+    navigate: { flex: 1, backgroundColor: colors.primary, borderRadius: 14, padding: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+    navigateText: { color: colors.black, fontWeight: '900' },
+    timelineBtn: { width: 48, borderRadius: 14, backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },
+    timelineBtnActive: { backgroundColor: colors.warning, borderColor: colors.warning },
+  });
+}
