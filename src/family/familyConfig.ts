@@ -19,6 +19,7 @@ export const FAMILY_CONFIG_FIELDS = [
   'zoneWatchPersonIds',
   'selectedCalendarIds',
   'selectedTodoIds',
+  'backgroundMonitoringEnabled',
 ] as const;
 
 export type FamilyConfig = Partial<Pick<ConnectionSettings, (typeof FAMILY_CONFIG_FIELDS)[number]>>;

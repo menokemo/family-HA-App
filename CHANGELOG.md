@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.16.63] — 2026-11-12
+- **Lock-screen alert ضمن الإعداد العائلي:** بقت تظهر للأدمن بس، وبتتنشر مع باقي
+  الإعدادات، وبتشتغل **تلقائيًا عند كل الأفراد** طول ما الأدمن مفعّلها — ميزة أمان
+  لازم تكون على طول شغّالة.
+
 ### [2.16.62] — 2026-11-12
 - **عكس أزرار التسليح:** الجزء الملوّن بقى **تحت** افتراضيًا، ويطلع **فوق** بس
   للزر المتفعّل (الوضع الحالي للإنذار).
@@ -536,6 +541,12 @@
 ---
 
 ## English
+
+### [2.16.63] — 2026-11-12
+- **Lock-screen alert is now part of the family config:** admin-only in the UI,
+  published with the rest of the settings, and **auto-enabled on every member's
+  device** while the admin has it on — an important safety feature that should
+  always run.
 
 ### [2.16.62] — 2026-11-12
 - **Inverted arm buttons:** the colored part now sits at the **bottom** by

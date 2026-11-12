@@ -31,6 +31,7 @@ export interface ConnectionSettings {
   selectedPersonId?: string;
   familyConfigVersion?: number;
   permissionsSetupDone?: boolean;
+  backgroundMonitoringEnabled?: boolean;
   shareLocation?: boolean;
   mobileAppWebhookId?: string;
 }
