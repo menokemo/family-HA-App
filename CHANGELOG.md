@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.16.49] — 2026-11-12
+- **تصميم جديد لشريط التنقّل:** التاب النشط بقى **دايرة ملوّنة بارزة** بتطلع فوق
+  الشريط بأيقونة بيضا (بلون التطبيق)، والباقي أيقونات عادية — نفس فكرة التصميم
+  المرجعي بألواننا.
+
 ### [2.16.48] — 2026-11-12
 - **إصلاح خروج زر التبديل من الكونتينر:** لو نص التبديل طويل كان السويتش بيطلع
   بره حدود الكارت. دلوقتي النص بيلفّ والسويتش يفضل جوه.
@@ -465,6 +470,11 @@
 ---
 
 ## English
+
+### [2.16.49] — 2026-11-12
+- **New navigation bar design:** the active tab is now a **raised colored
+  circle** that pops above the bar with a white icon (in the app's color);
+  the rest are flat icons — the reference idea, in our palette.
 
 ### [2.16.48] — 2026-11-12
 - **Fixed toggle switch overflowing its container:** a long toggle label used
