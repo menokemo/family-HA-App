@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.16.30] — 2026-11-12
+- ظل تحت هيدر الإنذار عشان يبان بارز، وتدرّج اللون بقى أوضح مع لون الوضع.
+- إزالة كلمة "Alarmo" من الهيدر.
+- مسافة أكبر بين كبسولات التفعيل وكروت الملخص.
+- النفجيشن بار بقى بارز بزوايا علوية مدوّرة وظل من فوق.
+
 ### [2.16.29] — 2026-11-12
 - التطبيق بقى يملأ الشاشة (immersive): هيدر الإنذار بيمتد خلف شريط الحالة
   (status bar) فمنطقته تاخد لون الهيدر، وأيقونات الشريط بيضا فوقه. باقي
@@ -351,6 +357,13 @@
 ---
 
 ## English
+
+### [2.16.30] — 2026-11-12
+- Shadow under the alarm header so it looks raised, and a clearer gradient in
+  the state color.
+- Removed the word "Alarmo" from the header.
+- More space between the arm capsules and the summary cards.
+- The navigation bar is now raised with rounded top corners and a top shadow.
 
 ### [2.16.29] — 2026-11-12
 - The app now fills the screen (immersive): the alarm header extends behind the
