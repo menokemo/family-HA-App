@@ -6,6 +6,24 @@
 
 ## العربية
 
+### [2.16.66] — 2026-11-13  (تطوير إمكانيات الخريطة — الموجة 1)
+- **طبقة المخاطر/الكوارث:** التطبيق بيقرا كيانات `geo_location.*` من Home Assistant
+  (زلازل، فيضانات، أعاصير، حرائق…) ويرسمها على الخريطة بعلامة ⚠️ مع المسافة،
+  وبانر أحمر فوق لو في خطر **قريب من أي فرد** (أقل من 20 كم) — اضغط عليه يروح له.
+  زر تبديل لإظهار/إخفاء المخاطر. المصادر بتتضاف من HA: **GDACS** (كوارث عالمية)،
+  **USGS** (زلازل)، أو أي **GeoJSON/GeoRSS feed** محلي.
+- **قيادة وسرعة + اتجاه:** التطبيق بيحسب سرعة واتجاه كل فرد من فرق المواقع
+  المتتابعة؛ بيظهر "بيقود/بيتحرك + السرعة" على الكارت، وسهم اتجاه الحركة فوق
+  العلامة على الخريطة.
+- **Timeline متطور:** اختيار مدة المسار (النهاردة/٣ أيام/أسبوع) + زر **تشغيل**
+  بيحرّك نقطة على المسار يوريك خط سير الشخص.
+- **أوضاع المسار:** قيادة / مشي / دراجة (OSRM) بدل القيادة بس.
+- **وضع المتابعة:** زر يخلي الكاميرا تلاحق الشخص المختار وهو بيتحرك.
+- **تنبيه بطارية منخفضة:** بانر لما بطارية أي فرد تقل عن 15%.
+- **إصلاح تداخل النافجيشن بار:** رفعنا كارت الأشخاص فوق دايرة التاب المتفعّل
+  الطالعة من النافجيشن بار فمافيش تداخل.
+- تعديل JS بالكامل — بيتنشر على metro من غير build APK.
+
 ### [2.16.65] — 2026-11-12
 - **الخريطة بستايل Life360:** إعادة تصميم كاملة لتبويب الخريطة بشكل عام زي Life360
   مع إمكانيات أكتر مش أقل:
@@ -565,6 +583,25 @@
 ---
 
 ## English
+
+### [2.16.66] — 2026-11-13  (Map capabilities — Wave 1)
+- **Hazard/disaster layer:** the app reads `geo_location.*` entities from Home
+  Assistant (earthquakes, floods, cyclones, fires…) and plots them with a ⚠️
+  marker + distance, plus a red banner when a hazard is **near any member**
+  (< 20 km) — tap it to fly there. Toggle button to show/hide. Sources are added
+  in HA: **GDACS** (global disasters), **USGS** (earthquakes), or any local
+  **GeoJSON/GeoRSS feed**.
+- **Driving & speed + heading:** per-member speed and heading computed from
+  consecutive positions; the card shows "Driving/Moving + speed" and a heading
+  arrow sits above the map marker.
+- **Advanced timeline:** trail range selector (today / 3 days / week) + a **Play**
+  button that animates a dot along the person's trail.
+- **Route modes:** driving / walking / cycling (OSRM) instead of driving only.
+- **Follow mode:** a button that keeps the camera on the selected member as they move.
+- **Low-battery alert:** banner when any member drops below 15%.
+- **Nav-bar overlap fix:** the member card is lifted above the raised active-tab
+  circle so they no longer overlap.
+- JS-only change — deploys over metro, no APK build needed.
 
 ### [2.16.65] — 2026-11-12
 - **Life360-style Map:** full redesign of the Map tab to match Life360's overall

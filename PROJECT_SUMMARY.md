@@ -29,6 +29,11 @@
 | الكاميرات: تكبير/صوت/PTZ/تدوير | ✅ | تدوير شاشة حقيقي، زوم بإصبع واحد (زوم بإصبعين قيد حقيقي في أندرويد مع WebRTC)، صوت مُصلَّح (react-native-incall-manager) |
 | تاب الداشبورد (جديد) | ⚠️ | WebView لداشبورد Lovelace حقيقية، Kiosk Mode، حماية تنقّل؛ **معلّق**: صفحة تحميل HA بتفضل عالقة (بروتوكول External Bus، محتاج دليل console حقيقي - راجع BUGS_AND_FIXES) |
 | الخريطة: ستايل Life360 | ✅ | Bottom sheet قابل للسحب بلستة الأعضاء (صورة + حلقة ملونة + عنوان + بطارية + آخر ظهور)، علامات دائرية، أزرار تحكم |
+| الخريطة: طبقة المخاطر/الكوارث | ✅ | بتقرا `geo_location.*` من HA (GDACS/USGS/GeoJSON) وترسمها ⚠️ + بانر "قريب من العيلة" |
+| الخريطة: قيادة/سرعة + اتجاه | ✅ | محسوبة من فرق المواقع؛ على الكارت + سهم اتجاه على العلامة |
+| الخريطة: Timeline متطور | ✅ | مدة (يوم/٣ أيام/أسبوع) + تشغيل يحرّك نقطة على المسار |
+| الخريطة: أوضاع مسار + متابعة + تنبيه بطارية | ✅ | قيادة/مشي/دراجة، الكاميرا تلاحق المتحرك، بانر بطارية <15% |
+| الخريطة: أماكن من التطبيق (Places CRUD) | ⏳ | الموجة 2 — إضافة/تعديل/حذف zones في HA من التطبيق (لسه) |
 | الخريطة: ستايل بيحترم الثيم | ✅ | فاتح (positron) نهاري / غامق (dark) ليلي — OpenFreeMap مجاني |
 | الخريطة: المناطق كدوائر (Places) | ✅ | `zone.*` من HA بتترسم كدوائر ملونة بأسمائها |
 | الخريطة: عناوين حقيقية | ✅ | BigDataCloud مجاني (عربي)، مكان مين بره منطقة |
@@ -170,6 +175,11 @@ it ourselves.**
 | Cameras: zoom/audio/PTZ/rotation | ✅ | Real screen rotation, one-finger zoom (two-finger pinch is a genuine Android+WebRTC limitation), fixed audio (react-native-incall-manager) |
 | Dashboard tab (new) | ⚠️ | WebView for a real Lovelace dashboard, Kiosk Mode, navigation guard; **open issue**: HA's loading splash gets stuck (External Bus protocol, needs real console evidence — see BUGS_AND_FIXES) |
 | Map: Life360-style look | ✅ | Draggable member-list bottom sheet (avatar + colored ring + address + battery + last-seen), circular markers, control buttons |
+| Map: hazard/disaster layer | ✅ | Reads HA `geo_location.*` (GDACS/USGS/GeoJSON), plots ⚠️ + "near family" banner |
+| Map: driving/speed + heading | ✅ | Computed from consecutive positions; on the card + heading arrow on the marker |
+| Map: advanced timeline | ✅ | Range (today/3 days/week) + Play animates a dot along the trail |
+| Map: route modes + follow + battery alert | ✅ | Driving/walking/cycling, camera follows the mover, banner when battery <15% |
+| Map: Places from app (CRUD) | ⏳ | Wave 2 — add/edit/delete HA zones from the app (pending) |
 | Map: theme-aware style | ✅ | Light (positron) by day / dark by night — free OpenFreeMap |
 | Map: zones as Places circles | ✅ | HA `zone.*` drawn as labeled colored circles |
 | Map: real addresses | ✅ | BigDataCloud free (Arabic), for anyone outside a zone |
