@@ -30,6 +30,7 @@ export interface ConnectionSettings {
   selectedTodoIds?: string[];
   selectedPersonId?: string;
   familyConfigVersion?: number;
+  permissionsSetupDone?: boolean;
   shareLocation?: boolean;
   mobileAppWebhookId?: string;
 }

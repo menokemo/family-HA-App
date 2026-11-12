@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.16.58] — 2026-11-12  ⚠️ محتاج build APK على ويندوز (فيه تعديلات نيتف)
+- **معالج الأذونات في أول تشغيل:** شاشة بتظهر مرة واحدة بعد الدخول بتطلب كل
+  الأذونات المهمة: الإشعارات، الموقع، الموقع في الخلفية، استثناء البطارية،
+  العرض فوق التطبيقات، وتنبيهات ملء الشاشة — كل واحد بحالته وزر "اسمح".
+- أضفنا أذونات `ACCESS_BACKGROUND_LOCATION` و`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`
+  و`ACTIVITY_RECOGNITION` و`ACCESS_WIFI_STATE`، ودوال نيتف لفحص/طلب استثناء البطارية.
+
 ### [2.16.57] — 2026-11-12
 - **تدرّج لكل العناصر الملوّنة:** لغة تصميم موحّدة — الأزرار الأساسية، دايرة
   التنقّل النشطة، زر إبطال التفعيل، زر التسليح الإجباري، أزرار الهيدر، وزر
@@ -505,6 +512,15 @@
 ---
 
 ## English
+
+### [2.16.58] — 2026-11-12  ⚠️ Requires a Windows APK build (native changes)
+- **First-run permissions wizard:** a one-time screen after login requests all
+  the important permissions: notifications, location, background location,
+  battery-optimization exemption, display-over-other-apps, and full-screen
+  alerts — each with its status and a "Grant" button.
+- Added `ACCESS_BACKGROUND_LOCATION`, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`,
+  `ACTIVITY_RECOGNITION`, `ACCESS_WIFI_STATE` permissions and native
+  battery-optimization check/request methods.
 
 ### [2.16.57] — 2026-11-12
 - **Gradient on all colored elements:** a consistent design language — primary
