@@ -88,6 +88,14 @@
 - **الخصوصية:** مفيش سيرفر عندنا — كل البيانات في الـ HA بتاع العميل،
   والعميل مسؤول عن سيرفره. ده بيقلّل التزامات GDPR جدًا.
 
+### تبسيط الإعدادات للمستخدم غير التقني (خطة)
+المبدأ: التطبيق يظبط نفسه ويخبّي التقني. الخطوات:
+1. ✅ **تصفية الحساسات:** عرض الأبواب/الشبابيك/الحركة بس (device_class) بأسماء
+   ودّية، + اكتشاف اللوحة تلقائيًا لو واحدة، + لغة أوضح. (2.16.18)
+2. ⬜ معالج إعداد أول مرة (Wizard): اتصل → PIN → فعّل الحماية + الأذونات.
+3. ⬜ قسم "إعدادات متقدمة" مطوي لإخفاء التفاصيل التقنية.
+4. ⬜ كارت حالة الإعداد (✅ جاهز / ⚠️ محتاج حاجة).
+
 ### القيود المعروفة (موثّقة بالتفصيل في `BUGS_AND_FIXES.md`)
 - بيئة التطوير (LXC/Metro) حساسة لتشغيل أكتر من عملية `git pull`/
   `gradle` في نفس الوقت — دايمًا اتأكد من جلسة `tmux` واحدة نضيفة.
@@ -184,6 +192,15 @@ it ourselves.**
   third-party license NOTICES file; Google Play permission justifications.
 - **Privacy:** we run no server — all data lives in the customer's own HA, and
   the customer owns their server. This greatly reduces GDPR obligations.
+
+### Simplifying settings for non-technical users (plan)
+Principle: the app configures itself and hides the technical parts. Steps:
+1. ✅ **Sensor filtering:** show only door/window/motion sensors (by
+   device_class) with friendly names, + auto-detect the panel when there's one,
+   + clearer language. (2.16.18)
+2. ⬜ First-run wizard: connect → PIN → enable protection + permissions.
+3. ⬜ Collapsed "Advanced" section hiding the technical details.
+4. ⬜ Setup status card (✅ ready / ⚠️ needs attention).
 
 ### Known limitations (fully documented in `BUGS_AND_FIXES.md`)
 - The dev environment (LXC/Metro) is sensitive to running more than

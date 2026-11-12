@@ -6,6 +6,17 @@
 
 ## العربية
 
+### [2.16.18] — 2026-11-12  (تبسيط للمستخدم غير التقني — الخطوة ١)
+- **"إضافة أبواب وشبابيك" (كانت Choose sensors):** بقت تعرض **الحساسات الأمنية
+  بس** (أبواب/شبابيك/حركة... حسب device_class) بأسمائها الودّية، بدل ما كانت
+  بتعرض **كل** الـ binary_sensors (بطارية/اتصال/تحديثات...). فيه توجل "إظهار كل
+  الحساسات (متقدم)" للحالات النادرة اللي الحساس مالوش device_class.
+- **إخفاء اختيار اللوحة:** لو فيه لوحة Alarmo واحدة بس، التطبيق يستعملها
+  أوتوماتيك ومايعرضش قائمة الاختيار التقنية.
+- **لغة أوضح:** "Registered Alarmo sensors" → "الأبواب والشبابيك المحمية"،
+  وتبسيط نص التلميح.
+- *(تعديل JS — يظهر لايف عبر metro.)*
+
 ### [2.16.17] — 2026-11-11
 - **شاشة الترحيب (تسجيل الدخول):**
   - **اللوجو** بقى ظاهر فوق في النص بدل اسم نصّي.
@@ -277,6 +288,18 @@
 ---
 
 ## English
+
+### [2.16.18] — 2026-11-12  (Non-technical simplification — step 1)
+- **"Add doors & windows" (was Choose sensors):** now shows **only
+  security-relevant sensors** (door/window/motion… by device_class) with their
+  friendly names, instead of **every** binary_sensor (battery/connectivity/
+  updates…). A "Show all sensors (advanced)" toggle covers the rare case where
+  a sensor has no device_class.
+- **Alarm picker hidden:** when there's only one Alarmo panel, the app uses it
+  automatically and no longer shows the technical picker.
+- **Clearer language:** "Registered Alarmo sensors" → "Protected doors &
+  windows", and a simpler hint.
+- *(JS change — shows live via metro.)*
 
 ### [2.16.17] — 2026-11-11
 - **Welcome (login) screen:**

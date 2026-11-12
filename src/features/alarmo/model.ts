@@ -27,3 +27,30 @@ export function sensorIdsFromAlarm(alarm: HaEntity): string[] {
 }
 export function entitiesByIds(states: HaEntity[], ids: string[]): HaEntity[] { const wanted=new Set(ids); return states.filter(x=>wanted.has(x.entity_id)); }
 export const isProblemState = (state:string) => ['on','open','unavailable','unknown','detected','problem','unsafe','smoke','moisture'].includes(state.toLowerCase());
+
+const byFriendlyName = (a: HaEntity, b: HaEntity) =>
+  String(a.attributes.friendly_name ?? a.entity_id).localeCompare(String(b.attributes.friendly_name ?? b.entity_id));
+
+// أنواع الحساسات المرتبطة بالأمان (device_class في HA) - عشان نعرض للمستخدم
+// الأبواب/الشبابيك/الحركة بس، مش كل الـ binary_sensors (بطارية/اتصال/تحديثات...).
+export const SECURITY_SENSOR_CLASSES = new Set([
+  'door','window','garage_door','opening','motion','occupancy','presence','vibration','smoke','gas','co','moisture','safety','tamper','sound',
+]);
+
+export function isSecuritySensor(entity: HaEntity): boolean {
+  if (!entity.entity_id.startsWith('binary_sensor.')) return false;
+  const deviceClass = String(entity.attributes.device_class ?? '').toLowerCase();
+  return SECURITY_SENSOR_CLASSES.has(deviceClass);
+}
+
+/**
+ * مرشّحو الحساسات اللي نعرضهم في "إضافة أبواب وشبابيك".
+ * الافتراضي: الحساسات الأمنية بس (حسب device_class)، مرتّبة بالاسم الودّي.
+ * includeAll=true بيرجّع كل الـ binary_sensors (للحالات النادرة اللي
+ * الحساس مالوش device_class).
+ */
+export function sensorCandidates(states: HaEntity[], includeAll = false): HaEntity[] {
+  const binarySensors = states.filter(s => s.entity_id.startsWith('binary_sensor.'));
+  const list = includeAll ? binarySensors : binarySensors.filter(isSecuritySensor);
+  return list.slice().sort(byFriendlyName);
+}
