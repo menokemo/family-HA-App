@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.16.37] — 2026-11-12
+- **لون صلب فاتح لكل قسم:** شِلنا الشفافية (alpha) اللي كانت بتورّي خلفية
+  من ورا اللون. دلوقتي كل قسم مفتوح بياخد درجة فاتحة **متماسكة** من لونه
+  (ممزوجة مع خلفية الثيم) بدون أي شفافية.
+
 ### [2.16.36] — 2026-11-12
 - **تنظيف شكل الأقسام:** شِلنا تكرار اسم القسم اللي كان بيتكتب مرتين
   (مرة في هيدر الأكورديون ومرة جوّه الكونتينر الأبيض) — زي "الكاميرات"
@@ -392,6 +397,11 @@
 ---
 
 ## English
+
+### [2.16.37] — 2026-11-12
+- **Solid light tint per section:** removed the alpha transparency that let
+  the background show through. An open section now takes a **solid** light
+  shade of its own color (mixed with the theme background), no transparency.
 
 ### [2.16.36] — 2026-11-12
 - **Cleaner section look:** removed the duplicated section name that
