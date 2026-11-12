@@ -6,6 +6,10 @@
 
 ## العربية
 
+### [2.16.50] — 2026-11-12
+- **لون صلب فاتح لشريط التنقّل:** خلفية الشريط بقت درجة فاتحة صلبة من لون
+  التطبيق (بدون أي شفافية) بدل الأبيض.
+
 ### [2.16.49] — 2026-11-12
 - **تصميم جديد لشريط التنقّل:** التاب النشط بقى **دايرة ملوّنة بارزة** بتطلع فوق
   الشريط بأيقونة بيضا (بلون التطبيق)، والباقي أيقونات عادية — نفس فكرة التصميم
@@ -470,6 +474,10 @@
 ---
 
 ## English
+
+### [2.16.50] — 2026-11-12
+- **Solid light tint for the navigation bar:** the bar background is now a
+  solid light shade of the app color (no transparency) instead of white.
 
 ### [2.16.49] — 2026-11-12
 - **New navigation bar design:** the active tab is now a **raised colored

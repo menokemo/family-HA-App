@@ -1,6 +1,6 @@
 {
   "name": "family-ha",
-  "version": "2.16.49",
+  "version": "2.16.50",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
