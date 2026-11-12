@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.16.29] — 2026-11-12
+- التطبيق بقى يملأ الشاشة (immersive): هيدر الإنذار بيمتد خلف شريط الحالة
+  (status bar) فمنطقته تاخد لون الهيدر، وأيقونات الشريط بيضا فوقه. باقي
+  التبويبات شريط الحالة فيها بلون الخلفية العادي.
+
 ### [2.16.28] — 2026-11-12
 - مسافة أكبر بين كبسولات التفعيل والهيدر.
 - إعادة تصميم كروت الملخص (الأحداث/التحذيرات/الحساسات) لشكل أفقي: خماسي
@@ -346,6 +351,11 @@
 ---
 
 ## English
+
+### [2.16.29] — 2026-11-12
+- The app now fills the screen (immersive): the alarm header extends behind the
+  status bar so that area takes the header color, with light status-bar icons
+  over it. Other tabs keep a normal background-colored status bar area.
 
 ### [2.16.28] — 2026-11-12
 - More space between the arm capsules and the header.
