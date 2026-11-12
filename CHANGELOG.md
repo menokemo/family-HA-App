@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.16.46] — 2026-11-12
+- **جسر mobile_app (مرحلة A):** التطبيق يقدر يسجّل الموبايل في Home Assistant
+  (زي التطبيق الرسمي) ويبعت موقعك — فبيظهر كـ`device_tracker` وتشتغل الخريطة
+  والحضور **بدون تطبيق HA الرسمي**. مفتاح خصوصية لكل فرد ("شارك موقعك" في
+  إعدادات الخريطة). حاليًا بيحدّث والتطبيق مفتوح؛ التحديث في الخلفية + البطارية
+  + واي‑فاي البيت + النشاط + الأوامر جايين مع build نيتف.
+
 ### [2.16.45] — 2026-11-12
 - **إصلاح إنذار الخلفية:** كانت الخدمة النيتف بتاخد كيان الإنذار مرة واحدة بس
   عند التفعيل، فلو الكيان اتغيّر بعدها (اختيار تلقائي/إعداد عائلي) الخلفية تفضل
@@ -449,6 +456,14 @@
 ---
 
 ## English
+
+### [2.16.46] — 2026-11-12
+- **mobile_app bridge (phase A):** the app can register the phone with Home
+  Assistant (like the official app) and report your location — so it shows up
+  as a `device_tracker` and the map & presence work **without the official HA
+  app**. Per-person privacy toggle ("Share your location", in Map settings).
+  Updates while the app is open for now; background + battery + home-WiFi +
+  activity + commands are coming in a native build.
 
 ### [2.16.45] — 2026-11-12
 - **Background alarm fix:** the native service captured the alarm entity only

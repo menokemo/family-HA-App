@@ -187,6 +187,50 @@ export async function isCurrentUserAdmin(settings: ConnectionSettings): Promise<
   }
 }
 
+// تسجيل الجهاز في Home Assistant عبر تكامل mobile_app (نفس اللي بيعمله
+// التطبيق الرسمي). بيرجّع webhook_id بنبعت عليه تحديثات الموقع/البطارية،
+// وبيعمل device_tracker للموبايل ده في HA. بنسجّل مرة واحدة ونخزّن الـid.
+export async function registerMobileApp(
+  settings: ConnectionSettings,
+  deviceName: string,
+  appVersion: string,
+): Promise<string | undefined> {
+  const res = await request(settings, '/api/mobile_app/registrations', {
+    method: 'POST',
+    body: JSON.stringify({
+      device_id: `secure_family_${Date.now()}`,
+      app_id: 'secure_family',
+      app_name: 'Secure Family',
+      app_version: appVersion,
+      device_name: deviceName,
+      manufacturer: 'Secure Family',
+      model: 'Secure Family App',
+      os_name: 'Android',
+      os_version: '',
+      supports_encryption: false,
+    }),
+  });
+  const json = (await res.json()) as { webhook_id?: string };
+  return json.webhook_id;
+}
+
+// إرسال تحديث الموقع (والبطارية لو متاحة) للـwebhook بتاع الجهاز. مفيش توكن
+// مطلوب — الـwebhook_id نفسه هو السر.
+export async function sendMobileAppLocation(
+  settings: ConnectionSettings,
+  webhookId: string,
+  gps: [number, number],
+  accuracy = 20,
+  battery?: number,
+): Promise<void> {
+  const data: Record<string, unknown> = { gps, gps_accuracy: accuracy };
+  if (battery !== undefined) data.battery = battery;
+  await request(settings, `/api/webhook/${webhookId}`, {
+    method: 'POST',
+    body: JSON.stringify({ type: 'update_location', data }),
+  });
+}
+
 // ينشر إعداد العيلة المركزي عبر خدمة مكوّن secure_family (للأدمن بس —
 // المكوّن نفسه بيرفض غير الأدمن من جهة السيرفر).
 export async function publishFamilyConfig(

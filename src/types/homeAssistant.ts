@@ -30,6 +30,8 @@ export interface ConnectionSettings {
   selectedTodoIds?: string[];
   selectedPersonId?: string;
   familyConfigVersion?: number;
+  shareLocation?: boolean;
+  mobileAppWebhookId?: string;
 }
 export interface AlarmoEvent {
   eventType: 'alarmo_failed_to_arm' | 'alarmo_command_success' | 'alarmo_ready_to_arm_modes_updated';
