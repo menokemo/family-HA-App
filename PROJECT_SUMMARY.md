@@ -108,7 +108,7 @@
 بتتحكّم عبر ONVIF من غير أي كيانات. الخطوة الجاية: فحص قائمة كيانات كاميرا PTZ
 حقيقية عند المستخدم لضبط الاكتشاف. مؤجّل بطلب المستخدم.
 
-**مخطّط — ميزة كبيرة: إعداد مركزي عبر Home Assistant.** الفرد التقني يظبط التطبيق
+**قيد التنفيذ — إعداد مركزي عبر Home Assistant (مرحلة ١ خلصت).** الفرد التقني يظبط التطبيق
 كله مرة واحدة (كاميرات، كيان الإنذار، الداشبورد، الخريطة/المناطق…) وباقي الأسرة
 يحمّلوا ويسجّلوا دخول بس — بدون إعداد لكل جهاز. تحت النقاش: تخزين الإعداد مركزيًا
 في HA (الميل ناحية custom integration خفيف يخزّن JSON في `.storage` ويقدّمه/يستقبله
@@ -116,7 +116,7 @@
 كإعداد عائلي") بإعادة استخدام واجهة الإعدادات الحالية؛ تطبيقات الأسرة تجيب الإعداد
 وتطبّقه عند الدخول مع تخزين مؤقت للأوفلاين. أسئلة مفتوحة: نشر من التطبيق أم لوحة
 داخل HA؛ تفضيلات لكل مستخدم (PIN، الثيم، ربط الشخص) أم مقفول بالكامل؛ حساب HA منفصل
-لكل فرد؛ تثبيت عبر HACS أم يدوي. للتنقيح قبل التنفيذ.
+لكل فرد؛ تثبيت عبر HACS أم يدوي. **الحالة:** مكوّن `secure_family` اتبنى (تخزين في `.storage`، كيان `sensor.secure_family_config`، خدمات `set_config`/`rollback` للأدمن، كيانات تشخيص، config flow، CI، ترجمات) واتنشر على `github.com/menokemo/secure-family-dmkd` (يتثبّت عبر HACS custom repository). جزء التطبيق مرحلة ١ اتعمل (2.16.42): الأدمن ينشر من التطبيق، والأفراد يطبّقوا تلقائيًا عند الدخول مع تحديث فوري وcache أوفلاين. مرحلة ٢ باقية: قفل واجهة إعدادات الأفراد.
 
 ### القيود المعروفة (موثّقة بالتفصيل في `BUGS_AND_FIXES.md`)
 - بيئة التطوير (LXC/Metro) حساسة لتشغيل أكتر من عملية `git pull`/
@@ -240,7 +240,7 @@ likely either on a different device in the registry, named outside the
 step: inspect the real entity list of a known-PTZ camera on the user's HA to
 tune detection. Deferred by user ("نرجعلها بعدين").
 
-**Planned — big feature: central configuration via Home Assistant.** The
+**In progress — central configuration via Home Assistant (phase 1 done).** The
 technical family member should configure the whole app once (cameras, alarm
 entity, dashboard, map/zones, etc.) and all other family members just install
 and sign in — no per-device setup. Under discussion: store the config centrally

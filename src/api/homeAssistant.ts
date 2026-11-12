@@ -173,6 +173,32 @@ export async function getCurrentUserId(settings: ConnectionSettings): Promise<st
   }
 }
 
+// بيرجّع لو المستخدم الحالي أدمن في Home Assistant — ده اللي بيحدد مين يقدر
+// ينشر إعداد العيلة من التطبيق.
+export async function isCurrentUserAdmin(settings: ConnectionSettings): Promise<boolean> {
+  try {
+    const result = (await wsCommand(settings, { type: 'auth/current_user' })) as {
+      is_admin?: boolean;
+      is_owner?: boolean;
+    };
+    return result?.is_admin === true || result?.is_owner === true;
+  } catch {
+    return false;
+  }
+}
+
+// ينشر إعداد العيلة المركزي عبر خدمة مكوّن secure_family (للأدمن بس —
+// المكوّن نفسه بيرفض غير الأدمن من جهة السيرفر).
+export async function publishFamilyConfig(
+  settings: ConnectionSettings,
+  config: Record<string, unknown>,
+): Promise<void> {
+  await request(settings, '/api/services/secure_family/set_config', {
+    method: 'POST',
+    body: JSON.stringify({ config }),
+  });
+}
+
 // ينشئ Long-Lived Access Token لخدمة المراقبة في الخلفية. توكن OAuth قصير
 // العمر (بينتهي بعد ~نص ساعة)، والخدمة النيتف مش بتقدر تجدده والتطبيق مقفول
 // فبتفشل المصادقة وتموت. LLAT بيدوم سنين، فالمراقبة تفضل شغّالة بإستمرار.

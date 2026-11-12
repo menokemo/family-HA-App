@@ -29,6 +29,7 @@ export interface ConnectionSettings {
   selectedCalendarIds?: string[];
   selectedTodoIds?: string[];
   selectedPersonId?: string;
+  familyConfigVersion?: number;
 }
 export interface AlarmoEvent {
   eventType: 'alarmo_failed_to_arm' | 'alarmo_command_success' | 'alarmo_ready_to_arm_modes_updated';

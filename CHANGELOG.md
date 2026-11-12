@@ -6,6 +6,16 @@
 
 ## العربية
 
+### [2.16.42] — 2026-11-12
+- **الإعداد المركزي للعيلة (مرحلة ١):** الأدمن يقدر ينشر إعداد العيلة من التطبيق
+  (زر "انشر كإعداد عائلي") عبر مكوّن `secure_family` في Home Assistant. باقي
+  الأجهزة بتقرا الإعداد وتطبّقه **تلقائيًا** عند الدخول، وبيتحدّث **فورًا** لما
+  الأدمن يغيّر، مع **تخزين مؤقت للأوفلاين**. محلي بالكامل، والكتابة للأدمن بس.
+- الحقول المركزية: كيان الإنذار، الحساسات، أوضاع الإنذار، الكاميرات واللي يتعرض،
+  الداشبورد، مناطق الخريطة، تقويمات ومفكرة العائلة. الباقي شخصي لكل جهاز
+  (الاتصال/PIN/البصمة/الثيم/اللغة).
+- *(قادم في مرحلة ٢: قفل إعدادات الأفراد في الواجهة.)*
+
 ### [2.16.41] — 2026-11-12
 - **اكتشاف PTZ أدق (بدون أي إعداد يدوي):** بقى بيعتمد على **سجل الكيانات/
   الأجهزة** في Home Assistant — بيجمع كل كيانات كل كاميرا حسب الجهاز (device)
@@ -421,6 +431,17 @@
 ---
 
 ## English
+
+### [2.16.42] — 2026-11-12
+- **Central family configuration (phase 1):** the admin can publish the family
+  config from the app ("Publish as family config") via the `secure_family`
+  Home Assistant integration. Every other device reads it and applies it
+  **automatically** on login, updates **instantly** when the admin changes it,
+  and **caches** it for offline use. Fully local; admin-only writes.
+- Central fields: alarm entity, sensors, alarm modes, cameras & which are
+  shown, dashboard, map zones, family calendars & reminders. Everything else
+  stays per-device (connection/PIN/biometric/theme/language).
+- *(Coming in phase 2: lock the member settings UI.)*
 
 ### [2.16.41] — 2026-11-12
 - **More accurate PTZ detection (no manual setup):** now based on Home
