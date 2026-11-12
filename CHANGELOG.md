@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.16.54] — 2026-11-12
+- **تصحيح الظل والتجسيم:** في أزرار التسليح ظل تحت الكبسولة الملوّنة فبتبان كزر
+  مرتفع. وفي كروت الملخّص شِلنا التدرّج اللي كان بيعمل خط جوه اللون، وحطّينا ظل
+  عند الحدّ بين الجزء الملوّن والبادي الأبيض.
+
 ### [2.16.53] — 2026-11-12
 - **عمق وتجسيم أقوى:** ظل أوضح لشريط التنقّل، وأزرار التسليح بترتفع أكتر بتدرّج
   ألمع، والجزء الملوّن في كروت الملخّص بقى ليه تدرّج وظل أعمق.
@@ -486,6 +491,12 @@
 ---
 
 ## English
+
+### [2.16.54] — 2026-11-12
+- **Shadow/depth fix:** arm buttons now cast a shadow under the colored capsule
+  so it reads as a raised button. On the summary cards, the internal-line
+  gradient was removed and a shadow placed at the boundary between the colored
+  part and the white body.
 
 ### [2.16.53] — 2026-11-12
 - **Stronger depth:** clearer shadow on the navigation bar, arm buttons lift
