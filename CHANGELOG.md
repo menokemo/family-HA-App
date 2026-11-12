@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.16.34] — 2026-11-12
+- **Profile كهيدر فوق:** هيدر ملوّن (لون مختلف) فيه صورة الشخصية في النص
+  واسمها — بيمتد خلف شريط الحالة.
+- **توحيد فتح الأقسام (أكورديون):** كل الإعدادات (عام/الإنذار/الكاميرات/
+  الداشبورد/الموقع والخريطة/معلومات التطبيق) بقت تفتح وتتقفل inline في البادي
+  **بدون أي نوافذ منبثقة (popups)**.
+
 ### [2.16.33] — 2026-11-12
 - فصل **شخصية Home Assistant** في قسم **Profile** لوحده.
 - قسم **General** بقى يفتح ويتقفل (collapsible) بدل ما أجزاءه ظاهرة على طول.
@@ -370,6 +377,13 @@
 ---
 
 ## English
+
+### [2.16.34] — 2026-11-12
+- **Profile as a top header:** a colored header (different color) with the
+  person's photo centered and their name — extends behind the status bar.
+- **Unified accordion sections:** all settings (General/Alarm/Cameras/
+  Dashboard/Location & Map/App info) now expand/collapse inline in the body
+  with **no popups**.
 
 ### [2.16.33] — 2026-11-12
 - Split the **Home Assistant person** into its own **Profile** section.
