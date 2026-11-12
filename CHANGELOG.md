@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.16.23] — 2026-11-12  (أزرار التفعيل بشكل كبسولة)
+- **أزرار التفعيل الأربعة** بقت كبسولات بارزة بستايل نيومورفيزم: أيقونة فوق
+  على خلفية فاتحة، والاسم تحت على تعبئة متدرّجة بلون الوضع (أزرق/أخضر/
+  بنفسجي/تركواز) مع حافة منحنية.
+- ملاحظة: شكل مقارب للستايل المطلوب؛ النسخة الأدق (موجة SVG + ظلال
+  نيومورفيزم حقيقية) محتاجة مكتبة react-native-svg و build جديد.
+
 ### [2.16.22] — 2026-11-12  (شريط أزرار التفعيل العائم)
 - **نقل أزرار التفعيل الأربعة** (Arm away/home/night/vacation) من جوه الهيدر
   الأخضر لـ **شريط عائم** (كارت مرتفع) بين الهيدر والبادي.
@@ -317,6 +324,14 @@
 ---
 
 ## English
+
+### [2.16.23] — 2026-11-12  (Capsule-style arm buttons)
+- **The four arm buttons** are now raised capsule cards in a neumorphic style:
+  an outline icon on a light top, and the label below on a gradient fill in
+  the mode's color (blue/green/purple/teal) with a curved divider.
+- Note: this is a close approximation of the style; a more faithful version
+  (SVG wave + true neumorphic shadows) would need the react-native-svg library
+  and a fresh build.
 
 ### [2.16.22] — 2026-11-12  (Floating arm-buttons bar)
 - **Moved the four arm buttons** (Arm away/home/night/vacation) out of the
