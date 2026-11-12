@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.16.64] — 2026-11-12  ⚠️ محتاج build APK على ويندوز (فيه تعديلات نيتف)
+- **حسّاس النشاط (mobile_app):** التطبيق بيكتشف نشاطك (ثابت/ماشي/بيجري/بيقود)
+  عبر Google Play Services وبيبعته كحسّاس في Home Assistant — سياق إضافي للحضور.
+  اتضاف إذن النشاط لمعالج الأذونات.
+
 ### [2.16.63] — 2026-11-12
 - **Lock-screen alert ضمن الإعداد العائلي:** بقت تظهر للأدمن بس، وبتتنشر مع باقي
   الإعدادات، وبتشتغل **تلقائيًا عند كل الأفراد** طول ما الأدمن مفعّلها — ميزة أمان
@@ -541,6 +546,12 @@
 ---
 
 ## English
+
+### [2.16.64] — 2026-11-12  ⚠️ Requires a Windows APK build (native changes)
+- **Activity sensor (mobile_app):** the app detects your activity
+  (still/walking/running/driving) via Google Play Services and reports it as a
+  Home Assistant sensor — extra presence context. Added an activity permission
+  to the setup wizard.
 
 ### [2.16.63] — 2026-11-12
 - **Lock-screen alert is now part of the family config:** admin-only in the UI,

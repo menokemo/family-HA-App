@@ -3,6 +3,7 @@ package com.mkdd.familyha
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -20,6 +21,7 @@ import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import com.google.android.gms.location.ActivityRecognition
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
@@ -71,11 +73,36 @@ class MobileAppService : Service() {
       stopSelf()
       return START_NOT_STICKY
     }
+    getSharedPreferences("mobile_app", Context.MODE_PRIVATE)
+      .edit()
+      .putString("baseUrl", baseUrl)
+      .putString("webhookId", webhookId)
+      .apply()
     startAsForeground()
     registerSensors()
     startLocationUpdates()
+    startActivityUpdates()
     startTicker()
     return START_STICKY
+  }
+
+  private fun activityPendingIntent(): PendingIntent {
+    val intent = Intent(this, ActivityReceiver::class.java)
+    var flags = PendingIntent.FLAG_UPDATE_CURRENT
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) flags = flags or PendingIntent.FLAG_MUTABLE
+    return PendingIntent.getBroadcast(this, 0, intent, flags)
+  }
+
+  private fun startActivityUpdates() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+      ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED
+    ) {
+      return
+    }
+    try {
+      ActivityRecognition.getClient(this).requestActivityUpdates(ACTIVITY_INTERVAL_MS, activityPendingIntent())
+    } catch (e: Exception) {
+    }
   }
 
   private fun startAsForeground() {
@@ -160,6 +187,7 @@ class MobileAppService : Service() {
     registerSensor("battery_level", "Battery Level", batteryLevel().toString(), "battery", "%", "mdi:battery")
     registerSensor("battery_state", "Battery State", if (batteryCharging()) "Charging" else "Not charging", null, null, "mdi:battery-charging")
     registerSensor("wifi_connection", "Wi-Fi Connection", wifiSsid(), null, null, "mdi:wifi")
+    registerSensor("detected_activity", "Activity", "Unknown", null, null, "mdi:run")
   }
 
   private fun registerSensor(uniqueId: String, name: String, state: String, deviceClass: String?, unit: String?, icon: String) {
@@ -211,6 +239,10 @@ class MobileAppService : Service() {
       (getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(locationListener)
     } catch (e: Exception) {
     }
+    try {
+      ActivityRecognition.getClient(this).removeActivityUpdates(activityPendingIntent())
+    } catch (e: Exception) {
+    }
   }
 
   companion object {
@@ -219,5 +251,6 @@ class MobileAppService : Service() {
     private const val LOCATION_INTERVAL_MS = 120000L
     private const val LOCATION_DISTANCE_M = 40f
     private const val SENSOR_INTERVAL_MS = 900000L
+    private const val ACTIVITY_INTERVAL_MS = 120000L
   }
 }

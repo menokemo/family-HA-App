@@ -18,7 +18,8 @@ export type PermKey =
   | 'backgroundLocation'
   | 'battery'
   | 'overlay'
-  | 'fullScreen';
+  | 'fullScreen'
+  | 'activity';
 
 export const PERMISSION_KEYS: PermKey[] = [
   'notifications',
@@ -27,6 +28,7 @@ export const PERMISSION_KEYS: PermKey[] = [
   'battery',
   'overlay',
   'fullScreen',
+  'activity',
 ];
 
 const BACKGROUND_LOCATION = 'android.permission.ACCESS_BACKGROUND_LOCATION' as const;
@@ -47,6 +49,8 @@ export async function checkPermission(key: PermKey): Promise<boolean> {
       return (await native?.canDrawOverlays?.()) ?? true;
     case 'fullScreen':
       return (await native?.canUseFullScreenIntent?.()) ?? true;
+    case 'activity':
+      return version < 29 ? true : PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACTIVITY_RECOGNITION);
   }
 }
 
@@ -80,6 +84,9 @@ export async function requestPermission(key: PermKey): Promise<void> {
       return;
     case 'fullScreen':
       await native?.openFullScreenIntentSettings?.();
+      return;
+    case 'activity':
+      if (version >= 29) await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACTIVITY_RECOGNITION);
       return;
   }
 }
