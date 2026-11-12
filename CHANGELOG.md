@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.16.57] — 2026-11-12
+- **تدرّج لكل العناصر الملوّنة:** لغة تصميم موحّدة — الأزرار الأساسية، دايرة
+  التنقّل النشطة، زر إبطال التفعيل، زر التسليح الإجباري، أزرار الهيدر، وزر
+  التأكيد بقوا كلهم Gradient بدل لون مصمت.
+
 ### [2.16.56] — 2026-11-12
 - **ظل كروت الملخّص أنعم + تدرّج للسهم:** الظل بقى ٣ طبقات بتبهت للخارج (شكل
   ظل حقيقي مش خط)، والجزء الملوّن بقى **Gradient** أفقي.
@@ -500,6 +505,11 @@
 ---
 
 ## English
+
+### [2.16.57] — 2026-11-12
+- **Gradient on all colored elements:** a consistent design language — primary
+  buttons, the active nav circle, the disarm button, the force-arm button,
+  header buttons and the confirm button are now gradients instead of flat color.
 
 ### [2.16.56] — 2026-11-12
 - **Softer summary-card shadow + gradient arrow:** the shadow is now three
