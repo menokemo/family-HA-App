@@ -6,6 +6,10 @@
 
 ## العربية
 
+### [2.16.21] — 2026-11-12
+- **تصليح زر Disarm:** كلمة "Disarm" كانت مختفية (نص أبيض على زر أبيض في
+  الدارك مود). بقى لونها غامق ثابت ومقروء في الوضعين.
+
 ### [2.16.20] — 2026-11-12  (هيدر أنظف + كل الإعدادات في مكان واحد)
 - **شيل الهيدر العلوي** (الاسم/النسخة/LIVE/زر النقط) من كل الشاشات.
 - **تجميع كل الإعدادات في تبويب "الإعدادات"** بالنافجيشن: جواه الإعدادات
@@ -307,6 +311,11 @@
 ---
 
 ## English
+
+### [2.16.21] — 2026-11-12
+- **Disarm button fix:** the "Disarm" label was invisible (white text on a
+  white button in dark mode). It now uses a fixed dark, readable color in both
+  themes.
 
 ### [2.16.20] — 2026-11-12  (Cleaner header + all settings in one place)
 - **Removed the top header** (name/version/LIVE/ellipsis) from every screen.

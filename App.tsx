@@ -260,7 +260,7 @@ function triggerSensorNames(alarm:HaEntity,states:HaEntity[]):string[]{
 }
 
 function HeaderModeButton({icon,label,color,onPress,solid}:{icon:string;label:string;color:string;onPress:()=>void;solid?:boolean}){
- return <PressableScale style={[styles.headerBtn,solid?styles.headerBtnSolid:null]} onPress={onPress}><View style={[styles.headerBtnIcon,{backgroundColor:color}]}><Ionicons name={icon} size={16} color="#fff"/></View><Text style={[styles.headerBtnText,solid?{color:colors.text}:null]} numberOfLines={1}>{label}</Text></PressableScale>;
+ return <PressableScale style={[styles.headerBtn,solid?styles.headerBtnSolid:null]} onPress={onPress}><View style={[styles.headerBtnIcon,{backgroundColor:color}]}><Ionicons name={icon} size={16} color="#fff"/></View><Text style={[styles.headerBtnText,solid?{color:'#0E1620'}:null]} numberOfLines={1}>{label}</Text></PressableScale>;
 }
 
 function ArmingCountdown({delay,since}:{delay:number;since:number}){
