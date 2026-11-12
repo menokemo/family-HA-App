@@ -6,6 +6,15 @@
 
 ## العربية
 
+### [2.16.20] — 2026-11-12  (هيدر أنظف + كل الإعدادات في مكان واحد)
+- **شيل الهيدر العلوي** (الاسم/النسخة/LIVE/زر النقط) من كل الشاشات.
+- **تجميع كل الإعدادات في تبويب "الإعدادات"** بالنافجيشن: جواه الإعدادات
+  العامة + أزرار تفتح إعدادات (الإنذار / الكاميرات / الداشبورد / تنبيهات
+  المناطق). قبل كده كانت بتتفتح من زر النقط في الهيدر.
+- **تصليح ألوان الدارك مود:** هيدر الإنذار بقى يستعمل تدرّج أعمق وأقل
+  سطوعًا في الوضع الغامق (بدل الأخضر اللامع)، فيتماشى مع الثيم الغامق.
+- *(تعديل JS — يظهر لايف عبر metro.)*
+
 ### [2.16.19] — 2026-11-12  (الحساسات من Alarmo مباشرة)
 - **عرض حساسات Alarmo الحقيقية:** التطبيق بقى يجيب الحساسات المضافة في
   Alarmo مباشرة عن طريق أمر `alarmo/sensors` (WebSocket)، بدل التخمين من
@@ -298,6 +307,16 @@
 ---
 
 ## English
+
+### [2.16.20] — 2026-11-12  (Cleaner header + all settings in one place)
+- **Removed the top header** (name/version/LIVE/ellipsis) from every screen.
+- **All settings consolidated into the "Settings" nav tab:** general settings
+  plus buttons that open each panel (Alarm / Cameras / Dashboard / Zone
+  alerts). These used to open from the header's ellipsis menu.
+- **Dark-mode colors fixed:** the alarm header now uses a deeper, less-glaring
+  gradient in dark mode (instead of bright mint green), matching the dark
+  theme.
+- *(JS change — shows live via metro.)*
 
 ### [2.16.19] — 2026-11-12  (Sensors straight from Alarmo)
 - **Show Alarmo's real sensors:** the app now fetches the sensors actually
