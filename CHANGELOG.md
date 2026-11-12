@@ -6,6 +6,10 @@
 
 ## العربية
 
+### [2.16.33] — 2026-11-12
+- فصل **شخصية Home Assistant** في قسم **Profile** لوحده.
+- قسم **General** بقى يفتح ويتقفل (collapsible) بدل ما أجزاءه ظاهرة على طول.
+
 ### [2.16.32] — 2026-11-12
 - تنظيم تبويب الإعدادات في أقسام بعناوين وأيقونات: **عام** (الرابط/اللغة/
   الثيم/شخصية HA)، **الإنذار**، **الكاميرات**، **الداشبورد**، **الموقع
@@ -366,6 +370,10 @@
 ---
 
 ## English
+
+### [2.16.33] — 2026-11-12
+- Split the **Home Assistant person** into its own **Profile** section.
+- The **General** section is now collapsible instead of always expanded.
 
 ### [2.16.32] — 2026-11-12
 - Reorganized the Settings tab into labeled sections with icons: **General**
