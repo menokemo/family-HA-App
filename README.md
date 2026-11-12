@@ -1,6 +1,10 @@
-# Family HA — MKDD
+# Family HA — MKDD  ·  "Secure Family"
 
 *[العربية أسفل الصفحة / Arabic below](#العربية)*
+
+> The app is published under the brand **Secure Family**. Internally the
+> React Native project is still named `FamilyHA` and the Android package is
+> `com.mkdd.familyha`.
 
 ## English
 
@@ -67,6 +71,72 @@ things that family actually uses every day.
   first launch.
 - Theme: Light / Dark / follows-system "Auto".
 
+**🏠 Central family configuration (admin → everyone)**
+- The one technical family member configures the whole app **once** —
+  cameras, alarm entity, sensors, dashboard, map zones, calendars, and the
+  always-on lock-screen alert — then taps **"Publish as family config"**.
+  Everyone else just installs the app and signs in; their settings arrive
+  automatically and update instantly when the admin changes them.
+- Powered by a small companion Home Assistant integration, **`secure_family`**
+  (separate repo: <https://github.com/menokemo/secure-family-dmkd>), installed
+  via HACS. It stores the config in HA's own `.storage` (persistent, local)
+  and serves it over the local connection — no cloud.
+- Admin-only, enforced server-side: only Home Assistant administrators can
+  publish. Personal settings (connection, PIN code, biometric, theme,
+  language) stay on each device and are never published.
+- Non-admin members see a reduced Settings screen (only their personal
+  options); everything central is managed for them.
+
+**📡 Mobile-app bridge — presence without the official HA app**
+- The app registers each phone with Home Assistant's own `mobile_app`
+  integration and reports, over the local network:
+  - **Background location** → a `device_tracker` for the map and home/away
+    presence, even when the app is closed,
+  - **Battery** level & charging state,
+  - **Home Wi-Fi** SSID (a strong presence signal),
+  - **Activity** (still / walking / running / driving) via Google Play
+    Services.
+- So family members get full presence/map/battery in Home Assistant
+  **without installing the official HA Companion app**. Location is an
+  explicit per-person opt-in; the rest reports once the device is registered.
+
+**🔐 First-run permissions wizard**
+- A single guided screen after login requests everything the app needs to
+  run reliably in the background — notifications, location, background
+  location, battery-optimization exemption, display-over-other-apps,
+  full-screen alerts and activity recognition — each with its live status
+  and a one-tap **Grant**.
+
+### Architecture
+
+```
+Family member's phone  (Secure Family app)
+   │  REST + WebSocket  (local network, point-to-point)
+   ▼
+Home Assistant ── Alarmo (alarm) · cameras/go2rtc · calendar/todo
+   │              person/device_tracker · mobile_app (device data)
+   └── secure_family integration  → stores & serves the family config
+```
+
+Everything is point-to-point between the phones and the family's own Home
+Assistant server. There is no backend of ours, no cloud account, no paid
+API, and — by design — no Firebase/Google push.
+
+### Build & deploy workflow
+
+Two kinds of change, two paths:
+
+- **JavaScript/TypeScript changes ship over Metro — no rebuild.** A git
+  bundle is uploaded; the server applies it, pushes to GitHub, clears the
+  Metro cache and restarts Metro. The running debug app reloads the new JS.
+- **Native changes (Kotlin / Gradle / `AndroidManifest.xml`) require a full
+  Android APK build on Windows** (`gradlew assembleDebug`), then
+  reinstalling. See `INSTALL-WINDOWS.md` and `DEPLOYMENT.md`.
+
+`scripts/deploy-familyha.sh` (on the server) downloads the bundle, applies
+it, runs `npm install`, **clears the Metro cache**, restarts Metro and
+pushes to GitHub. CHANGELOG entries that need a native build are marked ⚠️.
+
 ### Tech stack
 
 React Native CLI 0.83 · TypeScript · Home Assistant REST + WebSocket
@@ -92,8 +162,15 @@ needed for the background alarm service).
 | File | What's in it |
 |---|---|
 | `PROJECT_SUMMARY.md` | Current state of the app, feature-by-feature, plus what's intentionally *not* built yet and why. |
-| `CHANGELOG.md` | Version-by-version history of what changed. |
+| `CHANGELOG.md` | Version-by-version history of what changed (⚠️ marks versions that need a native APK build). |
 | `BUGS_AND_FIXES.md` | Every bug found so far, its real root cause, and how it was fixed — kept so the same mistake isn't repeated. |
+| `DEPLOYMENT.md` | How the deploy pipeline works (git bundle → server → GitHub, Metro cache, sharing). |
+| `INSTALL-WINDOWS.md` | Building and installing the Android APK on Windows. |
+| `LICENSE_AUDIT.md` | Audit of third-party licenses (confirms the app is free to build on and distribute). |
+
+The central-config integration lives in its **own repo**,
+[`secure-family-dmkd`](https://github.com/menokemo/secure-family-dmkd),
+with its own README and install instructions (HACS custom repository).
 
 ### Requirements
 
@@ -167,6 +244,69 @@ needed for the background alarm service).
 - اللغة: عربي / إنجليزي / هولندي، بتتكشف تلقائي من الجهاز أول تشغيل.
 - المظهر: فاتح / غامق / "تلقائي" بيتبع نظام الموبايل.
 
+**🏠 الإعداد المركزي للعائلة (الأدمن → الكل)**
+- الفرد التقني الوحيد بيظبط التطبيق كله **مرة واحدة** — الكاميرات، كيان
+  الإنذار، المستشعرات، الداشبورد، مناطق الخريطة، التقويمات، وتنبيه شاشة
+  القفل الدائم — وبعدين يدوس **"انشر كإعداد عائلي"**. باقي الأفراد بس
+  يحمّلوا التطبيق ويسجّلوا دخول؛ الإعدادات بتوصلهم تلقائيًا وبتتحدّث فورًا
+  لما الأدمن يغيّر.
+- بيشتغل بمكوّن صغير في Home Assistant اسمه **`secure_family`** (ريبو
+  منفصل: <https://github.com/menokemo/secure-family-dmkd>)، بيتثبّت عبر
+  HACS. بيخزّن الإعداد في `.storage` بتاع HA (دائم ومحلي) ويقدّمه عبر
+  الاتصال المحلي — من غير أي سحابة.
+- للأدمن بس، ومفروض من جهة السيرفر (الأدمن بس يقدر ينشر). الإعدادات
+  الشخصية (الاتصال، الكود، البصمة، الثيم، اللغة) بتفضل على كل جهاز
+  ومابتتنشرش أبدًا.
+- الأفراد العاديين بيشوفوا شاشة إعدادات مختصرة (خياراتهم الشخصية بس)؛
+  كل اللي مركزي بيتدار لهم.
+
+**📡 جسر mobile_app — حضور من غير تطبيق HA الرسمي**
+- التطبيق بيسجّل كل موبايل في تكامل `mobile_app` بتاع Home Assistant
+  نفسه، وبيبعت عبر الشبكة المحلية:
+  - **الموقع في الخلفية** → `device_tracker` للخريطة وحالة البيت/بره،
+    حتى والتطبيق مقفول،
+  - **البطارية** (النسبة والشحن)،
+  - **واي‑فاي البيت** (SSID — إشارة حضور قوية)،
+  - **النشاط** (ثابت/ماشي/بيجري/بيقود) عبر Google Play Services.
+- فأفراد العائلة بياخدوا الحضور/الخريطة/البطارية في HA **من غير ما
+  يحمّلوا تطبيق HA الرسمي**. الموقع opt-in لكل فرد؛ الباقي بيتبعت أول ما
+  الجهاز يتسجّل.
+
+**🔐 معالج الأذونات في أول تشغيل**
+- شاشة واحدة بعد الدخول بتطلب كل اللي التطبيق محتاجه يشتغل صح في الخلفية
+  — الإشعارات، الموقع، الموقع في الخلفية، استثناء البطارية، العرض فوق
+  التطبيقات، تنبيهات ملء الشاشة، والنشاط — كل واحد بحالته وزر **"اسمح"**.
+
+### المعمارية
+
+```
+موبايل الفرد  (تطبيق Secure Family)
+   │  REST + WebSocket  (شبكة محلية، مباشر)
+   ▼
+Home Assistant ── Alarmo (الإنذار) · الكاميرات/go2rtc · calendar/todo
+   │              person/device_tracker · mobile_app (بيانات الجهاز)
+   └── مكوّن secure_family  → يخزّن ويقدّم الإعداد العائلي
+```
+
+كله مباشر بين الموبايلات وسيرفر Home Assistant بتاع العائلة. مفيش backend
+بتاعنا، ولا حساب سحابي، ولا API مدفوع، و(عن قصد) مفيش Firebase/Google push.
+
+### سير البناء والنشر
+
+نوعين من التغيير، طريقتين:
+
+- **تغييرات JavaScript/TypeScript بتتوزّع عبر Metro — من غير إعادة بناء.**
+  بيترفع git bundle؛ السيرفر يطبّقه، يرفعه على GitHub، يمسح كاش Metro،
+  ويعمل restart. التطبيق (debug) بيعيد تحميل الـJS الجديد.
+- **التغييرات النيتف (Kotlin / Gradle / `AndroidManifest.xml`) محتاجة
+  build كامل للـAPK على ويندوز** (`gradlew assembleDebug`) وإعادة تثبيت.
+  شوف `INSTALL-WINDOWS.md` و`DEPLOYMENT.md`.
+
+سكربت `scripts/deploy-familyha.sh` (على السيرفر) بينزّل الـbundle،
+يطبّقه، يعمل `npm install`، **يمسح كاش Metro**، يعمل restart لـMetro،
+ويرفع على GitHub. الإصدارات اللي محتاجة build نيتف متعلّمة بـ⚠️ في
+CHANGELOG.
+
 ### التقنيات المستخدمة
 
 React Native CLI 0.83 · TypeScript · Home Assistant REST + WebSocket
@@ -190,8 +330,15 @@ geolocation` · `react-native-keychain` (تخزين آمن + بصمة) · Kotlin
 | الملف | محتواه |
 |---|---|
 | `PROJECT_SUMMARY.md` | حالة التطبيق الحالية، ميزة بميزة، وكمان إيه اللي *مش* متعمل عمدًا ولسه وليه. |
-| `CHANGELOG.md` | تاريخ التغييرات إصدار بإصدار. |
+| `CHANGELOG.md` | تاريخ التغييرات إصدار بإصدار (⚠️ بتعلّم الإصدارات اللي محتاجة build نيتف). |
 | `BUGS_AND_FIXES.md` | كل باگ اتكشف لحد دلوقتي، سببه الحقيقي، وإزاي اتصلح — محفوظ عشان مانكررش نفس الغلطة. |
+| `DEPLOYMENT.md` | إزاي خط النشر شغّال (git bundle → السيرفر → GitHub، كاش Metro، المشاركة). |
+| `INSTALL-WINDOWS.md` | بناء وتثبيت APK على ويندوز. |
+| `LICENSE_AUDIT.md` | تدقيق تراخيص الطرف الثالث (بيأكد إن التطبيق حر للبناء والتوزيع). |
+
+مكوّن الإعداد المركزي في **ريبو منفصل**،
+[`secure-family-dmkd`](https://github.com/menokemo/secure-family-dmkd)،
+بـREADME وتعليمات تثبيت خاصة بيه (HACS custom repository).
 
 ### المتطلبات
 
