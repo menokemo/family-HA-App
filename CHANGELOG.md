@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.16.32] — 2026-11-12
+- تنظيم تبويب الإعدادات في أقسام بعناوين وأيقونات: **عام** (الرابط/اللغة/
+  الثيم/شخصية HA)، **الإنذار**، **الكاميرات**، **الداشبورد**، **الموقع
+  والخريطة**، و**معلومات التطبيق** (جديد: الاسم/الإصدار).
+
 ### [2.16.31] — 2026-11-12
 - اختيار كيان Alarmo **أوتوماتيك وحفظه** لو مفيش واحد مختار - بيصلّح رسالة
   "اختار كيان Alarmo الأول" في تنبيه شاشة القفل وغيره.
@@ -361,6 +366,11 @@
 ---
 
 ## English
+
+### [2.16.32] — 2026-11-12
+- Reorganized the Settings tab into labeled sections with icons: **General**
+  (URL/language/theme/HA person), **Alarm**, **Cameras**, **Dashboard**,
+  **Location & Map**, and **App info** (new: name/version).
 
 ### [2.16.31] — 2026-11-12
 - The Alarmo entity is now **auto-selected and saved** when none is chosen,

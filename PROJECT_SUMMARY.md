@@ -97,6 +97,10 @@
 3. ⬜ قسم "إعدادات متقدمة" مطوي لإخفاء التفاصيل التقنية.
 4. ⬜ كارت حالة الإعداد (✅ جاهز / ⚠️ محتاج حاجة).
 
+**فكرة مؤجّلة:** تطوير "شخصية Home Assistant" بحيث لو المستخدم غيّر صورته من
+التطبيق، تتغيّر في Home Assistant نفسه (رفع/تعيين صورة كيان person). محتاج بحث
+في API المناسب (الصورة بتيجي من إعداد person مش مجرد state).
+
 ### القيود المعروفة (موثّقة بالتفصيل في `BUGS_AND_FIXES.md`)
 - بيئة التطوير (LXC/Metro) حساسة لتشغيل أكتر من عملية `git pull`/
   `gradle` في نفس الوقت — دايمًا اتأكد من جلسة `tmux` واحدة نضيفة.
@@ -204,6 +208,11 @@ Principle: the app configures itself and hides the technical parts. Steps:
 2. ⬜ First-run wizard: connect → PIN → enable protection + permissions.
 3. ⬜ Collapsed "Advanced" section hiding the technical details.
 4. ⬜ Setup status card (✅ ready / ⚠️ needs attention).
+
+**Deferred idea:** develop "Home Assistant person" so that changing the photo in
+the app updates it in Home Assistant itself (upload/set the person entity's
+picture). Needs research into the right API (the picture comes from the person
+config, not a plain state).
 
 ### Known limitations (fully documented in `BUGS_AND_FIXES.md`)
 - The dev environment (LXC/Metro) is sensitive to running more than
