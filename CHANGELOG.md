@@ -6,6 +6,10 @@
 
 ## العربية
 
+### [2.16.62] — 2026-11-12
+- **عكس أزرار التسليح:** الجزء الملوّن بقى **تحت** افتراضيًا، ويطلع **فوق** بس
+  للزر المتفعّل (الوضع الحالي للإنذار).
+
 ### [2.16.61] — 2026-11-12
 - **إصلاح استرجاع الإعداد العائلي:** التطبيق كان بيدوّر على كيان الإعداد باسم
   ثابت، لكن Home Assistant بيولّد اسم مختلف من اسم الجهاز — فالإعداد المنشور مكانش
@@ -532,6 +536,10 @@
 ---
 
 ## English
+
+### [2.16.62] — 2026-11-12
+- **Inverted arm buttons:** the colored part now sits at the **bottom** by
+  default and rises to the **top** only for the active mode.
 
 ### [2.16.61] — 2026-11-12
 - **Family-config restore fix:** the app looked for the config entity by a fixed

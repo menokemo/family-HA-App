@@ -299,14 +299,14 @@ function ArmPill({mode,label,color,onPress,active}:{mode:string;label:string;col
  const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);
  const lift=(c:number)=>Math.round(c+(255-c)*0.42);
  const grad=`linear-gradient(160deg, rgb(${lift(r)},${lift(g)},${lift(b)}), ${color})`;
- // الوضع المفعّل بيتعكس عن الباقي: اللون ينزل تحت (بالاسم) والأبيض يطلع
- // فوق (بالأيقونة)، مع ترانزشن ناعم للانتقال. مربوط بحالة الإنذار الفعلية.
+ // الافتراضي: اللون تحت (بالاسم) والأيقونة فوق. المفعّل بس اللون بيطلع فوق،
+ // مع ترانزشن ناعم. مربوط بحالة الإنذار الفعلية.
  const flip=useRef(new Animated.Value(active?1:0)).current;
  useEffect(()=>{Animated.timing(flip,{toValue:active?1:0,duration:400,easing:Easing.inOut(Easing.cubic),useNativeDriver:false}).start();},[active,flip]);
- const colorTop=flip.interpolate({inputRange:[0,1],outputRange:[0,50]});
- const iconTop=flip.interpolate({inputRange:[0,1],outputRange:[60,0]});
- const rTop=flip.interpolate({inputRange:[0,1],outputRange:[0,24]});
- const rBot=flip.interpolate({inputRange:[0,1],outputRange:[24,0]});
+ const colorTop=flip.interpolate({inputRange:[0,1],outputRange:[50,0]});
+ const iconTop=flip.interpolate({inputRange:[0,1],outputRange:[0,60]});
+ const rTop=flip.interpolate({inputRange:[0,1],outputRange:[24,0]});
+ const rBot=flip.interpolate({inputRange:[0,1],outputRange:[0,24]});
  return <PressableScale style={styles.armPill} onPress={onPress}>
   <Animated.View style={[styles.armPillIconAbs,{top:iconTop}]}><Ionicons name={modePillIcon(mode)} size={21} color={color}/></Animated.View>
   <Animated.View style={[styles.armPillColorAbs,{experimental_backgroundImage:grad,backgroundColor:color,top:colorTop,borderTopLeftRadius:rTop,borderTopRightRadius:rTop,borderBottomLeftRadius:rBot,borderBottomRightRadius:rBot}]}><Text style={styles.armPillLabel} numberOfLines={2}>{label}</Text></Animated.View>
