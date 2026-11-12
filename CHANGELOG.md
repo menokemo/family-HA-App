@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.16.28] — 2026-11-12
+- مسافة أكبر بين كبسولات التفعيل والهيدر.
+- إعادة تصميم كروت الملخص (الأحداث/التحذيرات/الحساسات) لشكل أفقي: خماسي
+  ملوّن على الشمال فيه الرقم، وجنبه الأيقونة والعنوان بلون الكارت، مع حافة
+  ملوّنة على اليمين — بألوان مختلفة لكل كارت.
+
 ### [2.16.27] — 2026-11-12
 - الوضع المفعّل في كبسولات التفعيل بقى **معكوس** عن الباقي: اللون ينزل تحت
   (بالاسم) والأبيض يطلع فوق (بالأيقونة)، مع ترانزشن ناعم للانتقال — مربوط
@@ -340,6 +346,12 @@
 ---
 
 ## English
+
+### [2.16.28] — 2026-11-12
+- More space between the arm capsules and the header.
+- Redesigned the summary cards (events/warnings/sensors) as horizontal cards: a
+  colored left pentagon with the number, then the icon and title in the card's
+  color, with a colored right accent — a distinct color per card.
 
 ### [2.16.27] — 2026-11-12
 - The active mode capsule is now **flipped** vs the others: the color slides to
