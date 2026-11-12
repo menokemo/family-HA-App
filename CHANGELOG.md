@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.16.55] — 2026-11-12
+- **ظل كروت الملخّص بشكل السهم:** بدل الشريط المستقيم، الظل بقى بنفس شكل السهم
+  الملوّن (طبقة مزاحة) فبيبان حوالين السهم بس.
+- **بوردر أيقونة التنقّل المفعّلة:** بقى بنفس لون البار بدل الأبيض، فالحلقة تختفي.
+
 ### [2.16.54] — 2026-11-12
 - **تصحيح الظل والتجسيم:** في أزرار التسليح ظل تحت الكبسولة الملوّنة فبتبان كزر
   مرتفع. وفي كروت الملخّص شِلنا التدرّج اللي كان بيعمل خط جوه اللون، وحطّينا ظل
@@ -491,6 +496,12 @@
 ---
 
 ## English
+
+### [2.16.55] — 2026-11-12
+- **Arrow-shaped summary-card shadow:** instead of a straight strip, the shadow
+  now matches the colored arrow's shape (an offset layer), so it hugs the arrow.
+- **Active nav icon border:** now the bar's own color instead of white, so the
+  ring blends away.
 
 ### [2.16.54] — 2026-11-12
 - **Shadow/depth fix:** arm buttons now cast a shadow under the colored capsule
