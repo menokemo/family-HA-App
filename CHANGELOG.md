@@ -6,6 +6,10 @@
 
 ## العربية
 
+### [2.16.48] — 2026-11-12
+- **إصلاح خروج زر التبديل من الكونتينر:** لو نص التبديل طويل كان السويتش بيطلع
+  بره حدود الكارت. دلوقتي النص بيلفّ والسويتش يفضل جوه.
+
 ### [2.16.47] — 2026-11-12
 - **فصل التسجيل عن الموقع:** الموبايل بيتسجّل في Home Assistant **تلقائيًا** أول
   ما يتصل (مستقل عن الموقع)، فالجهاز يفضل موجود وياخد بيانات الجهاز (بطارية/
@@ -461,6 +465,11 @@
 ---
 
 ## English
+
+### [2.16.48] — 2026-11-12
+- **Fixed toggle switch overflowing its container:** a long toggle label used
+  to push the switch outside the card. The label now wraps and the switch stays
+  inside.
 
 ### [2.16.47] — 2026-11-12
 - **Registration decoupled from location:** the phone now registers with Home
