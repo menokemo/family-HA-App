@@ -6,6 +6,10 @@
 
 ## العربية
 
+### [2.16.52] — 2026-11-12
+- **هيدر البروفايل immersive:** لون الهيدر بقى يمتد خلف شريط الحالة العلوي (زي
+  هيدر الإنذار)، وأيقونات شريط الحالة بقت بيضا فوقه.
+
 ### [2.16.51] — 2026-11-12
 - **لون مميّز لكل أيقونة في شريط التنقّل:** كل تاب بقى ليه لونه (الإنذار/الكاميرات/
   الخريطة/العائلة/الداشبورد/الإعدادات)، والدايرة البارزة للتاب النشط بتاخد نفس لونه.
@@ -478,6 +482,10 @@
 ---
 
 ## English
+
+### [2.16.52] — 2026-11-12
+- **Immersive profile header:** the header color now extends behind the top
+  status bar (like the alarm header), with white status-bar icons over it.
 
 ### [2.16.51] — 2026-11-12
 - **Distinct color per navigation icon:** each tab now has its own color
