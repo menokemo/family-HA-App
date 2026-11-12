@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.16.27] — 2026-11-12
+- الوضع المفعّل في كبسولات التفعيل بقى **معكوس** عن الباقي: اللون ينزل تحت
+  (بالاسم) والأبيض يطلع فوق (بالأيقونة)، مع ترانزشن ناعم للانتقال — مربوط
+  بحالة الإنذار الفعلية.
+
 ### [2.16.26] — 2026-11-12
 - أنيميشن "تشغيل" للكبسولة المدوس عليها: اللون يملأ الكبسولة ويغطي الأيقونة
   لحظة وبعدين يرجع، عشان يبان إن الوضع اتفعّل (الكبسولة المختارة بس).
@@ -335,6 +340,11 @@
 ---
 
 ## English
+
+### [2.16.27] — 2026-11-12
+- The active mode capsule is now **flipped** vs the others: the color slides to
+  the bottom (with the label) and the white rises to the top (with the icon),
+  with a smooth transition — driven by the real alarm state.
 
 ### [2.16.26] — 2026-11-12
 - "Power-on" animation for the pressed capsule: the color fills the capsule
