@@ -136,6 +136,19 @@ export async function getCurrentUserId(settings: ConnectionSettings): Promise<st
 // ينشئ Long-Lived Access Token لخدمة المراقبة في الخلفية. توكن OAuth قصير
 // العمر (بينتهي بعد ~نص ساعة)، والخدمة النيتف مش بتقدر تجدده والتطبيق مقفول
 // فبتفشل المصادقة وتموت. LLAT بيدوم سنين، فالمراقبة تفضل شغّالة بإستمرار.
+// قائمة الحساسات المضافة فعليًا في Alarmo (أمر WebSocket alarmo/sensors
+// بيرجّع dict مفتاحه entity_id). دي المصدر الموثوق بدل التخمين أو الاختيار
+// اليدوي. لو Alarmo قديم ومعندوش الأمر ده، بترجّع [] فنرجع للطريقة اليدوية.
+export async function getAlarmoSensors(settings: ConnectionSettings): Promise<string[]> {
+  try {
+    const result = await wsCommand(settings, { type: 'alarmo/sensors' });
+    if (result && typeof result === 'object') return Object.keys(result as Record<string, unknown>);
+  } catch {
+    // الأمر مش متاح (نسخة Alarmo قديمة) أو فشل الاتصال - نرجع للطريقة اليدوية.
+  }
+  return [];
+}
+
 export async function createMonitorToken(settings: ConnectionSettings): Promise<string | undefined> {
   const result = await wsCommand(settings, { type: 'auth/long_lived_access_token', client_name: `Secure Family Monitor ${Date.now()}`, lifespan: 3650 });
   return typeof result === 'string' ? result : undefined;

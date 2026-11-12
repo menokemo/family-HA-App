@@ -51,9 +51,10 @@
   (زي `@react-native-community/geolocation`) ترفض تولّد كود Codegen
   بتاعتها. اتأكد إن كراش الكاميرا القديم (كان سبب تعطيلها الأول) مالوش
   علاقة حقيقية بـ New Architecture من الأساس.
-- **مستشعرات Alarmo مُختارة يدويًا**، مش مجلوبة تلقائيًا — Alarmo
-  بيخزّن قائمته الكاملة في ملف تخزين داخلي (`alarmo.storage`) من غير
-  WebSocket command موثّق ومستقر لقراءتها.
+- **حساسات Alarmo بتتجلب تلقائيًا** عن طريق أمر WebSocket `alarmo/sensors`
+  (بيرجّع dict مفتاحه entity_id = الحساسات المضافة في Alarmo فعلًا). ده
+  صحّح افتراض قديم إن مفيش أمر موثوق — فيه، واستعملناه بدل الاختيار اليدوي.
+  الاختيار اليدوي اتساب كـ fallback بس لو الأمر مرجّعش حاجة (نسخة قديمة).
 - **شاشة تنبيه الإنذار كود Kotlin أصلي بالكامل**، مش React Native —
   عشان تشتغل حتى لو JS مش شغال أو الخدمة استُدعيت وقت التطبيق مقفول
   تمامًا.
@@ -154,10 +155,12 @@ it ourselves.**
   generate their Codegen output. We also confirmed the old camera
   crash was never actually about the New Architecture in the first
   place.
-- **Alarmo sensors are picked manually**, not auto-fetched — Alarmo
-  stores its full sensor list in its own internal storage
-  (`alarmo.storage`), with no stable, documented WebSocket command to
-  read it.
+- **Alarmo sensors are auto-fetched** via the `alarmo/sensors` WebSocket
+  command (returns a dict keyed by entity_id = the sensors actually added to
+  Alarmo). This corrected an earlier assumption that no reliable command
+  existed — it does, and we now use it instead of manual selection. Manual
+  selection remains only as a fallback when the command returns nothing (old
+  Alarmo).
 - **The alarm alert screen is 100% native Kotlin**, not React Native —
   so it still works even if the JS side isn't running, or the service
   is triggered while the app is fully closed.

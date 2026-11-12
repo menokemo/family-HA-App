@@ -6,6 +6,16 @@
 
 ## العربية
 
+### [2.16.19] — 2026-11-12  (الحساسات من Alarmo مباشرة)
+- **عرض حساسات Alarmo الحقيقية:** التطبيق بقى يجيب الحساسات المضافة في
+  Alarmo مباشرة عن طريق أمر `alarmo/sensors` (WebSocket)، بدل التخمين من
+  خصائص الكيان أو الاختيار اليدوي. ده بيصلّح إن "الحساسات المحمية" كانت
+  بتبان **· 0**.
+- **إخفاء الاختيار اليدوي** لما Alarmo بيرجّع حساساته (مابقاش له لزمة).
+  بيفضل كـ fallback بس لو Alarmo قديم ومعندوش الأمر ده.
+- تصحيح افتراض قديم في التوثيق: أمر `alarmo/sensors` **موجود وموثوق**.
+- *(تعديل JS — يظهر لايف عبر metro.)*
+
 ### [2.16.18] — 2026-11-12  (تبسيط للمستخدم غير التقني — الخطوة ١)
 - **"إضافة أبواب وشبابيك" (كانت Choose sensors):** بقت تعرض **الحساسات الأمنية
   بس** (أبواب/شبابيك/حركة... حسب device_class) بأسمائها الودّية، بدل ما كانت
@@ -288,6 +298,17 @@
 ---
 
 ## English
+
+### [2.16.19] — 2026-11-12  (Sensors straight from Alarmo)
+- **Show Alarmo's real sensors:** the app now fetches the sensors actually
+  configured in Alarmo via the `alarmo/sensors` WebSocket command, instead of
+  guessing from entity attributes or manual selection. This fixes "Protected
+  doors & windows" showing **· 0**.
+- **Manual picker hidden** when Alarmo returns its sensors (no longer needed);
+  kept only as a fallback for old Alarmo without that command.
+- Corrected an old docs assumption: the `alarmo/sensors` command **does exist
+  and is reliable**.
+- *(JS change — shows live via metro.)*
 
 ### [2.16.18] — 2026-11-12  (Non-technical simplification — step 1)
 - **"Add doors & windows" (was Choose sensors):** now shows **only
