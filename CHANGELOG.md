@@ -6,6 +6,10 @@
 
 ## العربية
 
+### [2.16.51] — 2026-11-12
+- **لون مميّز لكل أيقونة في شريط التنقّل:** كل تاب بقى ليه لونه (الإنذار/الكاميرات/
+  الخريطة/العائلة/الداشبورد/الإعدادات)، والدايرة البارزة للتاب النشط بتاخد نفس لونه.
+
 ### [2.16.50] — 2026-11-12
 - **لون صلب فاتح لشريط التنقّل:** خلفية الشريط بقت درجة فاتحة صلبة من لون
   التطبيق (بدون أي شفافية) بدل الأبيض.
@@ -474,6 +478,11 @@
 ---
 
 ## English
+
+### [2.16.51] — 2026-11-12
+- **Distinct color per navigation icon:** each tab now has its own color
+  (alarm/cameras/map/family/dashboard/settings), and the raised active circle
+  takes that tab's color.
 
 ### [2.16.50] — 2026-11-12
 - **Solid light tint for the navigation bar:** the bar background is now a
