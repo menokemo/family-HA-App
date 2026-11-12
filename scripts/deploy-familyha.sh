@@ -52,7 +52,11 @@ npm install --no-audit --no-fund
 echo "==> رفع لـGitHub"
 git push origin "$BRANCH"
 
-echo "==> restart metro"
-pm2 restart metro
+echo "==> restart metro (مع مسح الكاش)"
+# مهم: مسح كاش metro قبل الـrestart. من غيره metro ممكن يقدّم نسخة قديمة
+# مخبّأة من موديول اتغيّر (خصوصًا لما تتغيّر الـimports/exports) فيطلع
+# خطأ زي "X is not a function (it is undefined)".
+rm -rf /tmp/metro-* /tmp/haste-* /tmp/react-* 2>/dev/null || true
+pm2 restart metro --update-env
 
 git -C "$REPO" log -1 --format='%h  %s'

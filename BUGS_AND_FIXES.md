@@ -13,6 +13,16 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**`getEntityRegistry is not a function` بعد deploy (كاش metro قديم)** — بعد
+إضافة دوال جديدة في `homeAssistant.ts` (مثل `getEntityRegistry`) وعمل deploy،
+طلع Render Error إن الدالة `undefined` — مع إن الكود سليم و`tsc` عدّى. **السبب
+الجذري:** `pm2 restart metro` **مابيمسحش** كاش metro، فقدّم نسخة قديمة مخبّأة من
+موديول `homeAssistant` (من غير الدالة الجديدة) بينما App.tsx اتعمله transform
+جديد بينده عليها. ده بيحصل غالبًا لما تتغيّر الـimports/exports. **الحل:** مسح كاش
+metro قبل الـrestart: `rm -rf /tmp/metro-* /tmp/haste-* && pm2 restart metro`،
+واتضاف لسكربت الديبلوي تلقائيًا. **درس:** أي تغيير في exports موديول لازم
+الـdeploy يمسح كاش metro، مش بس restart.
+
 **إخفاء قائمة اختيار اللوحة سابقًا كسر حفظ `alarmEntityId`** — بعد ما
 خبّينا قائمة اختيار كيان Alarmo (لما يكون فيه واحد بس)، التطبيق بقى يستعمل
 `alarms[0]` للعرض لكن `settings.alarmEntityId` فضل فاضي، فمميزات بتعتمد عليه
@@ -182,6 +192,17 @@ build قديم جوه الحزمة مش موجود. الحل: `blockList` في `
 ## English
 
 ### ✅ Resolved
+
+**`getEntityRegistry is not a function` after deploy (stale Metro cache)** —
+after adding new functions to `homeAssistant.ts` (e.g. `getEntityRegistry`) and
+deploying, a Render Error reported the function as `undefined` — even though the
+source was correct and `tsc` passed. **Root cause:** `pm2 restart metro` does
+**not** clear Metro's cache, so it served a stale cached `homeAssistant` module
+(without the new function) while App.tsx was re-transformed to call it. This
+mostly happens when imports/exports change. **Fix:** clear Metro's cache before
+restarting: `rm -rf /tmp/metro-* /tmp/haste-* && pm2 restart metro`, now baked
+into the deploy script. **Lesson:** any change to a module's exports requires the
+deploy to clear Metro's cache, not just restart it.
 
 **Hiding the panel picker earlier broke `alarmEntityId` persistence** — after
 we hid the Alarmo-entity picker (when there is only one), the app used
