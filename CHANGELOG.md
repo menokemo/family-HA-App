@@ -6,6 +6,14 @@
 
 ## العربية
 
+### [2.16.40] — 2026-11-12
+- **زر طريقة العرض للكاميرات:** زرار فوق تبويب الكاميرات يبدّل بين عرض
+  كاميرتين في الصف (شبكة) أو واحدة في الصف، والاختيار بيتحفظ.
+- **أزرار PTZ تلقائية:** زر الـPTZ في شاشة الكاميرا بقى يظهر **بس** للكاميرات
+  اللي فيها PTZ فعلاً — بيتكتشف تلقائيًا من بيانات Home Assistant (entities
+  تحكّم ptz/zoom زي Reolink، أو attribute فيه pan/tilt). الكاميرات العادية
+  مابيظهرش ليها الزر.
+
 ### [2.16.39] — 2026-11-12
 - **تغيير اسم:** كارت "الأبواب والشبابيك المحمية" بقى اسمه "المستشعرات المتاحة"
   (Available sensors).
@@ -406,6 +414,14 @@
 ---
 
 ## English
+
+### [2.16.40] — 2026-11-12
+- **Camera view toggle:** a button above the Cameras tab switches between a
+  2-per-row grid and a single-per-row layout; the choice is saved.
+- **Automatic PTZ buttons:** the PTZ control in the camera screen now appears
+  only for cameras that actually support PTZ — detected automatically from
+  Home Assistant data (ptz/zoom control entities like Reolink, or a pan/tilt
+  attribute). Regular cameras no longer show the button.
 
 ### [2.16.39] — 2026-11-12
 - **Renamed:** the "Protected doors & windows" card is now "Available sensors".

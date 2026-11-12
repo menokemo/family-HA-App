@@ -3,7 +3,7 @@ import { Animated, Image, PanResponder, StyleSheet, Text, View } from 'react-nat
 import Orientation from 'react-native-orientation-locker';
 import { PressableScale } from '../../components/PressableScale';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
-import { authHeaders, cameraSnapshotUrl, ptzMove, ptzStop, type PtzDirection } from '../../api/homeAssistant';
+import { authHeaders, cameraSnapshotUrl, cameraHasPtz, ptzMove, ptzStop, type PtzDirection } from '../../api/homeAssistant';
 import { colors } from '../../theme';
 import { i18n } from '../../i18n';
 import { WebRtcCameraPlayer } from './WebRtcCameraPlayer';
@@ -105,6 +105,7 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
   const [nonce, setNonce] = useState(Date.now());
   const [chromeVisible, setChromeVisible] = useState(true);
   const [showPtz, setShowPtz] = useState(false);
+  const hasPtz = useMemo(() => cameraHasPtz(states, camera.entity_id), [states, camera.entity_id]);
   const [isLandscape, setIsLandscape] = useState(false);
   const [hasAudio, setHasAudio] = useState(false);
   const { scale, translateX, translateY, panHandlers, zoomed, zoomIn, zoomOut } = useZoomPan(() => setChromeVisible(v => !v));
@@ -173,9 +174,9 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
                 <Text style={styles.audioIcon}>{hasAudio ? '🔊' : '🔇'}</Text>
               </View>
             ) : null}
-            <PressableScale style={[styles.iconBtn, showPtz && styles.iconBtnActive]} onPress={() => setShowPtz(v => !v)}>
+            {hasPtz ? <PressableScale style={[styles.iconBtn, showPtz && styles.iconBtnActive]} onPress={() => setShowPtz(v => !v)}>
               <Ionicons name="videocam" size={17} color="#fff" />
-            </PressableScale>
+            </PressableScale> : null}
             <PressableScale style={styles.iconBtn} onPress={zoomOut}>
               <Ionicons name="remove" size={17} color="#fff" />
             </PressableScale>
@@ -200,7 +201,7 @@ export function CameraPlayer({ camera, settings, states, title, onClose }: Camer
       </>
     ) : null}
 
-    {showPtz ? <PtzPad camera={camera} settings={settings} states={states} /> : null}
+    {showPtz && hasPtz ? <PtzPad camera={camera} settings={settings} states={states} /> : null}
   </View>;
 }
 

@@ -79,6 +79,20 @@ export function findReolinkPtzButtons(states: HaEntity[], cameraEntityId: string
   };
 }
 
+// اكتشاف PTZ تلقائيًا من بيانات Home Assistant: الكاميرا تعتبر PTZ لو
+// ليها entities تحكّم مطابقة لاسمها (أزرار ptz/zoom زي Reolink)، أو لو
+// attributes الكاميرا نفسها فيها إشارة pan/tilt/ptz.
+export function cameraHasPtz(states: HaEntity[], cameraEntityId: string): boolean {
+  const cam = states.find(s => s.entity_id === cameraEntityId);
+  if (cam) {
+    for (const key of Object.keys(cam.attributes)) {
+      if (/ptz|pan[_-]?tilt|^pan$|^tilt$/i.test(key)) return true;
+    }
+  }
+  const b = findReolinkPtzButtons(states, cameraEntityId);
+  return !!(b.left || b.right || b.up || b.down || b.zoomIn || b.zoomOut);
+}
+
 export async function ptzMove(settings: ConnectionSettings, states: HaEntity[], cameraEntityId: string, direction: PtzDirection): Promise<void> {
   try {
     const data: Record<string, unknown> = { move_mode: 'ContinuousMove', speed: 1, distance: 0.5 };

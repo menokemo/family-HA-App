@@ -17,6 +17,7 @@ export interface ConnectionSettings {
   sirenEnabled?: boolean;
   sirenTone?: SirenTone;
   snapshotRefreshSeconds?: number;
+  cameraColumns?: number;
   directStatusChange?: boolean;
   showStatusBadge?: boolean;
   visibleAlarmModes?: Partial<Record<AlarmModeKey, boolean>>;
