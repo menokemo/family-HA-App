@@ -6,6 +6,10 @@
 
 ## العربية
 
+### [2.16.31] — 2026-11-12
+- اختيار كيان Alarmo **أوتوماتيك وحفظه** لو مفيش واحد مختار - بيصلّح رسالة
+  "اختار كيان Alarmo الأول" في تنبيه شاشة القفل وغيره.
+
 ### [2.16.30] — 2026-11-12
 - ظل تحت هيدر الإنذار عشان يبان بارز، وتدرّج اللون بقى أوضح مع لون الوضع.
 - إزالة كلمة "Alarmo" من الهيدر.
@@ -357,6 +361,11 @@
 ---
 
 ## English
+
+### [2.16.31] — 2026-11-12
+- The Alarmo entity is now **auto-selected and saved** when none is chosen,
+  fixing the "Select an Alarmo entity above first" message on the lock-screen
+  alert and elsewhere.
 
 ### [2.16.30] — 2026-11-12
 - Shadow under the alarm header so it looks raised, and a clearer gradient in

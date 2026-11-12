@@ -13,6 +13,12 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**إخفاء قائمة اختيار اللوحة سابقًا كسر حفظ `alarmEntityId`** — بعد ما
+خبّينا قائمة اختيار كيان Alarmo (لما يكون فيه واحد بس)، التطبيق بقى يستعمل
+`alarms[0]` للعرض لكن `settings.alarmEntityId` فضل فاضي، فمميزات بتعتمد عليه
+(تنبيه شاشة القفل) كانت بتقول "اختار كيان Alarmo الأول". الحل: effect بيحفظ
+الكيان أوتوماتيك لو مفيش واحد محفوظ أو المحفوظ مش موجود.
+
 **شاشة الإنذار (لما التطبيق مقفول) كانت بتظهر صامتة وثابتة** — أول ما
 المراقبة في الخلفية اشتغلت، بقت شاشة الإنذار تظهر لكن من غير اهتزاز ولا
 أي حركة، مجرد خلفية حمرا وزر. **السبب الجذري المهم:** الأنيميشن والعدّاد
@@ -176,6 +182,13 @@ build قديم جوه الحزمة مش موجود. الحل: `blockList` في `
 ## English
 
 ### ✅ Resolved
+
+**Hiding the panel picker earlier broke `alarmEntityId` persistence** — after
+we hid the Alarmo-entity picker (when there is only one), the app used
+`alarms[0]` for display but `settings.alarmEntityId` stayed empty, so features
+that depend on it (the lock-screen alert) said "Select an Alarmo entity above
+first." Fix: an effect now auto-saves the entity when none is stored or the
+stored one no longer exists.
 
 **Background alarm screen appeared silent and static** — once background
 monitoring started working, the alarm screen showed up but with no
