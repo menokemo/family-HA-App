@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.16.60] — 2026-11-12
+- **شاشة الأذونات بشكل مطمئن:** هيدر بتدرّج أزرق→أخضر مع درع، يدّي إحساس أمان وثقة.
+- **إصلاح زر "الموقع في الخلفية":** في أندرويد 11+ الإذن ده مابيتمنحش من نافذة
+  عادية — دلوقتي الزر بيفتح إعدادات التطبيق عشان تختار "السماح طول الوقت".
+- **كود الإنذار من شاشة الإنذار:** أول مرة لو الكود مش متسجّل بيظهر popup تدخله
+  من هنا بدل ما تروح الإعدادات.
+
 ### [2.16.59] — 2026-11-12  ⚠️ محتاج build APK على ويندوز (فيه تعديلات نيتف)
 - **الموقع في الخلفية + بطارية + واي‑فاي (mobile_app الخطوة ٢):** خدمة نيتف
   جديدة بتبعت موقعك **حتى والتطبيق مقفول**، ومعاه **نسبة البطارية وحالتها** و**اسم
@@ -519,6 +526,15 @@
 ---
 
 ## English
+
+### [2.16.60] — 2026-11-12
+- **Reassuring permissions screen:** a blue→green gradient hero with a shield,
+  for a calmer, more trustworthy feel.
+- **Background-location button fix:** on Android 11+ this permission can't be
+  granted from a normal dialog — the button now opens the app settings so you
+  can choose "Allow all the time".
+- **Alarm code from the alarm screen:** the first time, if no code is set, a
+  popup asks for it right there instead of going to Settings.
 
 ### [2.16.59] — 2026-11-12  ⚠️ Requires a Windows APK build (native changes)
 - **Background location + battery + Wi-Fi (mobile_app step 2):** a new native

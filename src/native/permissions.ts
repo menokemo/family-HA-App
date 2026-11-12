@@ -1,4 +1,4 @@
-import { NativeModules, PermissionsAndroid, Platform } from 'react-native';
+import { Linking, NativeModules, PermissionsAndroid, Platform } from 'react-native';
 
 type PermNative = {
   canUseFullScreenIntent?: () => Promise<boolean>;
@@ -63,7 +63,14 @@ export async function requestPermission(key: PermKey): Promise<void> {
       await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
       return;
     case 'backgroundLocation':
-      if (version >= 29) await PermissionsAndroid.request(BACKGROUND_LOCATION as never);
+      // أندرويد 11+ مابيمنحش "طول الوقت" من نافذة عادية — لازم المستخدم
+      // يختارها من إعدادات التطبيق. فبنجرّب الطلب، ولو مااتمنحش بنفتح
+      // الإعدادات عشان يختار "السماح طول الوقت".
+      if (version < 29) return;
+      {
+        const result = await PermissionsAndroid.request(BACKGROUND_LOCATION as never);
+        if (result !== PermissionsAndroid.RESULTS.GRANTED) await Linking.openSettings();
+      }
       return;
     case 'battery':
       await native?.requestIgnoreBatteryOptimizations?.();

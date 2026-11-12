@@ -47,9 +47,13 @@ export function PermissionsWizard({ visible, onDone }: { visible: boolean; onDon
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onDone} statusBarTranslucent>
       <View style={s.screen}>
-        <Ionicons name="shield-checkmark" size={46} color={colors.primary} style={{ alignSelf: 'center', marginTop: 44 }} />
-        <Text style={s.title}>{i18n.t('permTitle')}</Text>
-        <Text style={s.subtitle}>{i18n.t('permSubtitle')}</Text>
+        <View style={s.hero}>
+          <View style={s.heroIcon}>
+            <Ionicons name="shield-checkmark" size={40} color="#fff" />
+          </View>
+          <Text style={s.title}>{i18n.t('permTitle')}</Text>
+          <Text style={s.subtitle}>{i18n.t('permSubtitle')}</Text>
+        </View>
         <ScrollView contentContainerStyle={s.list}>
           {PERMISSION_KEYS.map(key => {
             const ok = status[key];
@@ -83,16 +87,36 @@ export function PermissionsWizard({ visible, onDone }: { visible: boolean; onDon
 }
 
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 20, paddingBottom: 20 },
-  title: { color: colors.text, fontSize: 24, fontWeight: '800', textAlign: 'center', marginTop: 14 },
-  subtitle: { color: colors.muted, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 8, marginBottom: 16 },
-  list: { gap: 12, paddingBottom: 20 },
+  screen: { flex: 1, backgroundColor: colors.background, paddingBottom: 20 },
+  hero: {
+    paddingTop: 54,
+    paddingBottom: 26,
+    paddingHorizontal: 22,
+    alignItems: 'center',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    backgroundColor: colors.primary,
+    experimental_backgroundImage: `linear-gradient(160deg, ${colors.primary}, ${colors.safe})`,
+    marginBottom: 18,
+  },
+  heroIcon: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    marginBottom: 10,
+  },
+  title: { color: '#fff', fontSize: 24, fontWeight: '800', textAlign: 'center' },
+  subtitle: { color: 'rgba(255,255,255,0.9)', fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 8 },
+  list: { gap: 12, paddingBottom: 20, paddingHorizontal: 20 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 14 },
   iconWrap: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   rowTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
   rowDesc: { color: colors.muted, fontSize: 12, marginTop: 2, lineHeight: 16 },
   grantBtn: { borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14 },
   grantText: { color: '#fff', fontWeight: '800', fontSize: 13 },
-  doneBtn: { backgroundColor: colors.primary, borderRadius: 14, padding: 15, alignItems: 'center' },
+  doneBtn: { backgroundColor: colors.primary, borderRadius: 14, padding: 15, alignItems: 'center', marginHorizontal: 20 },
   doneText: { color: '#fff', fontWeight: '800', fontSize: 15 },
 });
