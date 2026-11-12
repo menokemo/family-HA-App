@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.16.35] — 2026-11-12
+- **لون خفيف لكل قسم:** كل قسم في الإعدادات ليه لون مميز، ولمّا يتفتح
+  الكارت كله بياخد نفس اللون الخفيف — ما عدا الكونتينر الداخلي اللي فيه
+  الإعدادات نفسها بيفضل أبيض، فيبان واضح ومتميّز.
+- **كونتينر داخلي لقسم General:** إعدادات "عام" (ومعلومات التطبيق) بقت
+  جوّه كونتينر أبيض زي قسم الإنذار، عشان الشكل يبقى موحّد.
+
 ### [2.16.34] — 2026-11-12
 - **Profile كهيدر فوق:** هيدر ملوّن (لون مختلف) فيه صورة الشخصية في النص
   واسمها — بيمتد خلف شريط الحالة.
@@ -377,6 +384,15 @@
 ---
 
 ## English
+
+### [2.16.35] — 2026-11-12
+- **Light tint per section:** each settings section has a distinct color.
+  When opened, the whole card takes that light tint — except the inner
+  container holding the actual settings, which stays white, so it reads
+  clearly and stands out.
+- **Inner container for General:** the General settings (and App info) now
+  sit inside a white inner container like the Alarm section, for a
+  consistent look.
 
 ### [2.16.34] — 2026-11-12
 - **Profile as a top header:** a colored header (different color) with the
