@@ -101,6 +101,23 @@
 التطبيق، تتغيّر في Home Assistant نفسه (رفع/تعيين صورة كيان person). محتاج بحث
 في API المناسب (الصورة بتيجي من إعداد person مش مجرد state).
 
+**معلّق — PTZ لسه مش بيظهر (v2.16.41):** الاكتشاف التلقائي بقى بيستخدم سجل
+الكيانات/الأجهزة في HA ويجمع كيانات كل كاميرا حسب الجهاز ويكتشف تحكّم الـPTZ بشكل
+عام. على جهاز الاختبار لسه مفيش زر PTZ بيظهر — يعني كاميرات المستخدم غالبًا كيانات
+الـPTZ بتاعتها على جهاز مختلف في السجل، أو اسمها خارج نمط `pan/tilt/zoom/ptz`، أو
+بتتحكّم عبر ONVIF من غير أي كيانات. الخطوة الجاية: فحص قائمة كيانات كاميرا PTZ
+حقيقية عند المستخدم لضبط الاكتشاف. مؤجّل بطلب المستخدم.
+
+**مخطّط — ميزة كبيرة: إعداد مركزي عبر Home Assistant.** الفرد التقني يظبط التطبيق
+كله مرة واحدة (كاميرات، كيان الإنذار، الداشبورد، الخريطة/المناطق…) وباقي الأسرة
+يحمّلوا ويسجّلوا دخول بس — بدون إعداد لكل جهاز. تحت النقاش: تخزين الإعداد مركزيًا
+في HA (الميل ناحية custom integration خفيف يخزّن JSON في `.storage` ويقدّمه/يستقبله
+عبر websocket، والكتابة للأدمن بس)، والأدمن ينشر الإعداد من التطبيق نفسه ("انشر
+كإعداد عائلي") بإعادة استخدام واجهة الإعدادات الحالية؛ تطبيقات الأسرة تجيب الإعداد
+وتطبّقه عند الدخول مع تخزين مؤقت للأوفلاين. أسئلة مفتوحة: نشر من التطبيق أم لوحة
+داخل HA؛ تفضيلات لكل مستخدم (PIN، الثيم، ربط الشخص) أم مقفول بالكامل؛ حساب HA منفصل
+لكل فرد؛ تثبيت عبر HACS أم يدوي. للتنقيح قبل التنفيذ.
+
 ### القيود المعروفة (موثّقة بالتفصيل في `BUGS_AND_FIXES.md`)
 - بيئة التطوير (LXC/Metro) حساسة لتشغيل أكتر من عملية `git pull`/
   `gradle` في نفس الوقت — دايمًا اتأكد من جلسة `tmux` واحدة نضيفة.
@@ -213,6 +230,27 @@ Principle: the app configures itself and hides the technical parts. Steps:
 the app updates it in Home Assistant itself (upload/set the person entity's
 picture). Needs research into the right API (the picture comes from the person
 config, not a plain state).
+
+**Pending — PTZ still not appearing (v2.16.41):** auto-detection now uses the HA
+entity/device registry (`config/entity_registry/list`) to group each camera's
+entities by device and detect PTZ controls generically. On the test device no
+PTZ button appears yet, so for the user's specific cameras the PTZ controls are
+likely either on a different device in the registry, named outside the
+`pan/tilt/zoom/ptz` pattern, or driven only through ONVIF with no entities. Next
+step: inspect the real entity list of a known-PTZ camera on the user's HA to
+tune detection. Deferred by user ("نرجعلها بعدين").
+
+**Planned — big feature: central configuration via Home Assistant.** The
+technical family member should configure the whole app once (cameras, alarm
+entity, dashboard, map/zones, etc.) and all other family members just install
+and sign in — no per-device setup. Under discussion: store the config centrally
+in HA (leaning toward a thin custom integration that persists a config JSON in
+`.storage` and serves/accepts it over websocket, admin-only writes) and have the
+admin publish it from the app ("Publish as family config"), reusing the existing
+settings UI; family apps fetch and apply it on login, caching for offline. Open
+questions: app-publish vs an HA-side panel; per-user overrides (PIN, theme,
+person mapping) vs fully locked; separate HA logins per member; HACS vs manual
+install. To be refined before implementation.
 
 ### Known limitations (fully documented in `BUGS_AND_FIXES.md`)
 - The dev environment (LXC/Metro) is sensitive to running more than
