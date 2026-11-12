@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.16.22] — 2026-11-12  (شريط أزرار التفعيل العائم)
+- **نقل أزرار التفعيل الأربعة** (Arm away/home/night/vacation) من جوه الهيدر
+  الأخضر لـ **شريط عائم** (كارت مرتفع) بين الهيدر والبادي.
+- **زر إبطال التفعيل** بقى يظهر **بس لما الإنذار مش في وضع Disarmed**، وبيبان
+  **فوق** شريط الأزرار كزر أحمر بارز.
+
 ### [2.16.21] — 2026-11-12
 - **تصليح زر Disarm:** كلمة "Disarm" كانت مختفية (نص أبيض على زر أبيض في
   الدارك مود). بقى لونها غامق ثابت ومقروء في الوضعين.
@@ -311,6 +317,12 @@
 ---
 
 ## English
+
+### [2.16.22] — 2026-11-12  (Floating arm-buttons bar)
+- **Moved the four arm buttons** (Arm away/home/night/vacation) out of the
+  green header into a **floating elevated bar** between the header and the body.
+- **The Disarm button** now shows **only when the alarm is not disarmed**, and
+  appears **above** the arm bar as a prominent red button.
 
 ### [2.16.21] — 2026-11-12
 - **Disarm button fix:** the "Disarm" label was invisible (white text on a
