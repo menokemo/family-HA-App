@@ -78,3 +78,15 @@ export async function setWatchedPersons(personIds: string[], baseUrl: string, to
 export function isZoneWatchRunning(): Promise<boolean> {
   return native?.isZoneWatchRunning() ?? Promise.resolve(false);
 }
+
+// خدمة mobile_app النيتف: تبعت الموقع في الخلفية + البطارية + واي‑فاي لـHA.
+// reportLocation بيتحكّم في إرسال الموقع (الباقي بيتبعت دايمًا طول ما مسجّل).
+export function startMobileAppReporting(baseUrl: string, webhookId: string, reportLocation: boolean): Promise<boolean> {
+  const n = NativeModules.AlarmMonitor as (AlarmMonitorNative & { startMobileApp?: (b: string, w: string, r: boolean) => Promise<boolean> }) | undefined;
+  return n?.startMobileApp?.(baseUrl, webhookId, reportLocation) ?? Promise.resolve(false);
+}
+
+export function stopMobileAppReporting(): Promise<boolean> {
+  const n = NativeModules.AlarmMonitor as (AlarmMonitorNative & { stopMobileApp?: () => Promise<boolean> }) | undefined;
+  return n?.stopMobileApp?.() ?? Promise.resolve(false);
+}

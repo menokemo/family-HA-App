@@ -72,6 +72,34 @@ class AlarmMonitorModule(private val reactContext: ReactApplicationContext) :
   }
 
   @ReactMethod
+  fun startMobileApp(baseUrl: String, webhookId: String, reportLocation: Boolean, promise: Promise) {
+    try {
+      val intent = Intent(reactContext, MobileAppService::class.java)
+      intent.putExtra("baseUrl", baseUrl)
+      intent.putExtra("webhookId", webhookId)
+      intent.putExtra("reportLocation", reportLocation)
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        reactContext.startForegroundService(intent)
+      } else {
+        reactContext.startService(intent)
+      }
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("mobileapp_failed", e.message, e)
+    }
+  }
+
+  @ReactMethod
+  fun stopMobileApp(promise: Promise) {
+    try {
+      reactContext.stopService(Intent(reactContext, MobileAppService::class.java))
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("mobileapp_failed", e.message, e)
+    }
+  }
+
+  @ReactMethod
   fun openOverlaySettings(promise: Promise) {
     try {
       val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + reactContext.packageName))

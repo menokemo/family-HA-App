@@ -3,9 +3,8 @@ import { Alert, Animated, AppState, Easing, FlatList, I18nManager, Image, Modal,
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useSirenPlayers } from './src/audio/useSirenPlayers';
-import { absoluteHaUrl, authHeaders, createMonitorToken, findAlarmoEntities, findPersonByUserId, getAlarmoSensors, getCurrentUserId, getEntityRegistry, getStates, isCurrentUserAdmin, listDashboards, publishFamilyConfig, registerMobileApp, sendMobileAppLocation, testConnection, type DashboardInfo, type RegistryEntry } from './src/api/homeAssistant';
+import { absoluteHaUrl, authHeaders, createMonitorToken, findAlarmoEntities, findPersonByUserId, getAlarmoSensors, getCurrentUserId, getEntityRegistry, getStates, isCurrentUserAdmin, listDashboards, publishFamilyConfig, registerMobileApp, testConnection, type DashboardInfo, type RegistryEntry } from './src/api/homeAssistant';
 import { pickFamilyConfig, readFamilyConfig } from './src/family/familyConfig';
-import { requestLocationPermission, watchLiveLocation } from './src/native/liveLocation';
 import { PermissionsWizard } from './src/features/permissions/PermissionsWizard';
 import { HomeAssistantSocket } from './src/api/socket';
 import { entitiesByIds, isProblemState, sensorCandidates } from './src/features/alarmo/model';
@@ -33,7 +32,7 @@ import { SwipeToConfirm } from './src/components/SwipeToConfirm';
 import { OAuthLoginWebView } from './src/components/OAuthLoginWebView';
 import { PressableScale } from './src/components/PressableScale';
 import { setLiveSettings, onLiveSettingsChange } from './src/storage/liveSettings';
-import { startAlarmMonitor, stopAlarmMonitor, isAlarmMonitorRunning, canUseFullScreenIntent, openFullScreenIntentSettings, canDrawOverlays, openOverlaySettings, setWatchedPersons } from './src/native/AlarmMonitor';
+import { startAlarmMonitor, stopAlarmMonitor, isAlarmMonitorRunning, canUseFullScreenIntent, openFullScreenIntentSettings, canDrawOverlays, openOverlaySettings, setWatchedPersons, startMobileAppReporting } from './src/native/AlarmMonitor';
 import { isBiometricAvailable, enableBiometricDisarm, disableBiometricDisarm, getBiometricCode } from './src/storage/biometric';
 import type { AlarmModeKey, AlarmoEvent, ConnectionSettings, HaEntity, SirenTone } from './src/types/homeAssistant';
 
@@ -103,7 +102,9 @@ function AppContent({themeMode,onThemeModeChange}:{themeMode:ThemeMode;onThemeMo
  // موجود وياخد بيانات الجهاز (بطارية/واي‑فاي/نشاط — جايين نيتف) حتى لو الموقع off.
  useEffect(()=>{if(!settings.baseUrl||!settings.token||settings.mobileAppWebhookId)return;let cancelled=false;void(async()=>{const me=findPersonByUserId(allPeople,currentUserId);const deviceName=me?String(me.attributes.friendly_name??'Secure Family'):'Secure Family';try{const id=await registerMobileApp(settings,deviceName,appInfo.version);if(id&&!cancelled)await saveFieldImmediately({mobileAppWebhookId:id});}catch{/* ignore */}})();return()=>{cancelled=true;};},[settings.baseUrl,settings.token,settings.mobileAppWebhookId,currentUserId,allPeople.length>0]);
  // الموقع (opt-in): بيتبعت بس لو الفرد فعّل المشاركة.
- useEffect(()=>{if(!settings.shareLocation||!settings.mobileAppWebhookId||!settings.baseUrl||!settings.token)return;let stop=()=>{};let cancelled=false;void(async()=>{const ok=await requestLocationPermission();if(!ok||cancelled)return;const id=settings.mobileAppWebhookId;if(!id)return;stop=watchLiveLocation(loc=>{void sendMobileAppLocation(settings,id,[loc.latitude,loc.longitude]).catch(()=>undefined);});})();return()=>{cancelled=true;stop();};},[settings.shareLocation,settings.mobileAppWebhookId,settings.baseUrl,settings.token]);
+ // تشغيل خدمة mobile_app النيتف (موقع في الخلفية + بطارية + واي‑فاي). بتشتغل
+ // طول ما الجهاز مسجّل؛ الموقع بس هو اللي بيتحكّم فيه مفتاح المشاركة.
+ useEffect(()=>{if(!settings.mobileAppWebhookId||!settings.baseUrl||!settings.token)return;void startMobileAppReporting(settings.baseUrl,settings.mobileAppWebhookId,settings.shareLocation===true);},[settings.mobileAppWebhookId,settings.baseUrl,settings.token,settings.shareLocation]);
  const publishFamily=async()=>{persist();try{await publishFamilyConfig(settings,{...pickFamilyConfig(draft)});setDialog({title:i18n.t('publishFamily'),message:i18n.t('publishFamilyDone'),tone:'info'});}catch(e){showError(e);}};
  const arm=async(mode:string,force=false)=>{if(!alarm)return;pendingMode.current=mode;const perform=async()=>{try{await alarmProvider.arm(settings,alarm.entity_id,mode as AlarmMode,{force});await refresh();}catch(e){await refresh().catch(()=>undefined);showError(e);}};if(settings.directStatusChange===false&&!force){setDialog({title:i18n.t('confirmAction'),message:i18n.t('confirmArm'),tone:'warning',confirmLabel:i18n.t('confirm'),onConfirm:()=>void perform()});}else await perform();};
  const performDisarm=async(code?:string)=>{if(!alarm)return;try{await alarmProvider.disarm(settings,alarm.entity_id,code);setShowPinKeypad(false);await refresh();}catch(e){showError(e);}};

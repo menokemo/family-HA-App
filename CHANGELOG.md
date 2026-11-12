@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.16.59] — 2026-11-12  ⚠️ محتاج build APK على ويندوز (فيه تعديلات نيتف)
+- **الموقع في الخلفية + بطارية + واي‑فاي (mobile_app الخطوة ٢):** خدمة نيتف
+  جديدة بتبعت موقعك **حتى والتطبيق مقفول**، ومعاه **نسبة البطارية وحالتها** و**اسم
+  واي‑فاي البيت** كحسّاسات في Home Assistant — فتقدر تشوف حضور كل فرد وبطاريته من
+  غير تطبيق HA الرسمي. الموقع بمفتاح المشاركة؛ باقي البيانات بتتبعت طول ما الجهاز
+  مسجّل.
+
 ### [2.16.58] — 2026-11-12  ⚠️ محتاج build APK على ويندوز (فيه تعديلات نيتف)
 - **معالج الأذونات في أول تشغيل:** شاشة بتظهر مرة واحدة بعد الدخول بتطلب كل
   الأذونات المهمة: الإشعارات، الموقع، الموقع في الخلفية، استثناء البطارية،
@@ -512,6 +519,13 @@
 ---
 
 ## English
+
+### [2.16.59] — 2026-11-12  ⚠️ Requires a Windows APK build (native changes)
+- **Background location + battery + Wi-Fi (mobile_app step 2):** a new native
+  service reports your location **even when the app is closed**, plus **battery
+  level/state** and **home Wi-Fi name** as Home Assistant sensors — so you can
+  see each member's presence and battery without the official HA app. Location
+  follows the share toggle; the rest reports whenever the device is registered.
 
 ### [2.16.58] — 2026-11-12  ⚠️ Requires a Windows APK build (native changes)
 - **First-run permissions wizard:** a one-time screen after login requests all
