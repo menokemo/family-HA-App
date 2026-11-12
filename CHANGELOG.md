@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.16.38] — 2026-11-12
+- **مسافات بين كونتينرات الإنذار:** الكروت الداخلية (الكود/الأوضاع، صفّارة،
+  تنبيه شاشة القفل، البصمة، المستشعرات...) بقى بينها مسافة واضحة بدل ما كانت
+  ملزوقة في بعض.
+
 ### [2.16.37] — 2026-11-12
 - **لون صلب فاتح لكل قسم:** شِلنا الشفافية (alpha) اللي كانت بتورّي خلفية
   من ورا اللون. دلوقتي كل قسم مفتوح بياخد درجة فاتحة **متماسكة** من لونه
@@ -397,6 +402,11 @@
 ---
 
 ## English
+
+### [2.16.38] — 2026-11-12
+- **Spacing between Alarm containers:** the inner cards (code/modes, siren,
+  lock-screen alert, biometric, sensors…) now have clear spacing between them
+  instead of touching each other.
 
 ### [2.16.37] — 2026-11-12
 - **Solid light tint per section:** removed the alpha transparency that let
