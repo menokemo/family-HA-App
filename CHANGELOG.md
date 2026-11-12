@@ -6,6 +6,10 @@
 
 ## العربية
 
+### [2.16.26] — 2026-11-12
+- أنيميشن "تشغيل" للكبسولة المدوس عليها: اللون يملأ الكبسولة ويغطي الأيقونة
+  لحظة وبعدين يرجع، عشان يبان إن الوضع اتفعّل (الكبسولة المختارة بس).
+
 ### [2.16.25] — 2026-11-12
 - عكس كبسولات التفعيل: اللون المتدرّج فوق والأيقونة تحت.
 - زر الإبطال رجع متداخل مع الهيدر وبعرض أصغر (في المنتصف).
@@ -331,6 +335,11 @@
 ---
 
 ## English
+
+### [2.16.26] — 2026-11-12
+- "Power-on" animation for the pressed capsule: the color fills the capsule
+  over the icon briefly, then recedes, so it looks like you're turning that
+  mode on (only the pressed capsule animates).
 
 ### [2.16.25] — 2026-11-12
 - Flipped the arm capsules: gradient color on top, icon below.
