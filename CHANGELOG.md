@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.16.45] — 2026-11-12
+- **إصلاح إنذار الخلفية:** كانت الخدمة النيتف بتاخد كيان الإنذار مرة واحدة بس
+  عند التفعيل، فلو الكيان اتغيّر بعدها (اختيار تلقائي/إعداد عائلي) الخلفية تفضل
+  على الكيان القديم ومابتطلّعش إنذار. دلوقتي بيتعاد مزامنة الإعداد مع الخدمة
+  تلقائيًا مع أي تغيير في الكيان/التوكن/الكود طول ما المراقبة شغّالة.
+
 ### [2.16.44] — 2026-11-12
 - **هيدر البروفايل ثابت في صفحة الإعدادات:** بيفضل مثبّت فوق حتى لو الصفحة
   بتعمل اسكرول، وبظل أقوى يبان بروزه، وبلون جراديانت.
@@ -443,6 +449,13 @@
 ---
 
 ## English
+
+### [2.16.45] — 2026-11-12
+- **Background alarm fix:** the native service captured the alarm entity only
+  once when enabled, so if it changed later (auto-select/family config) the
+  background kept watching the old entity and never alerted. The service config
+  is now re-synced automatically whenever the entity/token/code changes while
+  monitoring is on.
 
 ### [2.16.44] — 2026-11-12
 - **Sticky profile header on the Settings page:** it now stays pinned at the

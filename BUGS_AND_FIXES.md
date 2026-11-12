@@ -13,6 +13,18 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**إنذار الخلفية مابيطلّعش مع إن الخدمة شغّالة** — النوتفيكيشن "Alarm
+monitoring active" ظاهر (الخدمة النيتف شغّالة) ولمّا التطبيق مفتوح الإنذار
+بيشتغل، لكن في الخلفية مابيحصلش حاجة. **السبب الجذري:** الخدمة النيتف بتقارن
+كيان الإنذار بقيمة محفوظة في الـprefs (`entityId`)، والقيمة دي كانت بتتبعت
+**مرة واحدة بس** وقت تفعيل المراقبة. لو `alarmEntityId` اتغيّر بعد كده (اختيار
+تلقائي، أو إعداد عائلي مركزي غيّره)، الخدمة تفضل تراقب الكيان القديم فمفيش حدث
+`triggered` بيطابق. داخل التطبيق بيشتغل لأنه بيعتمد على الحالة الحية مش الـprefs.
+**الحل:** effect في App بيعيد مزامنة إعداد الخدمة النيتف (باستدعاء `start`) مع أي
+تغيير في الكيان/التوكن/الكود والمراقبة شغّالة. **درس:** أي حقل بيتخزّن في prefs
+الخدمة النيتف لازم يتزامن مع تغييراته، مش يتبعت مرة واحدة.
+
+
 **`getEntityRegistry is not a function` بعد deploy (كاش metro قديم)** — بعد
 إضافة دوال جديدة في `homeAssistant.ts` (مثل `getEntityRegistry`) وعمل deploy،
 طلع Render Error إن الدالة `undefined` — مع إن الكود سليم و`tsc` عدّى. **السبب
@@ -192,6 +204,20 @@ build قديم جوه الحزمة مش موجود. الحل: `blockList` في `
 ## English
 
 ### ✅ Resolved
+
+**Background alarm never fires while the service is running** — the "Alarm
+monitoring active" notification is shown (native service running) and the
+alert works while the app is open, but nothing happens in the background.
+**Root cause:** the native service matches the alarm entity against a value
+stored in prefs (`entityId`) that was pushed **only once**, when monitoring was
+enabled. If `alarmEntityId` changed afterwards (auto-select, or a central
+family config change), the service kept watching the old entity, so no
+`triggered` event matched. In-app works because it uses the live state, not the
+prefs. **Fix:** an effect in App re-syncs the native service config (by calling
+`start`) whenever the entity/token/code changes while monitoring is on.
+**Lesson:** any field stored in the native service prefs must be kept in sync,
+not pushed once.
+
 
 **`getEntityRegistry is not a function` after deploy (stale Metro cache)** —
 after adding new functions to `homeAssistant.ts` (e.g. `getEntityRegistry`) and
