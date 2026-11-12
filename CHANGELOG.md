@@ -6,6 +6,14 @@
 
 ## العربية
 
+### [2.16.43] — 2026-11-12
+- **الإعداد المركزي (مرحلة ٢ — قفل واجهة الأفراد):** غير الأدمن مابقاش يشوف
+  إعدادات **الكاميرات** و**الداشبورد** خالص. وفي **الإنذار** اختفى عنده
+  **المستشعرات** و**أوضاع الإنذار (Visible modes)** وإعداد اللوحة الإداري،
+  وفضل عنده بس: **الكود**، **صوت التنبيه**، **Lock-screen alert**،
+  **Biometric disarm**. و**العام/البروفايل/الخريطة** زي ما هم. (كل الإعدادات
+  المخفية بتيجي جاهزة من إعداد العيلة اللي نشره الأدمن.)
+
 ### [2.16.42] — 2026-11-12
 - **الإعداد المركزي للعيلة (مرحلة ١):** الأدمن يقدر ينشر إعداد العيلة من التطبيق
   (زر "انشر كإعداد عائلي") عبر مكوّن `secure_family` في Home Assistant. باقي
@@ -431,6 +439,14 @@
 ---
 
 ## English
+
+### [2.16.43] — 2026-11-12
+- **Central config (phase 2 — member UI lock):** non-admins no longer see the
+  **Cameras** or **Dashboard** settings at all. In **Alarm**, the **sensors**,
+  **Visible modes**, and admin panel setup are hidden too — leaving only the
+  **code**, **siren**, **Lock-screen alert**, and **Biometric disarm**.
+  **General/Profile/Map** stay. (All hidden settings arrive ready-made from the
+  family config the admin published.)
 
 ### [2.16.42] — 2026-11-12
 - **Central family configuration (phase 1):** the admin can publish the family
