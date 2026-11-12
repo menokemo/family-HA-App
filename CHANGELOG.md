@@ -6,6 +6,14 @@
 
 ## العربية
 
+### [2.16.36] — 2026-11-12
+- **تنظيف شكل الأقسام:** شِلنا تكرار اسم القسم اللي كان بيتكتب مرتين
+  (مرة في هيدر الأكورديون ومرة جوّه الكونتينر الأبيض) — زي "الكاميرات"
+  و"الداشبورد" و"Alarmo".
+- **كارت أنظف عند الفتح:** لمّا القسم يتفتح، الكارت الخارجي بقى سطح ملوّن
+  خفيف بدون ظل/إطار تقيل، والكونتينر الأبيض الداخلي هو اللي عليه الظل —
+  فبيبان بانل واحد نضيف بدل "كارت جوّه كارت".
+
 ### [2.16.35] — 2026-11-12
 - **لون خفيف لكل قسم:** كل قسم في الإعدادات ليه لون مميز، ولمّا يتفتح
   الكارت كله بياخد نفس اللون الخفيف — ما عدا الكونتينر الداخلي اللي فيه
@@ -384,6 +392,15 @@
 ---
 
 ## English
+
+### [2.16.36] — 2026-11-12
+- **Cleaner section look:** removed the duplicated section name that
+  appeared twice (once in the accordion header and again inside the white
+  container) — e.g. "Cameras", "Dashboard" and "Alarmo".
+- **Cleaner open card:** when a section opens, the outer card is now a flat
+  light-tinted surface with no heavy border/shadow, and only the inner white
+  container carries the shadow — so it reads as one clean panel instead of a
+  "card inside a card".
 
 ### [2.16.35] — 2026-11-12
 - **Light tint per section:** each settings section has a distinct color.
