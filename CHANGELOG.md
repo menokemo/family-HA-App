@@ -6,6 +6,9 @@
 
 ## العربية
 
+### [2.16.24] — 2026-11-12
+- تصغير كبسولات أزرار التفعيل وتثبيت مكانها في البادي (بدون تداخل مع الهيدر).
+
 ### [2.16.23] — 2026-11-12  (أزرار التفعيل بشكل كبسولة)
 - **أزرار التفعيل الأربعة** بقت كبسولات بارزة بستايل نيومورفيزم: أيقونة فوق
   على خلفية فاتحة، والاسم تحت على تعبئة متدرّجة بلون الوضع (أزرق/أخضر/
@@ -324,6 +327,9 @@
 ---
 
 ## English
+
+### [2.16.24] — 2026-11-12
+- Made the arm capsule buttons smaller and fixed their place in the body (no longer overlapping the header).
 
 ### [2.16.23] — 2026-11-12  (Capsule-style arm buttons)
 - **The four arm buttons** are now raised capsule cards in a neumorphic style:
