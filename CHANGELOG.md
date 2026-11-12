@@ -6,6 +6,10 @@
 
 ## العربية
 
+### [2.16.53] — 2026-11-12
+- **عمق وتجسيم أقوى:** ظل أوضح لشريط التنقّل، وأزرار التسليح بترتفع أكتر بتدرّج
+  ألمع، والجزء الملوّن في كروت الملخّص بقى ليه تدرّج وظل أعمق.
+
 ### [2.16.52] — 2026-11-12
 - **هيدر البروفايل immersive:** لون الهيدر بقى يمتد خلف شريط الحالة العلوي (زي
   هيدر الإنذار)، وأيقونات شريط الحالة بقت بيضا فوقه.
@@ -482,6 +486,11 @@
 ---
 
 ## English
+
+### [2.16.53] — 2026-11-12
+- **Stronger depth:** clearer shadow on the navigation bar, arm buttons lift
+  more with a brighter gradient, and the colored part of the summary cards now
+  has a gradient and deeper shadow.
 
 ### [2.16.52] — 2026-11-12
 - **Immersive profile header:** the header color now extends behind the top
