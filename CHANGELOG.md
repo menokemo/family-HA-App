@@ -6,6 +6,10 @@
 
 ## العربية
 
+### [2.16.56] — 2026-11-12
+- **ظل كروت الملخّص أنعم + تدرّج للسهم:** الظل بقى ٣ طبقات بتبهت للخارج (شكل
+  ظل حقيقي مش خط)، والجزء الملوّن بقى **Gradient** أفقي.
+
 ### [2.16.55] — 2026-11-12
 - **ظل كروت الملخّص بشكل السهم:** بدل الشريط المستقيم، الظل بقى بنفس شكل السهم
   الملوّن (طبقة مزاحة) فبيبان حوالين السهم بس.
@@ -496,6 +500,11 @@
 ---
 
 ## English
+
+### [2.16.56] — 2026-11-12
+- **Softer summary-card shadow + gradient arrow:** the shadow is now three
+  fading layers (a real soft shadow, not a line), and the colored arrow has a
+  horizontal **gradient**.
 
 ### [2.16.55] — 2026-11-12
 - **Arrow-shaped summary-card shadow:** instead of a straight strip, the shadow
