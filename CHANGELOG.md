@@ -6,6 +6,10 @@
 
 ## العربية
 
+### [2.16.25] — 2026-11-12
+- عكس كبسولات التفعيل: اللون المتدرّج فوق والأيقونة تحت.
+- زر الإبطال رجع متداخل مع الهيدر وبعرض أصغر (في المنتصف).
+
 ### [2.16.24] — 2026-11-12
 - تصغير كبسولات أزرار التفعيل وتثبيت مكانها في البادي (بدون تداخل مع الهيدر).
 
@@ -327,6 +331,10 @@
 ---
 
 ## English
+
+### [2.16.25] — 2026-11-12
+- Flipped the arm capsules: gradient color on top, icon below.
+- The disarm button overlaps the header again and is narrower (centered).
 
 ### [2.16.24] — 2026-11-12
 - Made the arm capsule buttons smaller and fixed their place in the body (no longer overlapping the header).
