@@ -32,11 +32,18 @@ export function pickFamilyConfig(settings: ConnectionSettings): FamilyConfig {
   return out as FamilyConfig;
 }
 
-// يقرأ إعداد العيلة من الحالات (الكيان بيوصل ضمن stream الحالات العادي).
+// يقرأ إعداد العيلة من الحالات. HA بيولّد entity_id من اسم الجهاز فمش بالضرورة
+// يبقى بالظبط FAMILY_CONFIG_ENTITY — فبنلاقيه بذكاء: أي كيان من مكوّن
+// secure_family عنده attribute اسمه config. بنجرّب الاسم المتوقّع الأول.
 export function readFamilyConfig(states: HaEntity[]): { version: number; config: FamilyConfig } | null {
-  const entity = states.find(s => s.entity_id === FAMILY_CONFIG_ENTITY);
+  const hasConfigAttr = (s: HaEntity) =>
+    !!s.attributes && typeof s.attributes.config === 'object' && s.attributes.config !== null;
+  const entity =
+    states.find(s => s.entity_id === FAMILY_CONFIG_ENTITY && hasConfigAttr(s)) ??
+    states.find(s => s.entity_id.startsWith('sensor.secure_family') && hasConfigAttr(s)) ??
+    states.find(s => s.entity_id.includes('secure_family') && hasConfigAttr(s));
   if (!entity) return null;
   const version = Number(entity.state) || 0;
-  const config = (entity.attributes?.config ?? {}) as FamilyConfig;
+  const config = (entity.attributes.config ?? {}) as FamilyConfig;
   return { version, config };
 }

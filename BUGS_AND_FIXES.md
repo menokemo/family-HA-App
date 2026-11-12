@@ -13,6 +13,17 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**الإعداد العائلي المنشور مابيترجعش بعد تثبيت جديد ("No Alarmo entity found")** —
+الأدمن نشر الإعداد والمكوّن حفظه في HA، لكن التطبيق مكانش بيطبّقه. **السبب
+الجذري:** التطبيق بيدوّر على الكيان بالاسم الثابت `sensor.secure_family_config`،
+بينما Home Assistant بيولّد entity_id من اسم الجهاز + اسم الكيان (مثلاً
+`sensor.secure_family_family_configuration`) لإن الكيان عنده `has_entity_name`.
+فـ`readFamilyConfig` مكانش بيلاقي الكيان → alarmEntityId يفضل فاضي → "No Alarmo
+entity found". **الحل:** `readFamilyConfig` بقى يلاقي أي كيان من secure_family عنده
+attribute اسمه `config` (مش معتمد على entity_id بالظبط). **درس:** كيانات HA اللي
+`has_entity_name=True` بيتولّد لها entity_id من اسم الجهاز — ماتفترضش entity_id ثابت.
+
+
 **إنذار الخلفية مابيطلّعش مع إن الخدمة شغّالة** — النوتفيكيشن "Alarm
 monitoring active" ظاهر (الخدمة النيتف شغّالة) ولمّا التطبيق مفتوح الإنذار
 بيشتغل، لكن في الخلفية مابيحصلش حاجة. **السبب الجذري:** الخدمة النيتف بتقارن

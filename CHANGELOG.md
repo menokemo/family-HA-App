@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.16.61] — 2026-11-12
+- **إصلاح استرجاع الإعداد العائلي:** التطبيق كان بيدوّر على كيان الإعداد باسم
+  ثابت، لكن Home Assistant بيولّد اسم مختلف من اسم الجهاز — فالإعداد المنشور مكانش
+  بيترجع (ومنها "No Alarmo entity found"). دلوقتي التطبيق بيلاقي كيان مكوّن
+  secure_family بأي اسم (عن طريق وجود بيانات الإعداد فيه)، فالإعدادات بترجع صح.
+
 ### [2.16.60] — 2026-11-12
 - **شاشة الأذونات بشكل مطمئن:** هيدر بتدرّج أزرق→أخضر مع درع، يدّي إحساس أمان وثقة.
 - **إصلاح زر "الموقع في الخلفية":** في أندرويد 11+ الإذن ده مابيتمنحش من نافذة
@@ -526,6 +532,13 @@
 ---
 
 ## English
+
+### [2.16.61] — 2026-11-12
+- **Family-config restore fix:** the app looked for the config entity by a fixed
+  id, but Home Assistant generates a different id from the device name — so the
+  published config wasn't applied (causing "No Alarmo entity found"). The app now
+  finds the `secure_family` config entity by any id (via its config data), so
+  settings restore correctly.
 
 ### [2.16.60] — 2026-11-12
 - **Reassuring permissions screen:** a blue→green gradient hero with a shield,
