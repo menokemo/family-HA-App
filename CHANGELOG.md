@@ -6,6 +6,16 @@
 
 ## العربية
 
+### [2.16.72] — 2026-11-13  (تعديل JS — بيجي من metro)
+- **ميزة: دعم التابلت/الوضع العرضي (المرحلة أ — الأساس).** عند عرض ≥ 700 بكسل:
+  - الشريط السفلي يتحوّل **شريط جانبي رأسي (nav rail)**، والمساحة الزيادة تتفتح للمحتوى.
+  - محتوى الإعدادات بيتوسّط بعرض مريح (680) بدل ما يتفرد على كل الشاشة.
+  - الموبايل الطولي زيّ ما هو بالظبط — مفيش أي تغيير على تجربته.
+  - كلها JS (React Native layout) — من غير APK. (الموجة ب لاحقًا: عمودين master-detail
+    للإنذار والخريطة.)
+- **تزامن رقم النسخة:** `app.json` و`package.json` بقوا يتزوّدوا مع `build.gradle`
+  (كان الرقم الجواني ثابت لأنه بيقرا `app.json` القديم).
+
 ### [2.16.71] — 2026-11-13  ⚠️ محتاج build APK على ويندوز (تعديل نيتف)
 - **ميزة: الموقع اللايف عند الطلب (زي Google Find Hub / Life360).** أول ما تفتح
   كارت أي فرد على الخريطة، تطبيقك بيطلب من موبايله يدخل **الوضع اللايف** (يبعت
@@ -623,6 +633,16 @@
 ---
 
 ## English
+
+### [2.16.72] — 2026-11-13  (JS change — ships via metro)
+- **Feature: tablet / landscape support (Phase A — foundation).** At width ≥ 700px:
+  - the bottom bar becomes a vertical **navigation rail**, freeing width for content;
+  - Settings content is capped to a comfortable width (680) instead of stretching;
+  - portrait phone layout is unchanged.
+  - All JS (React Native layout) — no APK needed. (Phase B later: 2-pane master-detail
+    for the alarm and map screens.)
+- **Version sync:** `app.json` and `package.json` now bump together with `build.gradle`
+  (the in-app number was stale because it reads `app.json`).
 
 ### [2.16.71] — 2026-11-13  ⚠️ Requires a Windows APK build (native change)
 - **Feature: on-demand live location (like Google Find Hub / Life360).** Opening

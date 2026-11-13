@@ -13,6 +13,14 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**رقم النسخة المعروض جوه التطبيق (الإعدادات → معلومات التطبيق) ثابت مهما بنينا
+APK** — الرقم ده بيتقري من `app.json` (عبر `appInfo.version` في App.tsx)، مش من
+`android/app/build.gradle`. كنا بنزوّد `versionName` في build.gradle بس، فالرقم
+الجواني فضل قديم (2.16.64) رغم إن الـ APK نفسه بقى أحدث (باين صح في **إعدادات
+أندرويد → التطبيقات**). **الحل:** نزوّد **التلاتة مع بعض** في كل إصدار:
+`build.gradle` (versionName + versionCode) و`app.json` و`package.json`. (اتزامنوا
+على 2.16.71)
+
 **نشر التحديثات عبر Google Drive بيبوّظ الـ git bundle (فشل `index-pack` /
 `inflate: data stream error`)** — سكربت النشر بيحمّل الـ bundle بـ
 `curl "drive.google.com/uc?export=download"`. لما الملف متخزّن على Drive كـ
