@@ -10,7 +10,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.location.Geocoder
 import android.location.Location
+import android.media.AudioManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
@@ -20,6 +22,7 @@ import android.os.Environment
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.os.StatFs
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -64,6 +67,7 @@ class MobileAppService : Service() {
   private var started = false
   private var fastMode = false
   private var liveRevert: Runnable? = null
+  private var lastLocation: Location? = null
 
   private fun hasLocationPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -261,6 +265,7 @@ class MobileAppService : Service() {
   }
 
   private fun sendLocation(location: Location) {
+    lastLocation = location
     val data = JSONObject()
       .put("gps", JSONArray().put(location.latitude).put(location.longitude))
       .put("gps_accuracy", location.accuracy.toInt())
@@ -286,6 +291,11 @@ class MobileAppService : Service() {
     registerSensor("last_update", "Last Update", nowIso(), "timestamp", null, "mdi:clock-outline")
     registerSensor("app_version", "App Version", appVersionName(), null, null, "mdi:information-outline")
     registerSensor("detected_activity", "Activity", "Unknown", null, null, "mdi:run")
+    registerSensor("geocoded_location", "Geocoded Location", "Unknown", null, null, "mdi:map-marker")
+    registerSensor("wifi_bssid", "Wi-Fi BSSID", bssid(), null, null, "mdi:router-wireless")
+    registerSensor("ringer_mode", "Ringer Mode", ringerMode(), null, null, "mdi:volume-high")
+    registerSensor("do_not_disturb", "Do Not Disturb", if (dndOn()) "on" else "off", null, null, "mdi:moon-waning-crescent", type = "binary_sensor")
+    registerSensor("screen_on", "Screen On", if (screenOn()) "on" else "off", null, null, "mdi:cellphone", type = "binary_sensor")
   }
 
   private fun registerSensor(
@@ -326,7 +336,21 @@ class MobileAppService : Service() {
       .put(sensorState("wifi_signal_strength", wifiSignal(), "mdi:wifi"))
       .put(sensorState("storage_free", storageFreeGb(), "mdi:harddisk"))
       .put(sensorState("last_update", nowIso(), "mdi:clock-outline"))
+      .put(sensorState("wifi_bssid", bssid(), "mdi:router-wireless"))
+      .put(sensorState("ringer_mode", ringerMode(), "mdi:volume-high"))
+      .put(sensorState("do_not_disturb", if (dndOn()) "on" else "off", "mdi:moon-waning-crescent"))
+      .put(sensorState("screen_on", if (screenOn()) "on" else "off", "mdi:cellphone"))
     post(JSONObject().put("type", "update_sensor_states").put("data", states))
+    // الموقع الجغرافي (reverse geocoding) بيحتاج شبكة — بنعمله في ثريد منفصل
+    // عشان مانعملش network على الـ main thread، وبنبعته لوحده لما يجهز.
+    val loc = lastLocation
+    if (loc != null) {
+      Thread {
+        val addr = geocodedLocation(loc)
+        val one = JSONArray().put(sensorState("geocoded_location", addr, "mdi:map-marker"))
+        post(JSONObject().put("type", "update_sensor_states").put("data", one))
+      }.start()
+    }
   }
 
   private fun batteryIntent(): Intent? =
@@ -420,6 +444,68 @@ class MobileAppService : Service() {
       packageManager.getPackageInfo(packageName, 0).versionName ?: ""
     } catch (e: Exception) {
       ""
+    }
+  }
+
+  // reverse geocoding — لازم يتنادى من ثريد خلفي (بيعمل شبكة).
+  private fun geocodedLocation(loc: Location): String {
+    return try {
+      val geo = Geocoder(this, Locale.getDefault())
+      @Suppress("DEPRECATION")
+      val list = geo.getFromLocation(loc.latitude, loc.longitude, 1)
+      val a = list?.firstOrNull() ?: return "Unknown"
+      val parts = listOfNotNull(
+        a.thoroughfare,
+        a.subLocality ?: a.locality,
+        a.adminArea,
+      )
+      if (parts.isNotEmpty()) parts.joinToString(", ") else (a.getAddressLine(0) ?: "Unknown")
+    } catch (e: Exception) {
+      "Unknown"
+    }
+  }
+
+  private fun bssid(): String {
+    return try {
+      val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+      @Suppress("DEPRECATION")
+      val b = wm.connectionInfo.bssid ?: ""
+      if (b.isEmpty() || b == "02:00:00:00:00:00") "Not connected" else b
+    } catch (e: Exception) {
+      "unknown"
+    }
+  }
+
+  private fun ringerMode(): String {
+    return try {
+      val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+      when (am.ringerMode) {
+        AudioManager.RINGER_MODE_NORMAL -> "Normal"
+        AudioManager.RINGER_MODE_VIBRATE -> "Vibrate"
+        AudioManager.RINGER_MODE_SILENT -> "Silent"
+        else -> "Unknown"
+      }
+    } catch (e: Exception) {
+      "Unknown"
+    }
+  }
+
+  private fun dndOn(): Boolean {
+    return try {
+      val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+      nm.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL &&
+        nm.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_UNKNOWN
+    } catch (e: Exception) {
+      false
+    }
+  }
+
+  private fun screenOn(): Boolean {
+    return try {
+      val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+      pm.isInteractive
+    } catch (e: Exception) {
+      false
     }
   }
 
