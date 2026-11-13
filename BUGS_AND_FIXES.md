@@ -13,6 +13,15 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**الموقع بيترجرج على الخريطة و"حركة" وهمية وإنت واقف مكانك** — تشويش الـ GPS
+(الإحداثيات بتتغير شوية حتى وإنت ثابت) كان بيخلي علامة الفرد تترجرج على
+الخريطة، وكشف الحركة الجديد (2.16.66) بيحسبها حركة ويوري "بيتحرك" + سرعة. **الحل:**
+طبقة **تثبيت (deadband)** — بنخزّن موقع مثبّت لكل فرد وما نحركوش ولا نحسب أي حركة
+إلا لو الإزاحة أكبر من دقة الـ GPS الحالية (`gps_accuracy`) أو 50 متر على الأقل،
+أيهما أكبر. كمان رفعنا أقل سرعة لـ 6 كم/س، وبنتجاهل القفزات (>250 كم/س)، وفلترنا
+الموقع الحي للموبايل (نتجاهل دقة أسوأ من 50 متر، `distanceFilter`=25). المسار
+والمسافة والمتابعة بقوا على الموقع المثبّت. (2.16.67)
+
 **علامات أفراد جداد مكانتش بتظهر على الخريطة غير بعد reload** — دالة
 `updateMarkers` في الخريطة كانت بتحدّث العلامات الموجودة وتشيل اللي اختفى بس،
 ومكانش فيها مسار لإضافة فرد ظهر بعد تحميل الصفحة. **الحل:** استخرجنا بناء
@@ -222,6 +231,17 @@ build قديم جوه الحزمة مش موجود. الحل: `blockList` في `
 ## English
 
 ### ✅ Resolved
+
+**Location jittered on the map and showed false "Moving" while standing still** —
+GPS noise (coordinates drift slightly even when stationary) made the member
+marker jitter, and the new motion detection (2.16.66) counted it as movement,
+showing "Moving" + a speed. **Fix:** a **deadband stabilization** layer — we keep
+a committed position per member and never move it or count motion unless the
+displacement exceeds the current GPS accuracy (`gps_accuracy`) or at least 50 m,
+whichever is larger. Also raised the min speed to 6 km/h, ignore glitch jumps
+(>250 km/h), and filter the phone's live location (drop fixes worse than 50 m,
+`distanceFilter`=25). Route, distance and follow now use the committed position.
+(2.16.67)
 
 **New member markers only appeared after a full reload** — the map's
 `updateMarkers` only updated existing markers and removed missing ones; it had

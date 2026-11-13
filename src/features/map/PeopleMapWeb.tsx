@@ -36,6 +36,11 @@ const SHEET_BOTTOM = 32;
 const HAZARD_NEAR_M = 20000;
 // بطارية أقل من كده = تنبيه.
 const LOW_BATTERY = 15;
+// --- استقرار الموقع (مقاومة تشويش GPS) ---
+const MIN_MOVE_M = 50; // أقل إزاحة تُعتبر حركة حقيقية (متر)؛ أقل من كده = تشويش
+const MOVING_KMH = 6; // أقل سرعة تُعتبر "بيتحرك"
+const MAX_SPEED_KMH = 250; // أسرع من كده = قفزة GPS غلط، ما نعتبرهاش حركة
+const STILL_AFTER_MS = 60000; // بعد كده من غير حركة يرجع "ثابت"
 
 const coord = (e: HaEntity) => ({ latitude: Number(e.attributes.latitude), longitude: Number(e.attributes.longitude) });
 
@@ -158,8 +163,10 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
   const [satelliteOn, setSatelliteOn] = useState(false);
   const [follow, setFollow] = useState(false);
   const [batteryAlert, setBatteryAlert] = useState<string | null>(null);
+  const [stable, setStable] = useState<Record<string, { lat: number; lng: number }>>({});
   const webRef = useRef<WebView<object>>(null);
-  const motionRef = useRef<Record<string, { lat: number; lng: number; t: number }>>({});
+  // الموقع المثبّت لكل فرد (lat/lng/الوقت) - ما يتحدّثش إلا لما الإزاحة تعدّي الحد.
+  const stableMetaRef = useRef<Record<string, { lat: number; lng: number; t: number }>>({});
   const batteryAlertedRef = useRef<Set<string>>(new Set());
 
   const colorFor = useMemo(() => {
@@ -225,42 +232,71 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
 
   // ====== النقاط ======
   const pointsKey = people.map(p => `${p.entity_id}:${p.attributes.latitude},${p.attributes.longitude}`).join('|');
-  const points: Point[] = people.map(p => ({
-    id: p.entity_id,
-    name: String(p.attributes.friendly_name ?? p.entity_id),
-    lat: Number(p.attributes.latitude),
-    lng: Number(p.attributes.longitude),
-    color: colorFor[p.entity_id] ?? PERSON_RING[0],
-    picture: avatars[p.entity_id],
-    heading: motion[p.entity_id]?.heading,
-    moving: motion[p.entity_id]?.moving,
-  }));
+  // الموقع المعروض = المثبّت (لو موجود) مش الخام، عشان العلامة ما ترجرجش.
+  const posFor = (p: HaEntity) => {
+    const st = stable[p.entity_id];
+    return st ? { latitude: st.lat, longitude: st.lng } : coord(p);
+  };
+  const points: Point[] = people.map(p => {
+    const c = posFor(p);
+    return {
+      id: p.entity_id,
+      name: String(p.attributes.friendly_name ?? p.entity_id),
+      lat: c.latitude,
+      lng: c.longitude,
+      color: colorFor[p.entity_id] ?? PERSON_RING[0],
+      picture: avatars[p.entity_id],
+      heading: motion[p.entity_id]?.heading,
+      moving: motion[p.entity_id]?.moving,
+    };
+  });
 
-  // ====== السرعة والاتجاه (من فرق المواقع المتتابعة) ======
+  // ====== استقرار الموقع + حساب السرعة/الاتجاه (مقاومة تشويش GPS) ======
+  // تشويش الـ GPS بيخلي الإحداثيات تتغير وإنت واقف مكانك. فبنثبّت موقع كل
+  // فرد: ما نحركش العلامة ولا نحسب أي حركة إلا لو الإزاحة أكبر من دقة الـ
+  // GPS الحالية (أو 50 متر على الأقل). كده العلامة ما ترجرجش ومافيش
+  // "حركة" وهمية وإنت ثابت.
   useEffect(() => {
     const now = Date.now();
-    const prevStore = motionRef.current;
-    const nextStore: Record<string, { lat: number; lng: number; t: number }> = { ...prevStore };
-    const updates: Record<string, Motion> = {};
+    const meta = stableMetaRef.current;
+    const motionUpdates: Record<string, Motion> = {};
+    let changed = false;
     for (const p of people) {
       const lat = Number(p.attributes.latitude);
       const lng = Number(p.attributes.longitude);
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-      const prev = prevStore[p.entity_id];
-      if (prev) {
-        const dt = (now - prev.t) / 1000;
-        const d = haversine({ latitude: prev.lat, longitude: prev.lng }, { latitude: lat, longitude: lng });
-        if (dt > 1 && dt < 3600 && d > 8) {
-          const speed = (d / dt) * 3.6;
-          updates[p.entity_id] = { speed, heading: bearing(prev.lat, prev.lng, lat, lng), moving: speed >= 3 };
-        } else if (dt > 90 && d <= 8) {
-          updates[p.entity_id] = { speed: 0, heading: motion[p.entity_id]?.heading ?? 0, moving: false };
-        }
+      const acc = Number(p.attributes.gps_accuracy);
+      const deadband = Math.max(Number.isFinite(acc) && acc > 0 ? acc : 0, MIN_MOVE_M);
+      const prev = meta[p.entity_id];
+      if (!prev) {
+        meta[p.entity_id] = { lat, lng, t: now };
+        changed = true;
+        continue;
       }
-      nextStore[p.entity_id] = { lat, lng, t: now };
+      const d = haversine({ latitude: prev.lat, longitude: prev.lng }, { latitude: lat, longitude: lng });
+      if (d > deadband) {
+        // حركة حقيقية: نثبّت الموقع الجديد ونحسب السرعة والاتجاه
+        const dt = (now - prev.t) / 1000;
+        const speed = dt > 2 && dt < 3600 ? (d / dt) * 3.6 : 0;
+        const realMove = speed > 0 && speed <= MAX_SPEED_KMH;
+        motionUpdates[p.entity_id] = {
+          speed: realMove ? speed : 0,
+          heading: bearing(prev.lat, prev.lng, lat, lng),
+          moving: realMove && speed >= MOVING_KMH,
+        };
+        meta[p.entity_id] = { lat, lng, t: now };
+        changed = true;
+      } else if (motion[p.entity_id]?.moving && now - prev.t > STILL_AFTER_MS) {
+        // جوّه الحد لفترة = رجع ثابت
+        motionUpdates[p.entity_id] = { speed: 0, heading: motion[p.entity_id]?.heading ?? 0, moving: false };
+      }
     }
-    motionRef.current = nextStore;
-    if (Object.keys(updates).length) setMotion(m => ({ ...m, ...updates }));
+    if (changed) {
+      const snap: Record<string, { lat: number; lng: number }> = {};
+      for (const id of Object.keys(meta)) snap[id] = { lat: meta[id].lat, lng: meta[id].lng };
+      setStable(snap);
+    }
+    if (Object.keys(motionUpdates).length) setMotion(m => ({ ...m, ...motionUpdates }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pointsKey]);
 
@@ -295,14 +331,14 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
   }, [liveLocation?.latitude, liveLocation?.longitude]);
 
   // ====== المسار من موقعي للشخص المختار (قيادة/مشي/دراجة) ======
-  const selectedCoordKey = selected ? `${selected.attributes.latitude},${selected.attributes.longitude}` : undefined;
+  const selectedCoordKey = selected ? `${posFor(selected).latitude},${posFor(selected).longitude}` : undefined;
   useEffect(() => {
     if (!selected || !myCoord || selected.entity_id === me?.entity_id) {
       webRef.current?.injectJavaScript(`window.hideRoute && window.hideRoute(); true;`);
       setRouteInfo(null);
       return;
     }
-    const target = coord(selected);
+    const target = posFor(selected);
     if (!Number.isFinite(target.latitude) || !Number.isFinite(target.longitude)) return;
     webRef.current?.injectJavaScript(
       `window.showRoute && window.showRoute(${myCoord.longitude},${myCoord.latitude},${target.longitude},${target.latitude},'${routeMode}'); true;`,
@@ -312,7 +348,7 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
   // ====== وضع المتابعة: الكاميرا تلاحق الشخص المختار وهو بيتحرك ======
   useEffect(() => {
     if (follow && selected) {
-      const c = coord(selected);
+      const c = posFor(selected);
       if (Number.isFinite(c.latitude) && Number.isFinite(c.longitude)) {
         webRef.current?.injectJavaScript(`window.recenter && window.recenter(${c.longitude},${c.latitude}); true;`);
       }
@@ -476,7 +512,7 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
       ? distance(0)
       : routeInfo && selected?.entity_id === person.entity_id
       ? distance(routeInfo.distanceMeters)
-      : distance(haversine(coord(person), myCoord));
+      : distance(haversine(posFor(person), myCoord));
 
   const RANGES: { h: number; label: string }[] = [
     { h: 24, label: i18n.t('today') },

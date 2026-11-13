@@ -6,6 +6,18 @@
 
 ## العربية
 
+### [2.16.67] — 2026-11-13  (إصلاح ثبات الموقع)
+- **إصلاح: الموقع كان بيترجرج والعلامة بتتحرك والتطبيق بيقول "بتتحرك" وإنت
+  واقف مكانك** — بسبب تشويش الـ GPS. اتضاف:
+  - طبقة **تثبيت (deadband):** موقع كل فرد ما يتحركش على الخريطة ولا يتحسب
+    حركة إلا لو الإزاحة أكبر من دقة الـ GPS الحالية (أو 50 متر على الأقل).
+  - رفع حدود كشف الحركة: أقل سرعة 6 كم/س، وتجاهل القفزات الوهمية (>250 كم/س).
+  - فلترة الموقع الحي للموبايل: تجاهل القراءات اللي دقتها أسوأ من 50 متر،
+    و`distanceFilter` بقى 25 متر فالنقطة الزرقاء ما تتحركش من التشويش.
+  - المسار والمسافة ووضع المتابعة بقوا يستخدموا الموقع المثبّت، فمابيعيدوش
+    الحساب من التشويش.
+- تعديل JS بالكامل — بيتنشر على metro من غير build APK.
+
 ### [2.16.66] — 2026-11-13  (تطوير إمكانيات الخريطة — الموجة 1)
 - **طبقة المخاطر/الكوارث:** التطبيق بيقرا كيانات `geo_location.*` من Home Assistant
   (زلازل، فيضانات، أعاصير، حرائق…) ويرسمها على الخريطة بعلامة ⚠️ مع المسافة،
@@ -583,6 +595,19 @@
 ---
 
 ## English
+
+### [2.16.67] — 2026-11-13  (Location stability fix)
+- **Fix: the marker jittered and the app showed "Moving" while you were
+  standing still** — caused by GPS noise. Added:
+  - A **deadband stabilization** layer: a member's position doesn't move on the
+    map and no motion is counted unless the displacement exceeds the current GPS
+    accuracy (or at least 50 m).
+  - Higher motion thresholds: min 6 km/h, and glitch jumps (>250 km/h) ignored.
+  - Live-location filtering: readings worse than 50 m accuracy are dropped, and
+    `distanceFilter` is now 25 m so the blue dot doesn't drift from noise.
+  - Route, distance and follow mode now use the stabilized position, so they no
+    longer re-trigger from noise.
+- JS-only change — deploys over metro, no APK build needed.
 
 ### [2.16.66] — 2026-11-13  (Map capabilities — Wave 1)
 - **Hazard/disaster layer:** the app reads `geo_location.*` entities from Home

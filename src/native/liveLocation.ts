@@ -1,7 +1,7 @@
 import Geolocation from '@react-native-community/geolocation';
 import { PermissionsAndroid, Platform } from 'react-native';
 
-export type LiveLocation = { latitude: number; longitude: number };
+export type LiveLocation = { latitude: number; longitude: number; accuracy?: number };
 
 export async function requestLocationPermission(): Promise<boolean> {
   if (Platform.OS !== 'android') return true;
@@ -15,9 +15,16 @@ export async function requestLocationPermission(): Promise<boolean> {
 
 export function watchLiveLocation(onUpdate: (loc: LiveLocation) => void): () => void {
   const id = Geolocation.watchPosition(
-    pos => onUpdate({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+    pos => {
+      const accuracy = pos.coords.accuracy;
+      // نتجاهل القراءات ضعيفة الدقة (أكبر من 50 متر) عشان ما تحركش نقطة
+      // موقعي على الخريطة بالغلط وإحنا واقفين مكاننا (تشويش GPS).
+      if (typeof accuracy === 'number' && accuracy > 50) return;
+      onUpdate({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy });
+    },
     () => undefined,
-    { enableHighAccuracy: true, distanceFilter: 15, interval: 15000, fastestInterval: 10000 },
+    // distanceFilter أكبر = النقطة ما تتحركش إلا لو اتحركت فعلاً 25 متر+.
+    { enableHighAccuracy: true, distanceFilter: 25, interval: 20000, fastestInterval: 10000 },
   );
   return () => Geolocation.clearWatch(id);
 }
