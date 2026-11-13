@@ -6,6 +6,14 @@
 
 ## العربية
 
+### [2.16.74] — 2026-11-13  (تعديل JS — بيجي من metro)
+- **اسم جهاز واضح + قابل للتعديل:** التطبيق بيسجّل كل موبايل بـ `app_id=secure_family`
+  و`manufacturer/model = Secure Family`، و`device_name` = **فريندلي نيم** تقدر تعدّله
+  من **الإعدادات → معلومات التطبيق → اسم الجهاز**. تغيير الاسم بيحدّث التسجيل في HA
+  مباشرة (`update_registration`) من غير ما يعمل جهاز جديد.
+- **مرتبط بالمكوّن 0.3.0:** كده أجهزتنا بتتميّز بوضوح عن تطبيق HA الأصلي، وتظهر في
+  `sensor.secure_family_devices` بسينسورزها.
+
 ### [2.16.73] — 2026-11-13  (تعديل JS — بيجي من metro)
 - **إصلاح: التطبيق كان بيسجّل نفسه كـ device_tracker كتير في HA (تكرار).** سببه إن
   effect التسجيل كان بيتنفّذ أكتر من مرة في نفس الجلسة (سباق توقيت) قبل ما
@@ -641,6 +649,14 @@
 ---
 
 ## English
+
+### [2.16.74] — 2026-11-13  (JS change — ships via metro)
+- **Clear, editable device name:** the app registers each phone with
+  `app_id=secure_family` and `manufacturer/model = Secure Family`, and a
+  `device_name` you can edit under **Settings → App info → Device name**. Renaming
+  updates the HA registration in place (`update_registration`) — no new device.
+- **Pairs with component 0.3.0:** our phones are now clearly distinct from the
+  official HA app and appear in `sensor.secure_family_devices` with their sensors.
 
 ### [2.16.73] — 2026-11-13  (JS change — ships via metro)
 - **Fix: the app registered itself as a device_tracker many times in HA (duplicates).**

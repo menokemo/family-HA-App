@@ -217,7 +217,7 @@ export async function registerMobileApp(
       app_version: appVersion,
       device_name: deviceName,
       manufacturer: 'Secure Family',
-      model: 'Secure Family App',
+      model: 'Secure Family',
       os_name: 'Android',
       os_version: '',
       supports_encryption: false,
@@ -225,6 +225,19 @@ export async function registerMobileApp(
   });
   const json = (await res.json()) as { webhook_id?: string };
   return json.webhook_id;
+}
+
+// يحدّث تسجيل mobile_app القائم (مثلاً تغيير اسم الجهاز) من غير ما يعمل جهاز
+// جديد — بيكلّم webhook التسجيل نفسه.
+export async function updateRegistration(
+  settings: ConnectionSettings,
+  webhookId: string,
+  data: Record<string, unknown>,
+): Promise<void> {
+  await request(settings, `/api/webhook/${webhookId}`, {
+    method: 'POST',
+    body: JSON.stringify({ type: 'update_registration', data }),
+  });
 }
 
 // إرسال تحديث الموقع (والبطارية لو متاحة) للـwebhook بتاع الجهاز. مفيش توكن

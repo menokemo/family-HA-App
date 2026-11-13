@@ -34,6 +34,7 @@ export interface ConnectionSettings {
   backgroundMonitoringEnabled?: boolean;
   shareLocation?: boolean;
   mobileAppWebhookId?: string;
+  deviceFriendlyName?: string;
 }
 export interface AlarmoEvent {
   eventType: 'alarmo_failed_to_arm' | 'alarmo_command_success' | 'alarmo_ready_to_arm_modes_updated';
