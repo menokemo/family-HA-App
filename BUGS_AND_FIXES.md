@@ -13,6 +13,14 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**الموقع بيظهر غلط/قديم على الخريطة (العلامة برّه منطقة البيت والفرد فعلاً في
+البيت)** — طبقة التثبيت (deadband) اللي اتضافت في 2.16.67 كانت بتجمّد الموقع
+المعروض عند أول قراءة وما بتحدّثوش إلا لو الإزاحة تعدّت 50 متر، فكانت بتوري موقع
+قديم/غلط حتى لما HA عنده الموقع الصح (أي تطبيق تاني بيجيبه مظبوط). **الحل:**
+العلامة بقت تاخد **آخر موقع حقيقي من HA مباشرة** (مظبوط)، والـ deadband بقى
+يشتغل على **كشف الحركة بس** (عشان ما نقولش "بيتحرك" بالغلط من التشويش) من غير ما
+يجمّد مكان العلامة. (2.16.69)
+
 **تكرار علامات الأفراد على الخريطة (3 أشخاص بيظهروا 6)** — سباق توقيت: دالة
 `updateMarkers` بتتنادى من التطبيق قبل ما حدث `load` بتاع الخريطة يخلّص، فبتضيف
 العلامات، وبعدين `load` بيضيفهم تاني من البيانات المدمجة في الصفحة. و`addPerson`
@@ -240,6 +248,15 @@ build قديم جوه الحزمة مش موجود. الحل: `blockList` في `
 ## English
 
 ### ✅ Resolved
+
+**Wrong/stale location on the map (marker outside the home zone while the person
+is actually home)** — the deadband layer added in 2.16.67 froze the *displayed*
+position at the first reading and only updated it once the move exceeded 50 m, so
+it showed a stale/wrong position even when HA had the correct one (other apps
+show it accurately). **Fix:** the marker now uses the **latest real HA position
+directly** (accurate), and the deadband applies to **motion detection only** (so
+we don't falsely say "moving" from noise) without freezing the marker position.
+(2.16.69)
 
 **Duplicate member markers on the map (3 people shown as 6)** — a race: the app's
 `updateMarkers` is injected before the map's `load` event finishes, so it adds the

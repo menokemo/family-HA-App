@@ -163,9 +163,9 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
   const [satelliteOn, setSatelliteOn] = useState(false);
   const [follow, setFollow] = useState(false);
   const [batteryAlert, setBatteryAlert] = useState<string | null>(null);
-  const [stable, setStable] = useState<Record<string, { lat: number; lng: number }>>({});
   const webRef = useRef<WebView<object>>(null);
-  // الموقع المثبّت لكل فرد (lat/lng/الوقت) - ما يتحدّثش إلا لما الإزاحة تعدّي الحد.
+  // مرجع لكل فرد (lat/lng/الوقت) لحساب الحركة فقط - يتحدّث لما الإزاحة تعدّي
+  // الحد، عشان نحسب سرعة/اتجاه حقيقيين من غير تشويش (مش بيأثر على مكان العلامة).
   const stableMetaRef = useRef<Record<string, { lat: number; lng: number; t: number }>>({});
   const batteryAlertedRef = useRef<Set<string>>(new Set());
 
@@ -232,11 +232,10 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
 
   // ====== النقاط ======
   const pointsKey = people.map(p => `${p.entity_id}:${p.attributes.latitude},${p.attributes.longitude}`).join('|');
-  // الموقع المعروض = المثبّت (لو موجود) مش الخام، عشان العلامة ما ترجرجش.
-  const posFor = (p: HaEntity) => {
-    const st = stable[p.entity_id];
-    return st ? { latitude: st.lat, longitude: st.lng } : coord(p);
-  };
+  // الموقع المعروض = آخر إحداثيات حقيقية من HA مباشرة (مظبوط زي أي تطبيق تاني).
+  // الـ deadband تحت بيشتغل على كشف الحركة بس، مش على مكان العلامة، عشان
+  // ما نجمّدش موقع غلط/قديم.
+  const posFor = (p: HaEntity) => coord(p);
   const points: Point[] = people.map(p => {
     const c = posFor(p);
     return {
@@ -251,16 +250,15 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
     };
   });
 
-  // ====== استقرار الموقع + حساب السرعة/الاتجاه (مقاومة تشويش GPS) ======
-  // تشويش الـ GPS بيخلي الإحداثيات تتغير وإنت واقف مكانك. فبنثبّت موقع كل
-  // فرد: ما نحركش العلامة ولا نحسب أي حركة إلا لو الإزاحة أكبر من دقة الـ
-  // GPS الحالية (أو 50 متر على الأقل). كده العلامة ما ترجرجش ومافيش
-  // "حركة" وهمية وإنت ثابت.
+  // ====== كشف السرعة/الاتجاه فقط (مقاومة تشويش GPS) ======
+  // مكان العلامة بياخد آخر موقع حقيقي من HA مباشرة (فوق في posFor). هنا بس
+  // بنقرر هل الفرد "بيتحرك" فعلاً: ما نعتبرهاش حركة إلا لو الإزاحة أكبر من
+  // دقة الـ GPS الحالية (أو 50 متر على الأقل)، عشان ما نقولش "بيتحرك"
+  // بالغلط من التشويش وإحنا واقفين. ده مابيأثرش على مكان العلامة.
   useEffect(() => {
     const now = Date.now();
     const meta = stableMetaRef.current;
     const motionUpdates: Record<string, Motion> = {};
-    let changed = false;
     for (const p of people) {
       const lat = Number(p.attributes.latitude);
       const lng = Number(p.attributes.longitude);
@@ -270,12 +268,11 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
       const prev = meta[p.entity_id];
       if (!prev) {
         meta[p.entity_id] = { lat, lng, t: now };
-        changed = true;
         continue;
       }
       const d = haversine({ latitude: prev.lat, longitude: prev.lng }, { latitude: lat, longitude: lng });
       if (d > deadband) {
-        // حركة حقيقية: نثبّت الموقع الجديد ونحسب السرعة والاتجاه
+        // حركة حقيقية: نحدّث المرجع ونحسب السرعة والاتجاه
         const dt = (now - prev.t) / 1000;
         const speed = dt > 2 && dt < 3600 ? (d / dt) * 3.6 : 0;
         const realMove = speed > 0 && speed <= MAX_SPEED_KMH;
@@ -285,16 +282,10 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
           moving: realMove && speed >= MOVING_KMH,
         };
         meta[p.entity_id] = { lat, lng, t: now };
-        changed = true;
       } else if (motion[p.entity_id]?.moving && now - prev.t > STILL_AFTER_MS) {
         // جوّه الحد لفترة = رجع ثابت
         motionUpdates[p.entity_id] = { speed: 0, heading: motion[p.entity_id]?.heading ?? 0, moving: false };
       }
-    }
-    if (changed) {
-      const snap: Record<string, { lat: number; lng: number }> = {};
-      for (const id of Object.keys(meta)) snap[id] = { lat: meta[id].lat, lng: meta[id].lng };
-      setStable(snap);
     }
     if (Object.keys(motionUpdates).length) setMotion(m => ({ ...m, ...motionUpdates }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -331,7 +322,8 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
   }, [liveLocation?.latitude, liveLocation?.longitude]);
 
   // ====== المسار من موقعي للشخص المختار (قيادة/مشي/دراجة) ======
-  const selectedCoordKey = selected ? `${posFor(selected).latitude},${posFor(selected).longitude}` : undefined;
+  // نقرّب لـ 4 خانات (~11م) عشان تشويش الـ GPS الصغير ما يعيدش طلب المسار كل شوية.
+  const selectedCoordKey = selected ? `${posFor(selected).latitude.toFixed(4)},${posFor(selected).longitude.toFixed(4)}` : undefined;
   useEffect(() => {
     if (!selected || !myCoord || selected.entity_id === me?.entity_id) {
       webRef.current?.injectJavaScript(`window.hideRoute && window.hideRoute(); true;`);

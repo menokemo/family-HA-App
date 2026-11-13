@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.16.69] — 2026-11-13
+- **إصلاح: الموقع كان بيظهر غلط/قديم (العلامة برّه البيت والفرد فعلاً في البيت).**
+  طبقة التثبيت كانت بتجمّد مكان العلامة. دلوقتي العلامة بتاخد آخر موقع حقيقي من
+  HA مباشرة (مظبوط)، والـ deadband بقى على كشف الحركة بس. (تعديل JS)
+
 ### [2.16.68] — 2026-11-13
 - **إصلاح: تكرار علامات الأفراد على الخريطة (3 أشخاص بيبانوا 6).** سببه سباق
   توقيت بين `load` و`updateMarkers` كان بيضيف العلامات مرتين. دالة `addPerson`
@@ -600,6 +605,12 @@
 ---
 
 ## English
+
+### [2.16.69] — 2026-11-13
+- **Fix: wrong/stale location (marker outside home while the person is home).**
+  The stabilization layer was freezing the marker position. The marker now uses
+  the latest real HA position directly (accurate); the deadband applies to motion
+  detection only. (JS-only)
 
 ### [2.16.68] — 2026-11-13
 - **Fix: duplicate member markers on the map (3 people shown as 6).** A race
