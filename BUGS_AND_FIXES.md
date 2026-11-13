@@ -13,6 +13,15 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**تكرار علامات الأفراد على الخريطة (3 أشخاص بيظهروا 6)** — سباق توقيت: دالة
+`updateMarkers` بتتنادى من التطبيق قبل ما حدث `load` بتاع الخريطة يخلّص، فبتضيف
+العلامات، وبعدين `load` بيضيفهم تاني من البيانات المدمجة في الصفحة. و`addPerson`
+كانت بتكتب فوق المفتاح في كائن `markers` من غير ما تشيل العلامة القديمة من
+الخريطة، فالقديمة بتفضل ظاهرة = نسخة مكررة (بموقع مختلف قريب لأن استدعاء منهم
+بموقع مثبّت والتاني بالموقع الخام). **الحل:** `addPerson` بقت تشيل أي علامة قديمة
+لنفس `entity_id` قبل ما تضيف واحدة جديدة، فمافيش تكرار مهما كان ترتيب الاستدعاء.
+(2.16.68)
+
 **الموقع بيترجرج على الخريطة و"حركة" وهمية وإنت واقف مكانك** — تشويش الـ GPS
 (الإحداثيات بتتغير شوية حتى وإنت ثابت) كان بيخلي علامة الفرد تترجرج على
 الخريطة، وكشف الحركة الجديد (2.16.66) بيحسبها حركة ويوري "بيتحرك" + سرعة. **الحل:**
@@ -231,6 +240,16 @@ build قديم جوه الحزمة مش موجود. الحل: `blockList` في `
 ## English
 
 ### ✅ Resolved
+
+**Duplicate member markers on the map (3 people shown as 6)** — a race: the app's
+`updateMarkers` is injected before the map's `load` event finishes, so it adds the
+markers, and then `load` adds them again from the page-embedded data. `addPerson`
+overwrote the key in the `markers` object without removing the old marker from the
+map, so the old one stayed visible — a duplicate (at a slightly different nearby
+spot, since one call used the committed position and the other the raw one).
+**Fix:** `addPerson` now removes any existing marker for the same `entity_id`
+before adding a new one, so there are no duplicates regardless of call order.
+(2.16.68)
 
 **Location jittered on the map and showed false "Moving" while standing still** —
 GPS noise (coordinates drift slightly even when stationary) made the member

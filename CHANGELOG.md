@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.16.68] — 2026-11-13
+- **إصلاح: تكرار علامات الأفراد على الخريطة (3 أشخاص بيبانوا 6).** سببه سباق
+  توقيت بين `load` و`updateMarkers` كان بيضيف العلامات مرتين. دالة `addPerson`
+  بقت تشيل أي علامة قديمة لنفس الشخص قبل ما تضيف واحدة جديدة. (تعديل JS)
+
 ### [2.16.67] — 2026-11-13  (إصلاح ثبات الموقع)
 - **إصلاح: الموقع كان بيترجرج والعلامة بتتحرك والتطبيق بيقول "بتتحرك" وإنت
   واقف مكانك** — بسبب تشويش الـ GPS. اتضاف:
@@ -595,6 +600,11 @@
 ---
 
 ## English
+
+### [2.16.68] — 2026-11-13
+- **Fix: duplicate member markers on the map (3 people shown as 6).** A race
+  between `load` and `updateMarkers` added markers twice; `addPerson` now removes
+  any existing marker for the same person before adding a new one. (JS-only)
 
 ### [2.16.67] — 2026-11-13  (Location stability fix)
 - **Fix: the marker jittered and the app showed "Moving" while you were

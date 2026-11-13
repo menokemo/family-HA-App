@@ -20,7 +20,7 @@ type RouteMode = 'driving' | 'walking' | 'cycling';
 // نغيّر الرقم ده لو عملنا تعديل جوهري في mapHtml، عشان نجبر الـ WebView
 // يعمل remount كامل. بنضيف وضع الثيم في الـ key كمان عشان تبديل الثيم
 // يعيد بناء الخريطة بالستايل الصح.
-const MAP_TEMPLATE_VERSION = 'v13-life360-plus';
+const MAP_TEMPLATE_VERSION = 'v14-life360-plus';
 
 // ألوان ثابتة لكل فرد (حلقة الصورة + في اللستة).
 const PERSON_RING = ['#5C8DFF', '#2EE6A6', '#FFB020', '#FF4D6D', '#9B6DFF', '#12C2E9', '#FF7A45', '#39C36E'];
@@ -803,6 +803,9 @@ function makePersonEl(p){
 }
 function addPerson(p){
   if(!isFinite(p.lng)||!isFinite(p.lat))return;
+  // لو فيه علامة قديمة لنفس الشخص (مثلاً من سباق توقيت بين load و
+  // updateMarkers) نشيلها الأول عشان ما يحصلش تكرار على الخريطة.
+  if(markers[p.id]){markers[p.id].remove();delete markers[p.id];}
   const m=new maplibregl.Marker({element:makePersonEl(p),anchor:'bottom'}).setLngLat([p.lng,p.lat]).setPopup(new maplibregl.Popup({offset:36,closeButton:false}).setText(p.name)).addTo(map);
   markers[p.id]=m;
 }
