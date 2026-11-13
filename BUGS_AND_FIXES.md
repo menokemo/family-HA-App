@@ -13,6 +13,16 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**الموقع اللي تطبيقنا بيبعته للهوم اسيستنت غير دقيق جوه البيت (العلامة برّه
+المنطقة)** — خدمة `MobileAppService` النيتف كانت بتاخد الموقع من
+`LocationManager` بـ `GPS_PROVIDER` الخام. ده بيبوظ **داخل المباني** (إشارة GPS
+ضعيفة) أو بيرجّع آخر موقع قديم من `getLastKnownLocation` (من برّه البيت). **الحل:**
+حوّلنا الخدمة لـ **Fused Location Provider** من Google Play Services
+(`LocationRequest.Builder` + `Priority.PRIORITY_HIGH_ACCURACY`) اللي بيدمج
+GPS + واي‑فاي + شبكة = دقة عالية جوه البيت، نفس اللي بتستخدمه جوجل مابس والتطبيق
+الرسمي. المكتبة (`play-services-location:21.0.1`) كانت موجودة أصلاً؛ ضفناها كـ
+dependency صريح. **تعديل نيتف — محتاج build APK على ويندوز.** (2.16.70)
+
 **الموقع بيظهر غلط/قديم على الخريطة (العلامة برّه منطقة البيت والفرد فعلاً في
 البيت)** — طبقة التثبيت (deadband) اللي اتضافت في 2.16.67 كانت بتجمّد الموقع
 المعروض عند أول قراءة وما بتحدّثوش إلا لو الإزاحة تعدّت 50 متر، فكانت بتوري موقع
@@ -248,6 +258,17 @@ build قديم جوه الحزمة مش موجود. الحل: `blockList` في `
 ## English
 
 ### ✅ Resolved
+
+**Location our app sends to Home Assistant is inaccurate indoors (marker outside
+the zone while home)** — the native `MobileAppService` obtained location from raw
+`LocationManager` with `GPS_PROVIDER`. That's poor **indoors** (weak GPS) or
+returns a stale outdoor fix from `getLastKnownLocation`. **Fix:** switched the
+service to the **Fused Location Provider** from Google Play Services
+(`LocationRequest.Builder` + `Priority.PRIORITY_HIGH_ACCURACY`), which fuses
+GPS + Wi‑Fi + cell for high accuracy indoors — the same source Google Maps and the
+official Companion app use. The library (`play-services-location:21.0.1`) was
+already present; we added it as an explicit dependency. **Native change — requires
+a Windows APK build.** (2.16.70)
 
 **Wrong/stale location on the map (marker outside the home zone while the person
 is actually home)** — the deadband layer added in 2.16.67 froze the *displayed*

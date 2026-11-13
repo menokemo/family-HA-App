@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.16.70] — 2026-11-13  ⚠️ محتاج build APK على ويندوز (تعديل نيتف)
+- **إصلاح: الموقع اللي تطبيقنا بيبعته للهوم اسيستنت غير دقيق جوه البيت.** خدمة
+  `MobileAppService` اتحوّلت من `LocationManager/GPS_PROVIDER` الخام لـ **Fused
+  Location Provider** من Google Play Services (دقة عالية داخل المباني بدمج
+  GPS + واي‑فاي + شبكة). ضفنا `play-services-location:21.0.1` كـ dependency صريح.
+
 ### [2.16.69] — 2026-11-13
 - **إصلاح: الموقع كان بيظهر غلط/قديم (العلامة برّه البيت والفرد فعلاً في البيت).**
   طبقة التثبيت كانت بتجمّد مكان العلامة. دلوقتي العلامة بتاخد آخر موقع حقيقي من
@@ -605,6 +611,13 @@
 ---
 
 ## English
+
+### [2.16.70] — 2026-11-13  ⚠️ Requires a Windows APK build (native change)
+- **Fix: location our app sends to Home Assistant is inaccurate indoors.** The
+  `MobileAppService` was switched from raw `LocationManager/GPS_PROVIDER` to the
+  **Fused Location Provider** from Google Play Services (high accuracy indoors by
+  fusing GPS + Wi‑Fi + cell). Added `play-services-location:21.0.1` as an explicit
+  dependency.
 
 ### [2.16.69] — 2026-11-13
 - **Fix: wrong/stale location (marker outside home while the person is home).**

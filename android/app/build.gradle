@@ -82,8 +82,8 @@ android {
         applicationId "com.mkdd.familyha"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 91
-        versionName "2.16.69"
+        versionCode 92
+        versionName "2.16.70"
     }
     signingConfigs {
         debug {
@@ -115,6 +115,8 @@ dependencies {
     // للبصمة في شاشة الإنذار الأصلية (AlarmActivity)
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("androidx.fragment:fragment-ktx:1.8.5")
+    // Fused Location Provider + Activity Recognition (دقة موقع عالية جوه المباني في MobileAppService)
+    implementation("com.google.android.gms:play-services-location:21.0.1")
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")

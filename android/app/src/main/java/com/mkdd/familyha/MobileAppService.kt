@@ -10,18 +10,21 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.location.Location
-import android.location.LocationListener
-import android.location.LocationManager
 import android.net.wifi.WifiManager
 import android.os.BatteryManager
 import android.os.Build
-import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.ActivityRecognition
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
@@ -54,12 +57,13 @@ class MobileAppService : Service() {
   private fun hasLocationPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
-  private val locationListener = object : LocationListener {
-    override fun onLocationChanged(location: Location) = sendLocation(location)
-    override fun onProviderEnabled(provider: String) {}
-    override fun onProviderDisabled(provider: String) {}
-    @Deprecated("Deprecated in Java")
-    override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+  private val fusedClient: FusedLocationProviderClient by lazy {
+    LocationServices.getFusedLocationProviderClient(this)
+  }
+  private val locationCallback = object : LocationCallback() {
+    override fun onLocationResult(result: LocationResult) {
+      result.lastLocation?.let { sendLocation(it) }
+    }
   }
 
   override fun onBind(intent: Intent?): IBinder? = null
@@ -134,14 +138,16 @@ class MobileAppService : Service() {
   private fun startLocationUpdates() {
     if (!useLocation) return
     try {
-      val lm = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-      val provider = when {
-        lm.isProviderEnabled(LocationManager.GPS_PROVIDER) -> LocationManager.GPS_PROVIDER
-        lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER) -> LocationManager.NETWORK_PROVIDER
-        else -> return
-      }
-      lm.requestLocationUpdates(provider, LOCATION_INTERVAL_MS, LOCATION_DISTANCE_M, locationListener, Looper.getMainLooper())
-      lm.getLastKnownLocation(provider)?.let { sendLocation(it) }
+      // Fused Location Provider من Google Play Services = دقيق جوه البيت
+      // (بيدمج GPS + واي‑فاي + شبكة)، مش زي GPS_PROVIDER الخام اللي بيبوظ داخل
+      // المباني أو بيرجّع آخر موقع قديم. نفس اللي بتستخدمه جوجل مابس والتطبيق
+      // الرسمي، فبيدي موقع مظبوط وإحنا في البيت.
+      val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, LOCATION_INTERVAL_MS)
+        .setMinUpdateDistanceMeters(LOCATION_DISTANCE_M)
+        .setMinUpdateIntervalMillis(60000L)
+        .build()
+      fusedClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper())
+      fusedClient.lastLocation.addOnSuccessListener { loc -> loc?.let { sendLocation(it) } }
     } catch (e: SecurityException) {
       // مفيش إذن موقع في الخلفية - نكمّل بالحساسات بس.
     }
@@ -236,7 +242,7 @@ class MobileAppService : Service() {
     super.onDestroy()
     ticker?.let { handler.removeCallbacks(it) }
     try {
-      (getSystemService(Context.LOCATION_SERVICE) as LocationManager).removeUpdates(locationListener)
+      fusedClient.removeLocationUpdates(locationCallback)
     } catch (e: Exception) {
     }
     try {
