@@ -6,6 +6,14 @@
 
 ## العربية
 
+### [2.16.73] — 2026-11-13  (تعديل JS — بيجي من metro)
+- **إصلاح: التطبيق كان بيسجّل نفسه كـ device_tracker كتير في HA (تكرار).** سببه إن
+  effect التسجيل كان بيتنفّذ أكتر من مرة في نفس الجلسة (سباق توقيت) قبل ما
+  الـ `webhookId` يتحفظ، وكل مرة `device_id` جديد → جهاز جديد. اتضاف **قفل تسجيل
+  واحد (single-flight ref)** فمابيسجّلش غير مرة واحدة.
+- **ميزة: زرار "إعادة تسجيل الجهاز"** في الإعدادات → معلومات التطبيق — بيمسح
+  الـ webhookId ويعيد التسجيل مرة واحدة نضيفة (للتنظيف بعد مسح النسخ المكررة من HA).
+
 ### [2.16.72] — 2026-11-13  (تعديل JS — بيجي من metro)
 - **ميزة: دعم التابلت/الوضع العرضي (المرحلة أ — الأساس).** عند عرض ≥ 700 بكسل:
   - الشريط السفلي يتحوّل **شريط جانبي رأسي (nav rail)**، والمساحة الزيادة تتفتح للمحتوى.
@@ -633,6 +641,14 @@
 ---
 
 ## English
+
+### [2.16.73] — 2026-11-13  (JS change — ships via metro)
+- **Fix: the app registered itself as a device_tracker many times in HA (duplicates).**
+  The registration effect ran more than once per session (a race) before `webhookId`
+  was persisted, and each call used a new timestamp `device_id` → a new HA device. Added
+  a **single-flight registration guard** so it registers exactly once.
+- **Feature: a "Re-register device" button** in Settings → App info — clears the stored
+  webhookId and registers once cleanly (for cleanup after deleting the duplicate trackers in HA).
 
 ### [2.16.72] — 2026-11-13  (JS change — ships via metro)
 - **Feature: tablet / landscape support (Phase A — foundation).** At width ≥ 700px:

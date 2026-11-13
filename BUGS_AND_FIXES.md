@@ -13,6 +13,17 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**التطبيق بيسجّل نفسه عشرات المرات كـ `device_tracker` في Home Assistant (أجهزة
+مكررة)** — `useEffect` بتاع تسجيل mobile_app في App.tsx كان بيعتمد على
+`currentUserId` و`allPeople.length` وبيتنفّذ أكتر من مرة وهو لسه `mobileAppWebhookId`
+فاضي، فكل تنفيذ بيعمل تسجيل جديد قبل ما الأول يتحفظ (سباق). وكمان
+`registerMobileApp` بيبعت `device_id: secure_family_${Date.now()}` — وقت مختلف كل
+مرة = جهاز جديد في HA. **الحل:** قفل **single-flight** (`mobileAppRegisteringRef`)
+بيتحط `true` بشكل متزامن قبل أول تسجيل، فأي تنفيذ تاني بيخرج فورًا — تسجيل واحد بس.
+**للتنظيف:** زرار "إعادة تسجيل الجهاز" في الإعدادات بيمسح الـ webhookId ويعيد
+التسجيل مرة واحدة؛ والنسخ القديمة تتمسح يدويًا من HA (الإعدادات → الأجهزة والخدمات
+→ Mobile App). (2.16.73)
+
 **رقم النسخة المعروض جوه التطبيق (الإعدادات → معلومات التطبيق) ثابت مهما بنينا
 APK** — الرقم ده بيتقري من `app.json` (عبر `appInfo.version` في App.tsx)، مش من
 `android/app/build.gradle`. كنا بنزوّد `versionName` في build.gradle بس، فالرقم
