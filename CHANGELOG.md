@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.16.77] — 2026-11-13  ⚠️ محتاج build APK على ويندوز (تعديل نيتف)
+- **إصلاح تذبذب المنطقة (home/away flapping):** كانت بتيجي عشرات تنبيهات دخول/خروج
+  وهمية من البيت وإحنا واقفين. `handleLocation` دلوقتي بيرفض الـ fixes ضعيفة الدقة
+  (>100م) ومابيبعتش موقع إلا لو الحركة أكبر من ضوضاء GPS (max(الدقة, 30م)).
+
 ### [2.16.76] — 2026-11-13  ⚠️ محتاج build APK على ويندوز (تعديل نيتف)
 - **سينسورز إضافية (5):** Geocoded Location (العنوان بالكلمات)، Wi-Fi BSSID (راوتر
   الواي‌فاي للحضور الدقيق)، Ringer Mode (عادي/يهتز/صامت)، Do Not Disturb، وScreen On.
@@ -664,6 +669,17 @@
 ---
 
 ## English
+
+### [2.16.77] — 2026-11-13  ⚠️ Requires a Windows APK build (native change)
+- **Fix home/away zone flapping:** dozens of false "left/arrived home" alerts while
+  stationary. `handleLocation` now drops low-accuracy fixes (>65m) and won't report
+  a new position unless movement exceeds GPS noise (max(accuracy, 30m)).
+
+### [2.16.76] — 2026-11-13  ⚠️ Requires a Windows APK build (native change)
+- **Extra sensors (5):** Geocoded Location, Wi-Fi BSSID, Ringer Mode, Do Not Disturb,
+  Screen On — 18 sensors total. (Geocoding runs on a background thread.)
+- **Find My Device note:** Google's offline-finding network is closed to third-party
+  apps; the realistic alternative (deferred) is offline location queuing.
 
 ### [2.16.75] — 2026-11-13  ⚠️ Requires a Windows APK build (native change)
 - **Device sensors (13 total):** the app registered only 2 before; it now

@@ -77,7 +77,7 @@ class MobileAppService : Service() {
   }
   private val locationCallback = object : LocationCallback() {
     override fun onLocationResult(result: LocationResult) {
-      result.lastLocation?.let { sendLocation(it) }
+      result.lastLocation?.let { handleLocation(it) }
     }
   }
 
@@ -262,6 +262,21 @@ class MobileAppService : Service() {
         response.close()
       }
     })
+  }
+
+  // يفلتر قراءات الموقع عشان يمنع تذبذب المناطق (home/away flapping):
+  // - بيرفض الـ fixes ضعيفة الدقة (fix وحش ممكن يرمي الموقع برّه المنطقة).
+  // - مابيبعتش موقع جديد إلا لو الحركة أكبر من ضوضاء GPS فعلاً (مش اهتزاز وإحنا
+  //   واقفين في مكاننا).
+  private fun handleLocation(loc: Location) {
+    if (loc.hasAccuracy() && loc.accuracy > MAX_ACCURACY_M) return
+    val last = lastLocation
+    if (last != null) {
+      val moved = last.distanceTo(loc)
+      val noise = maxOf(loc.accuracy, if (last.hasAccuracy()) last.accuracy else 0f)
+      if (moved < maxOf(noise, MIN_REPORT_MOVE_M)) return
+    }
+    sendLocation(loc)
   }
 
   private fun sendLocation(location: Location) {
@@ -546,6 +561,8 @@ class MobileAppService : Service() {
     private const val FAST_FASTEST_MS = 5000L
     private const val LIVE_TTL_MS = 120000L
     private const val LOCATION_DISTANCE_M = 40f
+    private const val MAX_ACCURACY_M = 65f
+    private const val MIN_REPORT_MOVE_M = 30f
     private const val SENSOR_INTERVAL_MS = 900000L
     private const val ACTIVITY_INTERVAL_MS = 120000L
   }

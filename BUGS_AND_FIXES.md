@@ -13,6 +13,15 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**تذبذب المنطقة: 50 تنبيه دخول/خروج وهمي من البيت وإحنا واقفين في مكاننا
+(home/away flapping)** — GPS جوه المباني بيتأرجح حوالين حافة منطقة "البيت"،
+والخدمة كانت بتبعت كل fix (وفي الوضع السريع distanceFilter=0)، فالـ device_tracker
+بيقلب home ↔ not_home كذا مرة والتنبيهات بتنهال. **الحل (native):** `handleLocation`
+قبل الإرسال — (1) بيرفض أي fix دقته أسوأ من 65م، (2) مابيبعتش موقع جديد إلا لو
+الحركة أكبر من `max(ضوضاء الـ GPS, 30م)`، فاهتزاز الوقوف مابيتبعتش. **مكمّل على
+جهة HA:** زوّد نصف قطر منطقة Home (مثلاً 150م) وحط `for: 00:02:00` على أتمتة
+التنبيه. (2.16.77)
+
 **التطبيق بيسجّل نفسه عشرات المرات كـ `device_tracker` في Home Assistant (أجهزة
 مكررة)** — `useEffect` بتاع تسجيل mobile_app في App.tsx كان بيعتمد على
 `currentUserId` و`allPeople.length` وبيتنفّذ أكتر من مرة وهو لسه `mobileAppWebhookId`
