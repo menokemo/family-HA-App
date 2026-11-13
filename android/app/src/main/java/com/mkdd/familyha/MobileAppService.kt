@@ -7,15 +7,20 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.location.Location
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
 import android.os.BatteryManager
 import android.os.Build
+import android.os.Environment
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.StatFs
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.ActivityRecognition
@@ -25,6 +30,9 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
@@ -263,31 +271,66 @@ class MobileAppService : Service() {
   private fun registerSensors() {
     if (sensorsRegistered) return
     sensorsRegistered = true
-    registerSensor("battery_level", "Battery Level", batteryLevel().toString(), "battery", "%", "mdi:battery")
-    registerSensor("battery_state", "Battery State", if (batteryCharging()) "Charging" else "Not charging", null, null, "mdi:battery-charging")
+    // مجموعة سينسورز مفيدة (زي التطبيق الأصلي بس بالمفيد منها) — بطارية وشحن
+    // واتصال وتخزين. بتتحدّث دوريًا في updateSensors.
+    registerSensor("battery_level", "Battery Level", batteryLevel().toString(), "battery", "%", "mdi:battery", stateClass = "measurement")
+    registerSensor("battery_state", "Battery State", batteryState(), null, null, "mdi:battery-charging")
+    registerSensor("is_charging", "Charging", if (batteryCharging()) "on" else "off", "battery_charging", null, "mdi:power-plug", type = "binary_sensor")
+    registerSensor("charger_type", "Charger Type", chargerType(), null, null, "mdi:power-plug")
+    registerSensor("battery_health", "Battery Health", batteryHealth(), null, null, "mdi:heart-pulse")
+    registerSensor("battery_temperature", "Battery Temperature", batteryTemp().toString(), "temperature", "°C", "mdi:thermometer", stateClass = "measurement")
+    registerSensor("network_type", "Network Type", networkType(), null, null, "mdi:network")
     registerSensor("wifi_connection", "Wi-Fi Connection", wifiSsid(), null, null, "mdi:wifi")
+    registerSensor("wifi_signal_strength", "Wi-Fi Signal", wifiSignal().toString(), "signal_strength", "dBm", "mdi:wifi", stateClass = "measurement")
+    registerSensor("storage_free", "Storage Free", storageFreeGb().toString(), null, "GB", "mdi:harddisk", stateClass = "measurement")
+    registerSensor("last_update", "Last Update", nowIso(), "timestamp", null, "mdi:clock-outline")
+    registerSensor("app_version", "App Version", appVersionName(), null, null, "mdi:information-outline")
     registerSensor("detected_activity", "Activity", "Unknown", null, null, "mdi:run")
   }
 
-  private fun registerSensor(uniqueId: String, name: String, state: String, deviceClass: String?, unit: String?, icon: String) {
+  private fun registerSensor(
+    uniqueId: String,
+    name: String,
+    state: String,
+    deviceClass: String?,
+    unit: String?,
+    icon: String,
+    type: String = "sensor",
+    stateClass: String? = null,
+  ) {
     val data = JSONObject()
       .put("unique_id", uniqueId)
       .put("name", name)
-      .put("type", "sensor")
+      .put("type", type)
       .put("state", state)
       .put("icon", icon)
     if (deviceClass != null) data.put("device_class", deviceClass)
     if (unit != null) data.put("unit_of_measurement", unit)
+    if (stateClass != null) data.put("state_class", stateClass)
     post(JSONObject().put("type", "register_sensor").put("data", data))
   }
 
+  private fun sensorState(uniqueId: String, state: Any, icon: String): JSONObject =
+    JSONObject().put("unique_id", uniqueId).put("state", state).put("icon", icon)
+
   private fun updateSensors() {
     val states = JSONArray()
-      .put(JSONObject().put("unique_id", "battery_level").put("state", batteryLevel()).put("icon", "mdi:battery"))
-      .put(JSONObject().put("unique_id", "battery_state").put("state", if (batteryCharging()) "Charging" else "Not charging").put("icon", "mdi:battery-charging"))
-      .put(JSONObject().put("unique_id", "wifi_connection").put("state", wifiSsid()).put("icon", "mdi:wifi"))
+      .put(sensorState("battery_level", batteryLevel(), "mdi:battery"))
+      .put(sensorState("battery_state", batteryState(), "mdi:battery-charging"))
+      .put(sensorState("is_charging", if (batteryCharging()) "on" else "off", "mdi:power-plug"))
+      .put(sensorState("charger_type", chargerType(), "mdi:power-plug"))
+      .put(sensorState("battery_health", batteryHealth(), "mdi:heart-pulse"))
+      .put(sensorState("battery_temperature", batteryTemp(), "mdi:thermometer"))
+      .put(sensorState("network_type", networkType(), "mdi:network"))
+      .put(sensorState("wifi_connection", wifiSsid(), "mdi:wifi"))
+      .put(sensorState("wifi_signal_strength", wifiSignal(), "mdi:wifi"))
+      .put(sensorState("storage_free", storageFreeGb(), "mdi:harddisk"))
+      .put(sensorState("last_update", nowIso(), "mdi:clock-outline"))
     post(JSONObject().put("type", "update_sensor_states").put("data", states))
   }
+
+  private fun batteryIntent(): Intent? =
+    registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
 
   private fun batteryLevel(): Int {
     val bm = getSystemService(Context.BATTERY_SERVICE) as BatteryManager
@@ -298,6 +341,86 @@ class MobileAppService : Service() {
   private fun batteryCharging(): Boolean {
     val bm = getSystemService(Context.BATTERY_SERVICE) as BatteryManager
     return bm.isCharging
+  }
+
+  private fun batteryState(): String {
+    return when (batteryIntent()?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1) {
+      BatteryManager.BATTERY_STATUS_CHARGING -> "Charging"
+      BatteryManager.BATTERY_STATUS_DISCHARGING -> "Discharging"
+      BatteryManager.BATTERY_STATUS_FULL -> "Full"
+      BatteryManager.BATTERY_STATUS_NOT_CHARGING -> "Not charging"
+      else -> "Unknown"
+    }
+  }
+
+  private fun chargerType(): String {
+    return when (batteryIntent()?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0) {
+      BatteryManager.BATTERY_PLUGGED_AC -> "AC"
+      BatteryManager.BATTERY_PLUGGED_USB -> "USB"
+      BatteryManager.BATTERY_PLUGGED_WIRELESS -> "Wireless"
+      else -> "None"
+    }
+  }
+
+  private fun batteryHealth(): String {
+    return when (batteryIntent()?.getIntExtra(BatteryManager.EXTRA_HEALTH, -1) ?: -1) {
+      BatteryManager.BATTERY_HEALTH_GOOD -> "Good"
+      BatteryManager.BATTERY_HEALTH_OVERHEAT -> "Overheat"
+      BatteryManager.BATTERY_HEALTH_DEAD -> "Dead"
+      BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE -> "Over voltage"
+      BatteryManager.BATTERY_HEALTH_COLD -> "Cold"
+      else -> "Unknown"
+    }
+  }
+
+  private fun batteryTemp(): Int {
+    val t = batteryIntent()?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0
+    return t / 10
+  }
+
+  private fun networkType(): String {
+    return try {
+      val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+      val caps = cm.getNetworkCapabilities(cm.activeNetwork)
+      when {
+        caps == null -> "None"
+        caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
+        caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "Cellular"
+        caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
+        else -> "Other"
+      }
+    } catch (e: Exception) {
+      "Unknown"
+    }
+  }
+
+  private fun wifiSignal(): Int {
+    return try {
+      val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+      @Suppress("DEPRECATION")
+      wm.connectionInfo.rssi
+    } catch (e: Exception) {
+      0
+    }
+  }
+
+  private fun storageFreeGb(): Long {
+    return try {
+      StatFs(Environment.getDataDirectory().path).availableBytes / (1000L * 1000L * 1000L)
+    } catch (e: Exception) {
+      0L
+    }
+  }
+
+  private fun nowIso(): String =
+    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(Date())
+
+  private fun appVersionName(): String {
+    return try {
+      packageManager.getPackageInfo(packageName, 0).versionName ?: ""
+    } catch (e: Exception) {
+      ""
+    }
   }
 
   private fun wifiSsid(): String {

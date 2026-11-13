@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.16.75] — 2026-11-13  ⚠️ محتاج build APK على ويندوز (تعديل نيتف)
+- **سينسورز الجهاز (13 سينسور):** التطبيق كان بيسجّل 2 بس؛ دلوقتي بيسجّل مجموعة
+  مفيدة زي التطبيق الأصلي: مستوى البطارية، حالتها، بيتشحن؟، نوع الشاحن، صحة
+  البطارية، حرارتها، نوع الشبكة، الواي‌فاي، قوة إشارة الواي‌فاي، التخزين الفاضي،
+  آخر تحديث، نسخة التطبيق، والنشاط. بتتحدّث دوريًا.
+- بتظهر كلها تحت جهاز الموبايل في HA وفي `sensor.secure_family_devices`.
+
 ### [2.16.74] — 2026-11-13  (تعديل JS — بيجي من metro)
 - **اسم جهاز واضح + قابل للتعديل:** التطبيق بيسجّل كل موبايل بـ `app_id=secure_family`
   و`manufacturer/model = Secure Family`، و`device_name` = **فريندلي نيم** تقدر تعدّله
@@ -649,6 +656,14 @@
 ---
 
 ## English
+
+### [2.16.75] — 2026-11-13  ⚠️ Requires a Windows APK build (native change)
+- **Device sensors (13 total):** the app registered only 2 before; it now
+  registers a useful set like the official app: battery level, state, charging,
+  charger type, battery health, temperature, network type, Wi-Fi SSID, Wi-Fi
+  signal strength, free storage, last update, app version, and activity. Updated
+  periodically.
+- They appear under the phone's device in HA and in `sensor.secure_family_devices`.
 
 ### [2.16.74] — 2026-11-13  (JS change — ships via metro)
 - **Clear, editable device name:** the app registers each phone with
