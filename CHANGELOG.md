@@ -6,6 +6,9 @@
 
 ## العربية
 
+### [2.16.79] — 2026-11-13  (تعديل JS — بيجي من metro)
+- **نقل "اسم الجهاز" وزرار إعادة التسجيل** من "معلومات التطبيق" لقسم جديد **"هذا الجهاز"** في الإعدادات العامة، مع توضيح إن إعادة التسجيل للطوارئ/التحويل مرة واحدة بس — مش استخدام يومي (التطبيق بيحفظ التسجيل).
+
 ### [2.16.78] — 2026-11-13  ⚠️ محتاج build APK على ويندوز (تعديل نيتف)
 - **إصلاح: بعد إعادة التسجيل الموبايل كان بيظهر بـ entity واحد بس (من غير سينسورز).** فلاج `sensorsRegistered` كان بيفضل true فمايعيدش تسجيل السينسورز للـ webhook الجديد؛ دلوقتي بنرجّعه false لما الـ webhook يتغير.
 
@@ -672,6 +675,9 @@
 ---
 
 ## English
+
+### [2.16.79] — 2026-11-13  (JS change — ships via metro)
+- **Moved "Device name" and the re-register button** from App info to a new **"This device"** section in general settings, with a hint that re-registration is a one-time/recovery action, not routine (the app saves its registration).
 
 ### [2.16.78] — 2026-11-13  ⚠️ Requires a Windows APK build (native change)
 - **Fix: after re-registration the phone showed only one entity (no sensors).** The `sensorsRegistered` flag stayed true, so sensors weren't re-registered for the new webhook; it's now reset whenever the webhook changes.
