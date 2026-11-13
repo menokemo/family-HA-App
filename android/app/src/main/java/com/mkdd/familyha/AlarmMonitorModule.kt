@@ -99,6 +99,26 @@ class AlarmMonitorModule(private val reactContext: ReactApplicationContext) :
     }
   }
 
+  // بيبدّل الوضع اللايف لخدمة الموقع: لما فرد تاني بيتفرّج على موقعي، نبعت
+  // سريع (كل ~10 ثواني) لمدة ttlMs ثم نرجع عادي تلقائيًا لتوفير البطارية.
+  @ReactMethod
+  fun setLocationMode(fast: Boolean, ttlMs: Double, promise: Promise) {
+    try {
+      val intent = Intent(reactContext, MobileAppService::class.java)
+      intent.action = MobileAppService.ACTION_SET_MODE
+      intent.putExtra(MobileAppService.EXTRA_LIVE, fast)
+      intent.putExtra(MobileAppService.EXTRA_TTL_MS, ttlMs.toLong())
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        reactContext.startForegroundService(intent)
+      } else {
+        reactContext.startService(intent)
+      }
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("mobileapp_failed", e.message, e)
+    }
+  }
+
   @ReactMethod
   fun openOverlaySettings(promise: Promise) {
     try {

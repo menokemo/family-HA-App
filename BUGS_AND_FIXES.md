@@ -13,6 +13,17 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**نشر التحديثات عبر Google Drive بيبوّظ الـ git bundle (فشل `index-pack` /
+`inflate: data stream error`)** — سكربت النشر بيحمّل الـ bundle بـ
+`curl "drive.google.com/uc?export=download"`. لما الملف متخزّن على Drive كـ
+`text/plain`، مسار التقديم بتاع الرابط ده بيعدّل البايتات الثنائية (حتى لو الحجم
+زي ما هو)، فالـ pack بيتكسر وقت التطبيق. التحقق بـ MCP (alt=media) بينجح لأنه
+بيقرا البايتات الخام، فالمشكلة بتظهر بس على السيرفر. **الحل المؤكد 100%:** رفع
+الـ bundle كـ **`application/octet-stream`** مع `disableConversionToGoogleType`
+وباستخدام **file reference** (`sha256:<hash>:<path>`) بدل لصق base64 بإيد — ده
+بيرفع البايتات الأصلية بالظبط من غير أي أخطاء كتابة. وفي أمر النشر: فحص
+`sha256sum -c` **قبل** أي `git` عشان يوقف فورًا لو حصل تبويظ. (بنية النشر)
+
 **الموقع اللي تطبيقنا بيبعته للهوم اسيستنت غير دقيق جوه البيت (العلامة برّه
 المنطقة)** — خدمة `MobileAppService` النيتف كانت بتاخد الموقع من
 `LocationManager` بـ `GPS_PROVIDER` الخام. ده بيبوظ **داخل المباني** (إشارة GPS

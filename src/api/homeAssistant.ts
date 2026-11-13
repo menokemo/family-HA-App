@@ -53,6 +53,19 @@ async function request(settings: ConnectionSettings, path: string, init?: Reques
 export async function testConnection(settings: ConnectionSettings): Promise<void> { await request(settings, '/api/'); }
 export async function getStates(settings: ConnectionSettings): Promise<HaEntity[]> { return (await request(settings, '/api/states')).json() as Promise<HaEntity[]>; }
 
+// يطلق حدثًا على ناقل أحداث Home Assistant. أي جهاز مشترك في الحدث ده عبر
+// WebSocket بيستقبله فورًا.
+export async function fireEvent(settings: ConnectionSettings, eventType: string, data?: Record<string, unknown>): Promise<void> {
+  await request(settings, `/api/events/${eventType}`, { method: 'POST', body: JSON.stringify(data ?? {}) });
+}
+
+// يطلب من جهاز فرد معيّن إنه يدخل الوضع اللايف (يبعت موقعه بسرعة). بيُرسل وقت
+// فتح كارت الشخص وكل فترة طول ما مفتوح؛ جهاز الفرد بيرجع عادي تلقائيًا بعد ما
+// النبضات تقف.
+export async function requestLiveLocation(settings: ConnectionSettings, entityId: string): Promise<void> {
+  await fireEvent(settings, 'familyha_live_request', { entity_id: entityId });
+}
+
 export async function callOnvifPtz(settings: ConnectionSettings, entityId: string, data: Record<string, unknown>): Promise<void> {
   await request(settings, '/api/services/onvif/ptz', { method: 'POST', body: JSON.stringify({ entity_id: entityId, ...data }) });
 }

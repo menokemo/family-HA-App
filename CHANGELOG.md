@@ -6,6 +6,18 @@
 
 ## العربية
 
+### [2.16.71] — 2026-11-13  ⚠️ محتاج build APK على ويندوز (تعديل نيتف)
+- **ميزة: الموقع اللايف عند الطلب (زي Google Find Hub / Life360).** أول ما تفتح
+  كارت أي فرد على الخريطة، تطبيقك بيطلب من موبايله يدخل **الوضع اللايف** (يبعت
+  موقعه كل ~10 ثواني بدل كل دقيقتين)، والخريطة بتحدّثه لحظيًا عبر WebSocket.
+  لما تقفل الكارت، موبايله بيرجع للوضع العادي تلقائيًا بعد دقيقتين (توفير بطارية).
+  - قناة الإشارة: حدث HA `familyha_live_request` بيحمل `entity_id` بتاع الفرد؛
+    كل جهاز بيقارنه بـ `selectedPersonId` بتاعه فيعرف إن الطلب ليه.
+  - الخدمة النيتف `MobileAppService`: وضع سريع/بطيء + رجوع تلقائي بمؤقّت؛ كل
+    نبضة طلب بتجدّد المؤقّت. أمر جديد `setLocationMode(fast, ttlMs)` في الـ bridge.
+  - احترام الخصوصية: الوضع اللايف مابيشتغلش غير لو الفرد مفعّل "شارك موقعك".
+  - شارة **LIVE** حمرا بتظهر على كارت الفرد اللي بتتفرّج على موقعه لايف.
+
 ### [2.16.70] — 2026-11-13  ⚠️ محتاج build APK على ويندوز (تعديل نيتف)
 - **إصلاح: الموقع اللي تطبيقنا بيبعته للهوم اسيستنت غير دقيق جوه البيت.** خدمة
   `MobileAppService` اتحوّلت من `LocationManager/GPS_PROVIDER` الخام لـ **Fused
@@ -611,6 +623,19 @@
 ---
 
 ## English
+
+### [2.16.71] — 2026-11-13  ⚠️ Requires a Windows APK build (native change)
+- **Feature: on-demand live location (like Google Find Hub / Life360).** Opening
+  a family member's card on the map asks their phone to enter **live mode**
+  (push location every ~10s instead of every 2 min); the map updates in real time
+  over WebSocket. Closing the card reverts their phone to normal after 2 minutes
+  (battery saving).
+  - Signalling: HA event `familyha_live_request` carrying the member's
+    `entity_id`; each device compares it to its own `selectedPersonId`.
+  - Native `MobileAppService`: fast/slow mode + timed auto-revert; each request
+    heartbeat refreshes the timer. New bridge method `setLocationMode(fast, ttlMs)`.
+  - Privacy: live mode only engages if the member has "Share your location" on.
+  - A red **LIVE** badge shows on the card of the member you're viewing live.
 
 ### [2.16.70] — 2026-11-13  ⚠️ Requires a Windows APK build (native change)
 - **Fix: location our app sends to Home Assistant is inaccurate indoors.** The

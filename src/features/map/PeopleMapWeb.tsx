@@ -4,7 +4,7 @@ import { WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
-import { absoluteHaUrl, authHeaders, getPersonHistory } from '../../api/homeAssistant';
+import { absoluteHaUrl, authHeaders, getPersonHistory, requestLiveLocation } from '../../api/homeAssistant';
 import { useTheme, type Palette } from '../../theme';
 import { i18n } from '../../i18n';
 import { requestLocationPermission, watchLiveLocation, type LiveLocation } from '../../native/liveLocation';
@@ -320,6 +320,21 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
   useEffect(() => {
     if (liveLocation) webRef.current?.injectJavaScript(`window.setMe && window.setMe(${liveLocation.longitude},${liveLocation.latitude}); true;`);
   }, [liveLocation?.latitude, liveLocation?.longitude]);
+
+  // ====== طلب الموقع اللايف للشخص المختار (زي Find Hub) ======
+  // أول ما تفتح كارت شخص (غير نفسك)، نطلب من موبايله يدخل الوضع اللايف (يبعت
+  // موقعه كل ~10 ثواني)، ونكرّر الطلب كل دقيقة طول ما الكارت مفتوح. موبايله
+  // بيرجع عادي تلقائيًا بعد ما الطلبات تقف (توفير بطارية).
+  const liveActive = !!selected && selected.entity_id !== me?.entity_id;
+  useEffect(() => {
+    if (!liveActive || !selected) return;
+    const target = selected.entity_id;
+    const ping = () => void requestLiveLocation(settings, target).catch(() => undefined);
+    ping();
+    const t = setInterval(ping, 60000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveActive, selected?.entity_id]);
 
   // ====== المسار من موقعي للشخص المختار (قيادة/مشي/دراجة) ======
   // نقرّب لـ 4 خانات (~11م) عشان تشويش الـ GPS الصغير ما يعيدش طلب المسار كل شوية.
@@ -645,9 +660,17 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
                     )}
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={s.rowName} numberOfLines={1}>
-                      {String(p.attributes.friendly_name ?? p.entity_id)}
-                    </Text>
+                    <View style={s.rowNameLine}>
+                      <Text style={s.rowName} numberOfLines={1}>
+                        {String(p.attributes.friendly_name ?? p.entity_id)}
+                      </Text>
+                      {isSel && me && p.entity_id !== me.entity_id ? (
+                        <View style={s.liveBadge}>
+                          <View style={s.liveDot} />
+                          <Text style={s.liveText}>{i18n.t('live')}</Text>
+                        </View>
+                      ) : null}
+                    </View>
                     <View style={s.rowPlaceLine}>
                       {mo?.moving ? <Ionicons name={mo.speed >= 25 ? 'car' : 'walk'} size={12} color={colors.primary} /> : null}
                       <Text style={s.rowPlace} numberOfLines={1}>
@@ -997,6 +1020,10 @@ function makeStyles(colors: Palette) {
     rowAvatar: { width: '100%', height: '100%', borderRadius: 22 },
     avatarFallback: { backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
     rowName: { color: colors.text, fontSize: 16, fontWeight: '800' },
+    rowNameLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.danger, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+    liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#fff' },
+    liveText: { color: '#fff', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
     rowPlaceLine: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
     rowPlace: { color: colors.muted, fontSize: 12.5, flex: 1 },
     rowBattery: { alignItems: 'center', gap: 2, minWidth: 42 },

@@ -53,6 +53,9 @@ class MobileAppService : Service() {
   private var webhookId = ""
   private var reportLocation = false
   private var useLocation = false
+  private var started = false
+  private var fastMode = false
+  private var liveRevert: Runnable? = null
 
   private fun hasLocationPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -69,6 +72,18 @@ class MobileAppService : Service() {
   override fun onBind(intent: Intent?): IBinder? = null
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    // أمر تبديل الوضع اللايف (عند الطلب من فرد تاني بيتفرّج على موقعي): مابنعملش
+    // إعادة تهيئة كاملة — بس بنتأكد إن الخدمة شغّالة وبعدين نبدّل سرعة التحديث.
+    if (intent?.action == ACTION_SET_MODE) {
+      ensureStarted()
+      // لازم نستوفي عقد startForegroundService (نداء startForeground كل دورة)
+      // حتى لو الخدمة شغّالة أصلاً — إعادة نشر نفس الإشعار بلا ضرر.
+      startAsForeground()
+      val fast = intent.getBooleanExtra(EXTRA_LIVE, false)
+      val ttl = intent.getLongExtra(EXTRA_TTL_MS, LIVE_TTL_MS)
+      applyLocationMode(fast, ttl)
+      return START_STICKY
+    }
     baseUrl = intent?.getStringExtra("baseUrl")?.ifEmpty { baseUrl } ?: baseUrl
     webhookId = intent?.getStringExtra("webhookId")?.ifEmpty { webhookId } ?: webhookId
     reportLocation = intent?.getBooleanExtra("reportLocation", reportLocation) ?: reportLocation
@@ -87,7 +102,25 @@ class MobileAppService : Service() {
     startLocationUpdates()
     startActivityUpdates()
     startTicker()
+    started = true
     return START_STICKY
+  }
+
+  // بيتأكد إن الخدمة مهيّأة وشغّالة. بيُستدعى لما يوصل أمر لايف والخدمة لسه
+  // ماشتغلتش عادي (مثلاً النظام أعاد إنشاءها) — بيقرأ الإعدادات من التخزين.
+  private fun ensureStarted() {
+    if (started) return
+    val prefs = getSharedPreferences("mobile_app", Context.MODE_PRIVATE)
+    if (baseUrl.isEmpty()) baseUrl = prefs.getString("baseUrl", "") ?: ""
+    if (webhookId.isEmpty()) webhookId = prefs.getString("webhookId", "") ?: ""
+    reportLocation = true
+    useLocation = hasLocationPermission()
+    startAsForeground()
+    registerSensors()
+    startLocationUpdates()
+    startActivityUpdates()
+    startTicker()
+    started = true
   }
 
   private fun activityPendingIntent(): PendingIntent {
@@ -142,14 +175,54 @@ class MobileAppService : Service() {
       // (بيدمج GPS + واي‑فاي + شبكة)، مش زي GPS_PROVIDER الخام اللي بيبوظ داخل
       // المباني أو بيرجّع آخر موقع قديم. نفس اللي بتستخدمه جوجل مابس والتطبيق
       // الرسمي، فبيدي موقع مظبوط وإحنا في البيت.
-      val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, LOCATION_INTERVAL_MS)
-        .setMinUpdateDistanceMeters(LOCATION_DISTANCE_M)
-        .setMinUpdateIntervalMillis(60000L)
+      // الوضع اللايف (fastMode): تحديث كل ~10 ثواني لما فرد بيتفرّج على موقعي؛
+      // الوضع العادي: كل دقيقتين لتوفير البطارية.
+      val interval = if (fastMode) FAST_INTERVAL_MS else LOCATION_INTERVAL_MS
+      val fastest = if (fastMode) FAST_FASTEST_MS else NORMAL_FASTEST_MS
+      val distance = if (fastMode) 0f else LOCATION_DISTANCE_M
+      val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, interval)
+        .setMinUpdateDistanceMeters(distance)
+        .setMinUpdateIntervalMillis(fastest)
         .build()
       fusedClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper())
       fusedClient.lastLocation.addOnSuccessListener { loc -> loc?.let { sendLocation(it) } }
     } catch (e: SecurityException) {
       // مفيش إذن موقع في الخلفية - نكمّل بالحساسات بس.
+    }
+  }
+
+  // بيعيد تسجيل تحديثات الموقع بالوضع الحالي (بيشيل القديم الأول عشان مايبقاش
+  // في أكتر من اشتراك).
+  private fun restartLocationUpdates() {
+    if (!useLocation) return
+    try {
+      fusedClient.removeLocationUpdates(locationCallback)
+    } catch (e: Exception) {
+    }
+    startLocationUpdates()
+  }
+
+  // بيبدّل بين الوضع اللايف والعادي. كل نبضة لايف بتعيد ضبط مؤقّت الرجوع، فالوضع
+  // اللايف بيفضل طول ما الفرد بيتفرّج + ttl بعد آخر نبضة ثم يرجع عادي تلقائيًا.
+  private fun applyLocationMode(fast: Boolean, ttlMs: Long) {
+    liveRevert?.let { handler.removeCallbacks(it) }
+    liveRevert = null
+    if (fast) {
+      if (!fastMode) {
+        fastMode = true
+        restartLocationUpdates()
+        fusedClient.lastLocation.addOnSuccessListener { loc -> loc?.let { sendLocation(it) } }
+      }
+      val revert = Runnable {
+        fastMode = false
+        restartLocationUpdates()
+        liveRevert = null
+      }
+      liveRevert = revert
+      handler.postDelayed(revert, ttlMs)
+    } else if (fastMode) {
+      fastMode = false
+      restartLocationUpdates()
     }
   }
 
@@ -241,6 +314,7 @@ class MobileAppService : Service() {
   override fun onDestroy() {
     super.onDestroy()
     ticker?.let { handler.removeCallbacks(it) }
+    liveRevert?.let { handler.removeCallbacks(it) }
     try {
       fusedClient.removeLocationUpdates(locationCallback)
     } catch (e: Exception) {
@@ -252,9 +326,16 @@ class MobileAppService : Service() {
   }
 
   companion object {
+    const val ACTION_SET_MODE = "com.mkdd.familyha.action.SET_LOCATION_MODE"
+    const val EXTRA_LIVE = "live"
+    const val EXTRA_TTL_MS = "ttlMs"
     private const val CHANNEL = "mobile_app_report"
     private const val NOTIF_ID = 7731
     private const val LOCATION_INTERVAL_MS = 120000L
+    private const val NORMAL_FASTEST_MS = 60000L
+    private const val FAST_INTERVAL_MS = 10000L
+    private const val FAST_FASTEST_MS = 5000L
+    private const val LIVE_TTL_MS = 120000L
     private const val LOCATION_DISTANCE_M = 40f
     private const val SENSOR_INTERVAL_MS = 900000L
     private const val ACTIVITY_INTERVAL_MS = 120000L

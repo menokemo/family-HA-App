@@ -90,3 +90,10 @@ export function stopMobileAppReporting(): Promise<boolean> {
   const n = NativeModules.AlarmMonitor as (AlarmMonitorNative & { stopMobileApp?: () => Promise<boolean> }) | undefined;
   return n?.stopMobileApp?.() ?? Promise.resolve(false);
 }
+
+// الوضع اللايف: لما فرد تاني بيتفرّج على موقعي، نخلّي الخدمة النيتف تبعت موقعي
+// بسرعة (كل ~10 ثواني) لمدة ttlMs ثم ترجع عادي تلقائيًا. كل نبضة بتجدّد المدة.
+export function setLocationMode(fast: boolean, ttlMs: number): Promise<boolean> {
+  const n = NativeModules.AlarmMonitor as (AlarmMonitorNative & { setLocationMode?: (f: boolean, t: number) => Promise<boolean> }) | undefined;
+  return n?.setLocationMode?.(fast, ttlMs) ?? Promise.resolve(false);
+}
