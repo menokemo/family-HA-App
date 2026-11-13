@@ -207,11 +207,15 @@ export async function registerMobileApp(
   settings: ConnectionSettings,
   deviceName: string,
   appVersion: string,
-): Promise<string | undefined> {
+): Promise<{ webhookId?: string; deviceId: string }> {
+  // بنولّد device_id ثابت ونخزّنه — ده معرّف الجهاز في سجل أجهزة HA
+  // (identifiers = ["mobile_app", deviceId])، وبنستخدمه بعد كده عشان نعيد
+  // تسمية نفس الجهاز بدقة من غير ما نعمل جهاز جديد.
+  const deviceId = `secure_family_${Date.now()}`;
   const res = await request(settings, '/api/mobile_app/registrations', {
     method: 'POST',
     body: JSON.stringify({
-      device_id: `secure_family_${Date.now()}`,
+      device_id: deviceId,
       app_id: 'secure_family',
       app_name: 'Secure Family',
       app_version: appVersion,
@@ -224,11 +228,12 @@ export async function registerMobileApp(
     }),
   });
   const json = (await res.json()) as { webhook_id?: string };
-  return json.webhook_id;
+  return { webhookId: json.webhook_id, deviceId };
 }
 
-// يحدّث تسجيل mobile_app القائم (مثلاً تغيير اسم الجهاز) من غير ما يعمل جهاز
-// جديد — بيكلّم webhook التسجيل نفسه.
+// يحدّث تسجيل mobile_app القائم (مثلاً إصدار التطبيق) عبر webhook الجهاز.
+// ملاحظة: HA مابيعيدش تسمية جهاز قائم بموثوقية عن طريق ده — لتغيير الاسم
+// استخدم renameMobileAppDevice (سجل الأجهزة) بدلها.
 export async function updateRegistration(
   settings: ConnectionSettings,
   webhookId: string,
@@ -238,6 +243,29 @@ export async function updateRegistration(
     method: 'POST',
     body: JSON.stringify({ type: 'update_registration', data }),
   });
+}
+
+// إعادة تسمية جهاز الموبايل في HA بموثوقية — بيحط name_by_user في سجل
+// الأجهزة (نفس اللي بيعمله HA لما تعيد التسمية يدويًا)، من غير ما يعمل جهاز
+// جديد ولا بقايا. بيدوّر على الجهاز بالـ identifier ["mobile_app", deviceId].
+// بيتطلب صلاحية أدمن (المستخدم اللي عامل التطبيق أدمن). بيرجّع true لو نجح.
+export async function renameMobileAppDevice(
+  settings: ConnectionSettings,
+  deviceId: string,
+  name: string,
+): Promise<boolean> {
+  try {
+    const devices = (await wsCommand(settings, { type: 'config/device_registry/list' })) as Array<{
+      id: string;
+      identifiers?: [string, string][];
+    }>;
+    const match = devices.find(d => (d.identifiers ?? []).some(([domain, id]) => domain === 'mobile_app' && id === deviceId));
+    if (!match) return false;
+    await wsCommand(settings, { type: 'config/device_registry/update', device_id: match.id, name_by_user: name });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // إرسال تحديث الموقع (والبطارية لو متاحة) للـwebhook بتاع الجهاز. مفيش توكن

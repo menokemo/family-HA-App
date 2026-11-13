@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.16.80] — 2026-11-14  (تعديل JS — بيجي من metro)
+- **إصلاح: تغيير اسم الجهاز ماكانش بيتطبّق في HA + كان بيعمل جهاز مكرر.** السبب: `update_registration` في HA مابيعيدش تسمية جهاز قائم بموثوقية، وأي إعادة تسجيل بتعمل جهاز جديد (تصميم HA). دلوقتي:
+  - **إعادة التسمية موثوقة** عبر `config/device_registry/update` (نفس اللي HA بيعمله يدويًا — بيحط `name_by_user`)، فورية، من غير جهاز جديد ولا بقايا. بتتطلب صلاحية أدمن؛ لو مش أدمن بيرجع لـ `update_registration` كـ best-effort مع رسالة واضحة.
+  - **الجهاز بيتولد باسمه الصح:** التسجيل بيستنى لحد ما يبقى فيه اسم حقيقي (اسم محفوظ أو اسم الشخص في HA) قبل ما يسجّل، بدل ما يستخدم الافتراضي "Secure Family" وقائمة الأشخاص لسه مـا حمّلتش.
+  - بنخزّن `mobileAppDeviceId` وقت التسجيل عشان نعرف نعيد التسمية بدقة بعد كده.
+- **إصلاح: الدخول كان بيخرج لوحده لو العنوان اتكتب من غير https.** دلوقتي بنثبّت عنوان HA متطبّع (بالبروتوكول) وقت الدخول فمايتخزّنش من غير http/https.
+
 ### [2.16.79] — 2026-11-13  (تعديل JS — بيجي من metro)
 - **نقل "اسم الجهاز" وزرار إعادة التسجيل** من "معلومات التطبيق" لقسم جديد **"هذا الجهاز"** في الإعدادات العامة، مع توضيح إن إعادة التسجيل للطوارئ/التحويل مرة واحدة بس — مش استخدام يومي (التطبيق بيحفظ التسجيل).
 
@@ -675,6 +682,13 @@
 ---
 
 ## English
+
+### [2.16.80] — 2026-11-14  (JS change — ships via metro)
+- **Fix: renaming the device didn't apply in HA + created a duplicate device.** Root cause: HA's `update_registration` does not reliably rename an existing device, and any re-registration creates a new device (HA design). Now:
+  - **Reliable rename** via `config/device_registry/update` (same as HA's own manual rename — sets `name_by_user`): instant, no new device, no orphan. Requires admin; falls back to `update_registration` (best-effort) with a clear message otherwise.
+  - **Device is born with the correct name:** registration waits until a real name is available (saved name, or the HA person's name) instead of using the "Secure Family" fallback while the people list is still loading.
+  - Store `mobileAppDeviceId` at registration so the device can be targeted precisely for renames.
+- **Fix: login exited by itself when the URL was typed without https.** The HA address is now normalized (scheme added) and persisted at login, so it is never stored without http/https.
 
 ### [2.16.79] — 2026-11-13  (JS change — ships via metro)
 - **Moved "Device name" and the re-register button** from App info to a new **"This device"** section in general settings, with a hint that re-registration is a one-time/recovery action, not routine (the app saves its registration).

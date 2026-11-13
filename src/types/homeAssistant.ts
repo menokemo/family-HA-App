@@ -34,6 +34,7 @@ export interface ConnectionSettings {
   backgroundMonitoringEnabled?: boolean;
   shareLocation?: boolean;
   mobileAppWebhookId?: string;
+  mobileAppDeviceId?: string;
   deviceFriendlyName?: string;
 }
 export interface AlarmoEvent {
