@@ -97,7 +97,13 @@ class MobileAppService : Service() {
       return START_STICKY
     }
     baseUrl = intent?.getStringExtra("baseUrl")?.ifEmpty { baseUrl } ?: baseUrl
-    webhookId = intent?.getStringExtra("webhookId")?.ifEmpty { webhookId } ?: webhookId
+    // webhook جديد (إعادة تسجيل) = لازم نعيد تسجيل السينسورز للتسجيل الجديد،
+    // وإلا الجهاز الجديد بياخد الـ device_tracker بس من غير سينسورز.
+    val incomingWebhook = intent?.getStringExtra("webhookId")
+    if (!incomingWebhook.isNullOrEmpty() && incomingWebhook != webhookId) {
+      webhookId = incomingWebhook
+      sensorsRegistered = false
+    }
     reportLocation = intent?.getBooleanExtra("reportLocation", reportLocation) ?: reportLocation
     useLocation = reportLocation && hasLocationPermission()
     if (baseUrl.isEmpty() || webhookId.isEmpty()) {

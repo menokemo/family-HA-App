@@ -6,6 +6,9 @@
 
 ## العربية
 
+### [2.16.78] — 2026-11-13  ⚠️ محتاج build APK على ويندوز (تعديل نيتف)
+- **إصلاح: بعد إعادة التسجيل الموبايل كان بيظهر بـ entity واحد بس (من غير سينسورز).** فلاج `sensorsRegistered` كان بيفضل true فمايعيدش تسجيل السينسورز للـ webhook الجديد؛ دلوقتي بنرجّعه false لما الـ webhook يتغير.
+
 ### [2.16.77] — 2026-11-13  ⚠️ محتاج build APK على ويندوز (تعديل نيتف)
 - **إصلاح تذبذب المنطقة (home/away flapping):** كانت بتيجي عشرات تنبيهات دخول/خروج
   وهمية من البيت وإحنا واقفين. `handleLocation` دلوقتي بيرفض الـ fixes ضعيفة الدقة
@@ -669,6 +672,9 @@
 ---
 
 ## English
+
+### [2.16.78] — 2026-11-13  ⚠️ Requires a Windows APK build (native change)
+- **Fix: after re-registration the phone showed only one entity (no sensors).** The `sensorsRegistered` flag stayed true, so sensors weren't re-registered for the new webhook; it's now reset whenever the webhook changes.
 
 ### [2.16.77] — 2026-11-13  ⚠️ Requires a Windows APK build (native change)
 - **Fix home/away zone flapping:** dozens of false "left/arrived home" alerts while

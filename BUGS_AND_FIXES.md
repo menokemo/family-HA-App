@@ -13,6 +13,13 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**بعد إعادة التسجيل، الموبايل بيظهر في HA بـ entity واحد بس (الـ device_tracker
+من غير سينسورز)** — `MobileAppService` بيستخدم فلاج `sensorsRegistered` عشان
+مايسجّلش السينسورز مرتين. لكن لما الـ webhook يتغير (إعادة تسجيل)، الفلاج كان
+بيفضل `true`، فالسينسورز ماكانتش بتتسجّل للـ webhook الجديد. **الحل:** في
+`onStartCommand`، لو وصل webhookId جديد مختلف → نرجّع `sensorsRegistered = false`
+فتتسجّل السينسورز للتسجيل الجديد. (2.16.78)
+
 **تذبذب المنطقة: 50 تنبيه دخول/خروج وهمي من البيت وإحنا واقفين في مكاننا
 (home/away flapping)** — GPS جوه المباني بيتأرجح حوالين حافة منطقة "البيت"،
 والخدمة كانت بتبعت كل fix (وفي الوضع السريع distanceFilter=0)، فالـ device_tracker

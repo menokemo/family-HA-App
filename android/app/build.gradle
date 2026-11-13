@@ -82,8 +82,8 @@ android {
         applicationId "com.mkdd.familyha"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 99
-        versionName "2.16.77"
+        versionCode 100
+        versionName "2.16.78"
     }
     signingConfigs {
         debug {
