@@ -36,6 +36,7 @@ export interface ConnectionSettings {
   mobileAppWebhookId?: string;
   mobileAppDeviceId?: string;
   deviceFriendlyName?: string;
+  mapEngine?: 'web' | 'native';
 }
 export interface AlarmoEvent {
   eventType: 'alarmo_failed_to_arm' | 'alarmo_command_success' | 'alarmo_ready_to_arm_modes_updated';

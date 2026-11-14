@@ -6,6 +6,14 @@
 
 ## العربية
 
+### [2.16.82] — 2026-11-14  ⚠️ محتاج build APK على ويندوز (dependency نيتف جديد)
+**بداية نقل الخريطة للنيتف (MapLibre React Native v11) — المرحلة أ (de-risk البناء):**
+- أُضيفت مكتبة `@maplibre/maplibre-react-native@11` (متوافقة مع RN 0.83 + New Architecture + Hermes، minSdk≥23؛ MapLibre SDK من mavenCentral فمفيش repo إضافي).
+- مكوّن جديد `PeopleMapNative.tsx`: خريطة نيتف بترسم بالـ GPU (أنعم وأسرع من WebView) — نفس بلاطات OpenFreeMap المجانية + علامات الأشخاص بالأفاتار + علامة البيت + النقطة الزرقاء النيتف (`UserLocation`، مضبوطة على **Fused/Play Services** عبر `org.maplibre.reactnative.locationEngine=google`) + زر إعادة التمركز.
+- **مفتاح تبديل آمن:** الإعدادات → الموقع والخريطة → "خريطة نيتف (تجريبي)". الافتراضي **ويب** (مفيش أي تغيير سلوك لحد ما تفعّله). الخريطة القديمة (WebView) باقية كـ fallback — تقدر ترجع لها في ثانية.
+- **تحميل كسول آمن:** المكتبة النيتف بتتحمّل وقت العرض بس؛ لو الـ APK القديم ماعندوش الموديول النيتف، بيرجع للخريطة الويب تلقائيًا بدل crash.
+- **لسه في المرحلة ب (بعد تأكيد البناء):** المناطق كدوائر، المسار، التايملاين، المخاطر، القمر الصناعي، أرقام العمارات، وضع المتابعة.
+
 ### [2.16.81] — 2026-11-14  ⚠️ محتاج build APK على ويندوز (تعديل نيتف + JS)
 **إصلاح جذري لمشكلة الموقع (بعيد عن البيت + مهتز) — مبني على بحث في توثيق Android/HA:**
 - **النقطة الزرقاء (الموقع الحي على الخريطة)** كانت بتستخدم Android LocationManager الخام (الافتراضي "auto" في مكتبة الموقع فعليًا بيروح للخام)، واللي بيطلع موقع مهتز وغير دقيق جوّه المباني. دلوقتي بنجبر استخدام **Google Play Services (Fused Location)** — نفس اللي بيستخدمه Find Hub و Google Maps (بيدمج GPS + واي‑فاي + شبكة). *(JS — بيجي من metro)*
@@ -688,6 +696,14 @@
 ---
 
 ## English
+
+### [2.16.82] — 2026-11-14  ⚠️ Requires a Windows APK build (new native dependency)
+**Start of the Map migration to native (MapLibre React Native v11) — Phase A (build de-risk):**
+- Added `@maplibre/maplibre-react-native@11` (compatible with RN 0.83 + New Architecture + Hermes, minSdk ≥ 23; MapLibre SDK from mavenCentral, no extra repo).
+- New `PeopleMapNative.tsx`: a GPU-rendered native map (smoother/faster than WebView) — same free OpenFreeMap tiles + people avatar markers + home marker + native blue dot (`UserLocation`, set to **Fused/Play Services** via `org.maplibre.reactnative.locationEngine=google`) + recenter button.
+- **Safe toggle:** Settings → Location & Map → "Native map (experimental)". Default is **web** (no behavior change until enabled). The old WebView map stays as a fallback — switch back instantly.
+- **Safe lazy-load:** the native library is required only at render time; on an old APK without the native module it falls back to the web map instead of crashing.
+- **Still in Phase B (after the build is confirmed):** zone circles, routing, timeline, hazards, satellite, house numbers, follow mode.
 
 ### [2.16.81] — 2026-11-14  ⚠️ Requires a Windows APK build (native + JS)
 **Root-cause fix for the location problem (far from home + jittery) — based on Android/HA docs research:**
