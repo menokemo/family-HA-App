@@ -10,7 +10,13 @@ import { absoluteHaUrl, authHeaders } from '../../api/homeAssistant';
 import { useTheme, type Palette } from '../../theme';
 import { i18n } from '../../i18n';
 import { PressableScale } from '../../components/PressableScale';
-import { batteryIcon, batteryPct, batteryText, distance, haversine, placeLabel, timeAgo, PERSON_RING } from './mapShared';
+import { batteryIcon, batteryPct, batteryText, distance, etaText, haversine, placeLabel, timeAgo, PERSON_RING, type RouteMode, type RouteResult } from './mapShared';
+
+const ROUTE_MODES: { m: RouteMode; icon: string }[] = [
+  { m: 'driving', icon: 'car' },
+  { m: 'walking', icon: 'walk' },
+  { m: 'cycling', icon: 'bicycle' },
+];
 
 const WIN_H = Dimensions.get('window').height;
 const SHEET_H = Math.min(560, Math.round(WIN_H * 0.72));
@@ -32,9 +38,13 @@ type Props = {
   meId?: string;
   selectedId?: string;
   onSelect: (id: string) => void;
+  routeMode?: RouteMode;
+  onRouteMode?: (m: RouteMode) => void;
+  routeInfo?: RouteResult | null;
+  onNavigate?: (id: string) => void;
 };
 
-export function MemberSheet({ people, states, settings, colorFor, addrMap, myCoord, meId, selectedId, onSelect }: Props) {
+export function MemberSheet({ people, states, settings, colorFor, addrMap, myCoord, meId, selectedId, onSelect, routeMode, onRouteMode, routeInfo, onNavigate }: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
 
@@ -104,6 +114,7 @@ export function MemberSheet({ people, states, settings, colorFor, addrMap, myCoo
         {people.length === 0 ? <Text style={s.empty}>{i18n.t('noPeople')}</Text> : null}
         {people.map(p => {
           const isSel = selectedId === p.entity_id;
+          const isMe = !!meId && p.entity_id === meId;
           const ring = colorFor[p.entity_id] ?? PERSON_RING[0];
           const pct = batteryPct(p, states);
           const uri = uriFor(p);
@@ -137,15 +148,39 @@ export function MemberSheet({ people, states, settings, colorFor, addrMap, myCoo
               </Pressable>
 
               {isSel ? (
-                <View style={s.details}>
-                  <Box s={s} label={i18n.t('battery')} value={batteryText(p, states)} />
-                  {meId && p.entity_id === meId ? null : <Box s={s} label={i18n.t('fromMe')} value={fromMe(p)} />}
-                  <Box
-                    s={s}
-                    label={i18n.t('locationAccuracy')}
-                    value={Number.isFinite(Number(p.attributes.gps_accuracy)) ? distance(Number(p.attributes.gps_accuracy)) : '—'}
-                  />
-                </View>
+                <>
+                  <View style={s.details}>
+                    <Box s={s} label={i18n.t('battery')} value={batteryText(p, states)} />
+                    {isMe ? (
+                      <Box
+                        s={s}
+                        label={i18n.t('locationAccuracy')}
+                        value={Number.isFinite(Number(p.attributes.gps_accuracy)) ? distance(Number(p.attributes.gps_accuracy)) : '—'}
+                      />
+                    ) : (
+                      <>
+                        <Box s={s} label={i18n.t('fromMe')} value={routeInfo ? distance(routeInfo.distanceMeters) : fromMe(p)} />
+                        <Box s={s} label={i18n.t('eta')} value={routeInfo ? etaText(routeInfo.durationSeconds) : '…'} />
+                      </>
+                    )}
+                  </View>
+
+                  {!isMe ? (
+                    <View style={s.actions}>
+                      <View style={s.segRow}>
+                        {ROUTE_MODES.map(rm => (
+                          <PressableScale key={rm.m} style={[s.segItem, routeMode === rm.m && s.segItemActive]} onPress={() => onRouteMode?.(rm.m)}>
+                            <Ionicons name={rm.icon} size={17} color={routeMode === rm.m ? colors.black : colors.text} />
+                          </PressableScale>
+                        ))}
+                      </View>
+                      <PressableScale style={s.navigate} onPress={() => onNavigate?.(p.entity_id)}>
+                        <Ionicons name="navigate" size={17} color={colors.black} />
+                        <Text style={s.navigateText}>{i18n.t('navigateToPerson')}</Text>
+                      </PressableScale>
+                    </View>
+                  ) : null}
+                </>
               ) : null}
             </View>
           );
@@ -208,4 +243,10 @@ const makeStyles = (c: Palette) =>
     box: { flex: 1, backgroundColor: c.surface, borderRadius: 12, borderWidth: 1, borderColor: c.border, paddingVertical: 8, paddingHorizontal: 10 },
     boxLabel: { color: c.muted, fontSize: 10.5, fontWeight: '600' },
     boxValue: { color: c.text, fontSize: 13.5, fontWeight: '700', marginTop: 3 },
+    actions: { flexDirection: 'row', gap: 8, paddingHorizontal: 10, paddingBottom: 12 },
+    segRow: { flexDirection: 'row', backgroundColor: c.surface, borderRadius: 12, borderWidth: 1, borderColor: c.border, overflow: 'hidden' },
+    segItem: { width: 40, paddingVertical: 10, alignItems: 'center', justifyContent: 'center' },
+    segItemActive: { backgroundColor: c.primary },
+    navigate: { flex: 1, backgroundColor: c.primary, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+    navigateText: { color: c.black, fontWeight: '800', fontSize: 14 },
   });

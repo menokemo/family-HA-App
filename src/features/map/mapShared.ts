@@ -5,6 +5,9 @@ import type { HaEntity } from '../../types/homeAssistant';
 import { i18n } from '../../i18n';
 
 export type Motion = { speed: number; heading: number; moving: boolean };
+export type RouteMode = 'driving' | 'walking' | 'cycling';
+export type LineStringGeo = { type: 'LineString'; coordinates: [number, number][] };
+export type RouteResult = { geometry: LineStringGeo; distanceMeters: number; durationSeconds: number };
 
 // ألوان ثابتة لكل فرد (حلقة الصورة + في اللستة).
 export const PERSON_RING = ['#4F8BFF', '#34C759', '#FF9F0A', '#FF375F', '#AF52DE', '#5AC8FA', '#FF7A45', '#39C36E'];
@@ -104,6 +107,27 @@ export async function reverseGeocode(lat: number, lng: number, lang: string): Pr
     /* بدون إنترنت أو الخدمة مش متاحة */
   }
   return undefined;
+}
+
+// مسار على الطريق بين نقطتين عبر OSRM المجاني (overview كامل + هندسة GeoJSON).
+// بيرجّع الهندسة + المسافة + الزمن، أو null لو مفيش مسار/نت. يدعم إلغاء عبر signal.
+export async function fetchRoute(
+  mode: RouteMode,
+  from: [number, number], // [lng, lat]
+  to: [number, number], // [lng, lat]
+  signal?: AbortSignal,
+): Promise<RouteResult | null> {
+  if (!from.every(Number.isFinite) || !to.every(Number.isFinite)) return null;
+  const url = `https://router.project-osrm.org/route/v1/${mode}/${from[0]},${from[1]};${to[0]},${to[1]}?overview=full&geometries=geojson`;
+  try {
+    const res = await fetch(url, signal ? { signal } : undefined);
+    const data = (await res.json()) as { routes?: { geometry: LineStringGeo; distance: number; duration: number }[] };
+    const route = data.routes?.[0];
+    if (!route) return null;
+    return { geometry: route.geometry, distanceMeters: route.distance, durationSeconds: route.duration };
+  } catch {
+    return null; // بدون إنترنت أو اتلغى
+  }
 }
 
 // وصف مكان الشخص: بيتحرك (سرعة) / في البيت / اسم منطقة / عنوان حقيقي / بره.

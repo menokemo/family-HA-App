@@ -7,7 +7,7 @@
 //   والضغط على فرد يركّز الكاميرا عليه.
 // باقي (المسار والملاحة، التايملاين والمتابعة) في المرحلتين الجايتين.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import type { CameraRef } from '@maplibre/maplibre-react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
@@ -16,7 +16,7 @@ import { requestLocationPermission, watchLiveLocation, type LiveLocation } from 
 import { useTheme } from '../../theme';
 import { PressableScale } from '../../components/PressableScale';
 import { i18n } from '../../i18n';
-import { PERSON_RING, reverseGeocode } from './mapShared';
+import { PERSON_RING, reverseGeocode, fetchRoute, type RouteMode, type RouteResult } from './mapShared';
 import { MemberSheet, MEMBER_SHEET_PEEK } from './MemberSheet';
 
 // بنجيب مكوّنات الخريطة عبر require (CommonJS) مش import: الـ import كان بيتحل
@@ -62,6 +62,8 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
   const [liveLocation, setLiveLocation] = useState<LiveLocation | null>(null);
   const [picked, setPicked] = useState<string | undefined>(undefined);
   const [addrMap, setAddrMap] = useState<Record<string, string>>({});
+  const [routeMode, setRouteMode] = useState<RouteMode>('driving');
+  const [routeInfo, setRouteInfo] = useState<RouteResult | null>(null);
   const vectorStyle = resolvedMode === 'dark' ? 'https://tiles.openfreemap.org/styles/dark' : 'https://tiles.openfreemap.org/styles/positron';
 
   // لون ثابت لكل فرد (نفس ترتيب people) - عشان العلامة واللستة يبقوا متطابقين.
@@ -153,8 +155,47 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
       ? [meHaLng, meHaLat]
       : undefined;
 
+  // المسار على الطريق (OSRM) من موقعي للفرد المختار - بيتحدّث مع تغيير الاختيار
+  // أو وضع المسار أو موقعي. مابيرسمش مسار لنفسي. بيلغي الطلب القديم قبل الجديد.
+  const pickedPoint = picked ? points.find(p => p.id === picked) : undefined;
+  const pickedCoordKey = pickedPoint ? `${pickedPoint.lng.toFixed(5)},${pickedPoint.lat.toFixed(5)}` : '';
+  const myCoordKey = myCoord ? `${myCoord[0].toFixed(5)},${myCoord[1].toFixed(5)}` : '';
+  useEffect(() => {
+    if (!picked || picked === mePerson?.entity_id || !myCoord || !pickedPoint) {
+      setRouteInfo(null);
+      return;
+    }
+    const ctrl = new AbortController();
+    void (async () => {
+      const r = await fetchRoute(routeMode, myCoord, [pickedPoint.lng, pickedPoint.lat], ctrl.signal);
+      if (!ctrl.signal.aborted) setRouteInfo(r);
+    })();
+    return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [picked, pickedCoordKey, myCoordKey, routeMode, mePerson?.entity_id]);
+
+  const routeFC = useMemo(
+    () =>
+      routeInfo
+        ? { type: 'FeatureCollection' as const, features: [{ type: 'Feature' as const, properties: {}, geometry: routeInfo.geometry }] }
+        : { type: 'FeatureCollection' as const, features: [] },
+    [routeInfo],
+  );
+
   const homeZone = zones.find(z => z.id === 'zone.home') ?? zones[0];
   const center: [number, number] = myCoord ?? (homeZone ? [homeZone.lng, homeZone.lat] : points[0] ? [points[0].lng, points[0].lat] : [0, 0]);
+
+  // فتح خرائط الموبايل للتوجيه لموقع الفرد.
+  const navigateTo = (id: string) => {
+    const pt = points.find(p => p.id === id);
+    if (!pt) return;
+    const label = encodeURIComponent(pt.name);
+    const geo = `geo:${pt.lat},${pt.lng}?q=${pt.lat},${pt.lng}(${label})`;
+    const primary = Platform.OS === 'ios' ? `maps://?daddr=${pt.lat},${pt.lng}&q=${label}` : geo;
+    void Linking.openURL(primary).catch(() =>
+      Linking.openURL(`https://www.openstreetmap.org/?mlat=${pt.lat}&mlon=${pt.lng}#map=17/${pt.lat}/${pt.lng}`).catch(() => undefined),
+    );
+  };
 
   const fitAll = () => {
     const all: [number, number][] = otherPoints.map(p => [p.lng, p.lat]);
@@ -193,6 +234,12 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
         <GeoJSONSource id="zones" data={zonesFC}>
           <Layer id="zones-fill" type="fill" source="zones" paint={{ 'fill-color': '#4F8BFF', 'fill-opacity': 0.12 }} />
           <Layer id="zones-line" type="line" source="zones" paint={{ 'line-color': '#4F8BFF', 'line-width': 2, 'line-opacity': 0.6 }} />
+        </GeoJSONSource>
+
+        {/* المسار للفرد المختار: خط أزرق بإطار غامق، تحت علامات الأشخاص. */}
+        <GeoJSONSource id="route" data={routeFC}>
+          <Layer id="route-casing" type="line" source="route" layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': '#0A2A4D', 'line-width': 8 }} />
+          <Layer id="route-line" type="line" source="route" layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': '#5C8DFF', 'line-width': 4.5 }} />
         </GeoJSONSource>
 
         {zones.map(z => (
@@ -267,6 +314,10 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
         meId={mePerson?.entity_id}
         selectedId={picked}
         onSelect={focusPerson}
+        routeMode={routeMode}
+        onRouteMode={setRouteMode}
+        routeInfo={routeInfo}
+        onNavigate={navigateTo}
       />
     </View>
   );

@@ -6,6 +6,14 @@
 
 ## العربية
 
+### [2.16.90] — 2026-11-14  (تعديل JS — بيجي من metro)
+- **الخريطة النيتف — المرحلة ب (2/3): المسار + الملاحة.** لما تختار فرد (مش نفسك) على الخريطة النيتف:
+  - **خط مسار على الطريق** من موقعك ليه عبر OSRM المجاني (هندسة GeoJSON كاملة) — خط أزرق بإطار غامق تحت علامات الأشخاص.
+  - **المسافة ووقت الوصول** بيظهروا في كارت الفرد (المسافة على الطريق بدل الخط المستقيم لما المسار يجهز).
+  - **اختيار وضع المسار**: قيادة / مشي / دراجة — المسار بيتحدّث فورًا.
+  - **زر "روح لموقع الشخص"** بيفتح خرائط الموبايل (maps/geo مع fallback لـ OpenStreetMap).
+  - إلغاء الطلب القديم قبل الجديد (AbortController) فمفيش مسارات متضاربة. `fetchRoute` اتحطّت في `mapShared.ts`.
+
 ### [2.16.89] — 2026-11-14  (تعديل JS — بيجي من metro)
 - **الخريطة النيتف — المرحلة ب (1/3): لستة الأعضاء + كارت الفرد.** الخريطة النيتف كانت بترسم نقاط بس من غير أي تفاعل. دلوقتي فيها **Bottom sheet** قابل للسحب (بـ `Animated` + `PanResponder`، بدون أي مكتبة) بلستة أعضاء العيلة: صورة + حلقة ملونة ثابتة لكل فرد + وصف المكان (بيت/منطقة/عنوان حقيقي/بره) + البطارية بأيقونتها + آخر ظهور. الضغط على فرد **يركّز الكاميرا عليه** ويفتح كارت تفاصيل مصغّر (بطارية + المسافة مني + دقة الموقع).
   - **العناوين الحقيقية** للأفراد اللي بره المناطق عبر BigDataCloud (مجاني، بيدعم العربي) مع كاش.
@@ -734,6 +742,14 @@
 ---
 
 ## English
+
+### [2.16.90] — 2026-11-14  (JS change — ships via metro)
+- **Native map — Phase B (2/3): route + navigation.** When you select a member (not yourself) on the native map:
+  - **On-road route line** from your location to them via free OSRM (full GeoJSON geometry) — a blue line with a dark casing, drawn under the person markers.
+  - **Distance and ETA** shown in the member card (road distance replaces straight-line once the route resolves).
+  - **Route mode switch**: driving / walking / cycling — the route updates instantly.
+  - **"Navigate to this person" button** opens the phone's maps app (maps/geo with an OpenStreetMap fallback).
+  - Previous request is aborted before the next (AbortController) so routes never conflict. `fetchRoute` added to `mapShared.ts`.
 
 ### [2.16.89] — 2026-11-14  (JS change — ships via metro)
 - **Native map — Phase B (1/3): member list + member card.** The native map only drew dots with no interaction. It now has a draggable **bottom sheet** (built with `Animated` + `PanResponder`, no external library) listing family members: avatar + stable per-person colored ring + place label (home/zone/real address/away) + battery with its icon + last seen. Tapping a member **centers the camera** on them and opens a compact detail card (battery + distance from me + location accuracy).
