@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.16.95] — 2026-11-14  (تعديل JS — بييجي من metro)
+- **إصلاح: نشر الداشبورد بيفتح داشبورد تانية عند بعض الأفراد.** السبب إن الداشبورد admin-only أو مش متاحة للفرد في HA، فـHA بيوديه للافتراضية (الكود عندنا سليم — المشكلة صلاحيات HA).
+  - اختيار الداشبورد بيعلّم الـ **admin-only** بقفل + تنبيه إن الأفراد مش هيشوفوها (`listDashboards` بقى يجيب `require_admin`).
+  - `DashboardView` بيكتشف إعادة التوجيه ويعرض **رسالة واضحة** للفرد بدل داشبورد غلط صامتة.
+  - الحل: اختار داشبورد متشاركة، أو خلّيها مش أدمن-بس في Home Assistant.
+
 ### [2.16.94] — 2026-11-14  (JS فوري عبر metro + إصلاح NATIVE للـ APK الجاي)
 - **إصلاح اختفاء الشخص من الخريطة بعد الـ geofencing.** `location_name` من غير إحداثيات بيخلّي الـ person يفقد lat/lng فيختفي (HA بيعرض بس اللي ليه إحداثيات).
   - **JS (بييجي من metro فورًا):** الشخص اللي في منطقة من غير إحداثيات يتعرض في **مركز منطقته** (`mapPeople`) — الخريطة بقت متينة لأي tracker.
@@ -772,6 +778,12 @@
 ---
 
 ## English
+
+### [2.16.95] — 2026-11-14  (JS change — ships via metro)
+- **Fix: publishing a dashboard opens a different dashboard for some members.** The dashboard is admin-only or not accessible to the member in HA, so HA redirects them to their default (our code is correct — it's an HA access setting).
+  - The dashboard picker now flags **admin-only** dashboards with a lock + a warning that members can't see them (`listDashboards` now reads `require_admin`).
+  - `DashboardView` detects the redirect and shows the member a **clear message** instead of a silent wrong dashboard.
+  - Resolution: pick a shared dashboard, or make it non-admin in Home Assistant.
 
 ### [2.16.94] — 2026-11-14  (JS now via metro + NATIVE fix for the next APK)
 - **Fix: person disappeared from the map after geofencing.** `location_name` without GPS makes the person lose lat/lng, so they vanish (HA only maps entities with coords).

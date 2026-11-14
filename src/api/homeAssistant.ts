@@ -496,7 +496,7 @@ export const cameraStreamUrl = (settings: ConnectionSettings, entityId: string, 
   return `${normalizeUrl(settings.baseUrl)}/api/camera_proxy_stream/${encodeURIComponent(entityId)}${suffix}`;
 };
 export function absoluteHaUrl(settings: ConnectionSettings, path: string): string { return /^https?:\/\//i.test(path) ? path : `${normalizeUrl(settings.baseUrl)}${path.startsWith('/') ? '' : '/'}${path}`; }
-export type DashboardInfo = { urlPath: string; title: string };
+export type DashboardInfo = { urlPath: string; title: string; requireAdmin?: boolean };
 
 export type HistoryPoint = { lat: number; lng: number; at: string };
 
@@ -515,10 +515,10 @@ export async function getPersonHistory(settings: ConnectionSettings, entityId: s
 export async function listDashboards(settings: ConnectionSettings): Promise<DashboardInfo[]> {
   const defaultDashboard: DashboardInfo = { urlPath: 'lovelace', title: 'Overview' };
   try {
-    const result = (await wsCommand(settings, { type: 'lovelace/dashboards/list' })) as Array<{ url_path?: string; title?: string }>;
+    const result = (await wsCommand(settings, { type: 'lovelace/dashboards/list' })) as Array<{ url_path?: string; title?: string; require_admin?: boolean }>;
     const extra = (Array.isArray(result) ? result : [])
       .filter(d => typeof d.url_path === 'string' && d.url_path !== defaultDashboard.urlPath)
-      .map(d => ({ urlPath: d.url_path as string, title: d.title ?? d.url_path ?? '' }));
+      .map(d => ({ urlPath: d.url_path as string, title: d.title ?? d.url_path ?? '', requireAdmin: d.require_admin === true }));
     return [defaultDashboard, ...extra];
   } catch {
     // لو الأمر فشل لأي سبب (نسخة HA قديمة، صلاحيات، إلخ)، منوقفش

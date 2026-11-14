@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import { ensureFreshToken, normalizeUrl } from '../../api/homeAssistant';
 import { colors } from '../../theme';
+import { i18n } from '../../i18n';
 import type { ConnectionSettings } from '../../types/homeAssistant';
 
 type Props = { settings: ConnectionSettings; dashboardPath: string };
@@ -11,11 +13,14 @@ type Props = { settings: ConnectionSettings; dashboardPath: string };
 export function DashboardView({ settings, dashboardPath }: Props) {
   const [ready, setReady] = useState(false);
   const [bridgeJS, setBridgeJS] = useState<string>();
+  // بيتحط true لو HA ودّى الفرد لداشبورد تانية (مالوش صلاحية على المطلوبة) —
+  // بنوضّحله بدل ما يفتكر إن الإعداد غلط.
+  const [mismatch, setMismatch] = useState(false);
   // WebView<P = undefined> في تعريفات المكتبة بيخلّي الـprops من نوع never لو
   // اتكتب من غير generic، فبنحدد object صراحةً (مجرد تحسين أنواع، مفيش أثر وقت التشغيل)
   const webviewRef = useRef<WebView<object>>(null);
 
-  useEffect(() => { setReady(false); }, [dashboardPath, settings.baseUrl]);
+  useEffect(() => { setReady(false); setMismatch(false); }, [dashboardPath, settings.baseUrl]);
   const baseUrl = normalizeUrl(settings.baseUrl);
   // الصفحة بتفتح بالظبط زي متصفح عادي (من غير external_auth=1) - بس
   // بتوكن صحيح محقون في localStorage قبل ما الصفحة تحمّل، بالظبط زي
@@ -74,6 +79,9 @@ export function DashboardView({ settings, dashboardPath }: Props) {
               var globalAttempts = Number(sessionStorage.getItem('fha_path_fix_attempts') || '0');
               if (globalAttempts >= 2) {
                 sessionStorage.removeItem('fha_path_fix_attempts');
+                // HA مصرّة على داشبورد تانية (الفرد مالوش صلاحية على المطلوبة) —
+                // نبلّغ الواجهة توضّح للفرد.
+                try { window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'dashboard-mismatch' })); } catch (e) {}
                 return;
               }
               sessionStorage.setItem('fha_path_fix_attempts', String(globalAttempts + 1));
@@ -128,6 +136,7 @@ export function DashboardView({ settings, dashboardPath }: Props) {
     let message: { kind: string };
     try { message = JSON.parse(raw); } catch { return; }
     if (message.kind === 'kiosk-ready') setReady(true);
+    if (message.kind === 'dashboard-mismatch') setMismatch(true);
   };
 
   // Navigation Guard: بيمنع الخروج من مسار الداشبورد المسموح - بس
@@ -178,6 +187,15 @@ export function DashboardView({ settings, dashboardPath }: Props) {
           <ActivityIndicator color={colors.primary} size="large" />
         </View>
       ) : null}
+      {mismatch ? (
+        <View style={s.banner}>
+          <Ionicons name="lock-closed" size={16} color={colors.black} />
+          <Text style={s.bannerText}>{i18n.t('dashboardUnavailable')}</Text>
+          <Pressable onPress={() => setMismatch(false)} hitSlop={8}>
+            <Ionicons name="close" size={18} color={colors.black} />
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -185,4 +203,6 @@ export function DashboardView({ settings, dashboardPath }: Props) {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
+  banner: { position: 'absolute', top: 10, left: 10, right: 10, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.warning, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
+  bannerText: { flex: 1, color: colors.black, fontSize: 12.5, fontWeight: '700' },
 });
