@@ -425,24 +425,23 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
       <MapView mapStyle={mapStyle} style={{ flex: 1 }}>
         <Camera ref={cameraRef} center={center} zoom={15} pitch={pitch} />
 
-        {/* أرقام المباني: طبقة صريحة من مصدر OpenFreeMap المتجه، تبان من زوم 16. */}
-        {buildings3D ? (
-          <VectorSource id="omt" url="https://tiles.openfreemap.org/planet">
-            <Layer
-              id="housenumbers"
-              type="symbol"
-              source="omt"
-              source-layer="housenumber"
-              minzoom={16}
-              layout={{ 'text-field': ['get', 'housenumber'], 'text-font': ['Noto Sans Regular'], 'text-size': 11 }}
-              paint={{
-                'text-color': resolvedMode === 'dark' ? '#cbd2db' : '#4a4f59',
-                'text-halo-color': resolvedMode === 'dark' ? '#11151c' : '#ffffff',
-                'text-halo-width': 1.3,
-              }}
-            />
-          </VectorSource>
-        ) : null}
+        {/* أرقام المباني: طبقة صريحة من مصدر OpenFreeMap المتجه — ظاهرة دايمًا
+            (مش مربوطة بوضع 3D) من زوم 15. collision detection بيخفي المتداخل. */}
+        <VectorSource id="omt" url="https://tiles.openfreemap.org/planet">
+          <Layer
+            id="housenumbers"
+            type="symbol"
+            source="omt"
+            source-layer="housenumber"
+            minzoom={15}
+            layout={{ 'text-field': ['get', 'housenumber'], 'text-font': ['Noto Sans Regular'], 'text-size': 11 }}
+            paint={{
+              'text-color': resolvedMode === 'dark' ? '#cbd2db' : '#4a4f59',
+              'text-halo-color': resolvedMode === 'dark' ? '#11151c' : '#ffffff',
+              'text-halo-width': 1.3,
+            }}
+          />
+        </VectorSource>
         {/* النقطة الزرقاء الافتراضية بتظهر بس لو ماعرفناش مين "أنا" (fallback) -
             غير كده علامة "أنا" الموحّدة (الأفاتار) بتغطي الموقع الحي. */}
         {!myCoord ? <UserLocation animated /> : null}

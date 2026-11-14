@@ -6,6 +6,9 @@
 
 ## العربية
 
+### [2.16.99] — 2026-11-15  (تعديل JS — بييجي من metro)
+- **أرقام المباني بقت ظاهرة دايمًا** في كل الأوضاع (مش مربوطة بزرار 3D) من زوم 15، مع هالة للوضوح (collision detection بيخفي المتداخل تلقائيًا).
+
 ### [2.16.98] — 2026-11-15  (تعديل JS — بييجي من metro)
 - **إصلاح: أرقام المباني مكنتش بتظهر في وضع 3D.** كنا بنعتمد على أرقام ستايل Liberty اللي بتبان عند زوم عالي جدًا أو خفيفة. دلوقتي بنضيف **طبقة أرقام مباني صريحة** (`housenumber` من مصدر OpenFreeMap المتجه) تبان من زوم 16 بتنسيق واضح (خط Noto Sans + هالة).
 
@@ -790,6 +793,9 @@
 ---
 
 ## English
+
+### [2.16.99] — 2026-11-15  (JS change — ships via metro)
+- **Building numbers are now always visible** in every mode (not tied to the 3D button) from zoom 15, with a halo for readability (collision detection hides overlaps automatically).
 
 ### [2.16.98] — 2026-11-15  (JS change — ships via metro)
 - **Fix: building numbers weren't showing in 3D mode.** We relied on Liberty's house numbers, which only appear at very high zoom or faintly. Now we add an **explicit house-number layer** (`housenumber` from the OpenFreeMap vector source) that appears from zoom 16 with clear styling (Noto Sans font + halo).
