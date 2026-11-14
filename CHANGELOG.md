@@ -6,6 +6,14 @@
 
 ## العربية
 
+### [2.16.85] — 2026-11-14  (تعديل JS — بيجي من metro)
+- **الخريطة النيتف — المرحلة ب:** إضافة طبقات للخريطة النيتف (`PeopleMapNative`):
+  - **المناطق كدوائر** بحجمها الحقيقي على الأرض (home وباقي `zone.*` من HA) — تعبئة + حدود + اسم المنطقة. (دايرة جيوديسية بالمتر، مش بكسل.)
+  - **طبقة المخاطر** (`geo_location.*`) كعلامات تحذير، مع مفتاح إظهار/إخفاء وشريط بعددها.
+  - **مفتاح القمر الصناعي** (Esri World Imagery) زي الخريطة الويب.
+  - أزرار تحكم (مخاطر / قمر صناعي / إعادة تمركز).
+- كله جزء من موديول maplibre الموجود في الـ APK، فمش محتاج build جديد. باقي (المسار، التايملاين، الموقع الحي عند الطلب) في مرحلة لاحقة.
+
 ### [2.16.84] — 2026-11-14  (تعديل JS — بيجي من metro)
 - **إصلاح: الخريطة النيتف كانت بتعمل `Cannot read property 'Map' of undefined`.** السبب الجذري: metro في RN 0.83 مفعّل عنده `unstable_enablePackageExports`، فالـ `import` من `@maplibre/maplibre-react-native` كان بيتحل لنسخة ESM (`lib/module`) اللي بترجع namespace undefined وقت التشغيل، بينما `require` بيتحل لنسخة CommonJS الشغّالة (`lib/commonjs`). دلوقتي `PeopleMapNative` بيجيب مكوّنات الخريطة عبر `require` (زي `MapHost` اللي كان شغّال)، والأنواع عبر `import type`. ده بيخلّي الخريطة النيتف تشتغل لما الـ APK يكون فيه الموديول، وترجع للويب بنظافة لو مش موجود.
 
@@ -702,6 +710,14 @@
 ---
 
 ## English
+
+### [2.16.85] — 2026-11-14  (JS change — ships via metro)
+- **Native map — Phase B:** added layers to the native map (`PeopleMapNative`):
+  - **Zones as real-world circles** (home and other `zone.*` from HA) — fill + outline + zone name (geodesic circle in meters, not pixels).
+  - **Hazards layer** (`geo_location.*`) as warning markers, with a show/hide toggle and a count banner.
+  - **Satellite toggle** (Esri World Imagery) like the web map.
+  - Control buttons (hazards / satellite / recenter).
+- All part of the maplibre module already in the APK, so no new build needed. Remaining (routing, timeline, on-demand live location) in a later phase.
 
 ### [2.16.84] — 2026-11-14  (JS change — ships via metro)
 - **Fix: the native map threw `Cannot read property 'Map' of undefined`.** Root cause: RN 0.83's metro has `unstable_enablePackageExports` on, so `import` from `@maplibre/maplibre-react-native` resolved to the ESM build (`lib/module`) whose namespace came back undefined at runtime, while `require` resolves to the working CommonJS build (`lib/commonjs`). `PeopleMapNative` now pulls the map components via `require` (same path `MapHost` already used successfully) and types via `import type`. The native map now renders when the APK has the module, and falls back to web cleanly when it doesn't.

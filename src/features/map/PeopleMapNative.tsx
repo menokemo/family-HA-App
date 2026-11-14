@@ -1,34 +1,59 @@
-// خريطة العيلة بنسخة NATIVE (MapLibre React Native v11) - بديل تجريبي للخريطة
-// المبنية على WebView (PeopleMapWeb). بترسم بالـ GPU مباشرة فأنعم وأسرع.
-// المرحلة أ (de-risk البناء): خريطة أساسية + علامات الأشخاص بالأفاتار + علامة
-// البيت + النقطة الزرقاء النيتف (UserLocation, fused عبر locationEngine=google)
-// + زر إعادة التمركز. باقي المزايا (المناطق كدوائر، المسار، التايملاين،
-// المخاطر، القمر الصناعي، أرقام العمارات) بتتنقل في المرحلة ب بعد تأكيد البناء.
-import { useMemo, useRef } from 'react';
+// خريطة العيلة بنسخة NATIVE (MapLibre React Native v11) - بديل للخريطة المبنية
+// على WebView (PeopleMapWeb). بترسم بالـ GPU مباشرة فأنعم وأسرع.
+// المرحلة أ+ب: خريطة أساسية + علامات الأشخاص بالأفاتار + النقطة الزرقاء النيتف
+// (UserLocation, Fused عبر locationEngine=google) + المناطق كدوائر (home وغيرها)
+// + طبقة المخاطر (geo_location) + مفتاح القمر الصناعي + أزرار تحكم + إعادة تمركز.
+// باقي (المسار، التايملاين، الموقع الحي عند الطلب) في مرحلة لاحقة.
+import { useMemo, useRef, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import type { CameraRef } from '@maplibre/maplibre-react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-
-// بنجيب مكوّنات الخريطة عبر require (CommonJS) مش import: الـ import كان بيتحل
-// لنسخة بترجع undefined وقت التشغيل (مشكلة exports field مع metro)، بينما require
-// بيجيب النسخة الشغّالة — نفس اللي MapHost بيتأكد من وجودها قبل العرض.
-const { Camera, Map: MapView, Marker, UserLocation } = require('@maplibre/maplibre-react-native') as typeof import('@maplibre/maplibre-react-native');
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { absoluteHaUrl, authHeaders } from '../../api/homeAssistant';
 import { useTheme } from '../../theme';
 import { PressableScale } from '../../components/PressableScale';
+import { i18n } from '../../i18n';
+
+// بنجيب مكوّنات الخريطة عبر require (CommonJS) مش import: الـ import كان بيتحل
+// لنسخة بترجع undefined وقت التشغيل (مشكلة exports field مع metro)، بينما require
+// بيجيب النسخة الشغّالة — نفس اللي MapHost بيتأكد من وجودها قبل العرض.
+const { Camera, GeoJSONSource, Layer, Map: MapView, Marker, UserLocation } = require('@maplibre/maplibre-react-native') as typeof import('@maplibre/maplibre-react-native');
 
 type Props = { people: HaEntity[]; home?: HaEntity; states: HaEntity[]; selectedPersonId?: string; settings: ConnectionSettings };
+type Point = { id: string; name: string; lat: number; lng: number; uri?: string; color: string };
+type Zone = { id: string; name: string; lat: number; lng: number; radius: number };
+type Hazard = { id: string; name: string; lat: number; lng: number };
 
 const PERSON_RING = ['#4F8BFF', '#34C759', '#FF9F0A', '#FF375F', '#AF52DE', '#5AC8FA'];
 const num = (v: unknown) => Number(v);
 
-type Point = { id: string; name: string; lat: number; lng: number; uri?: string; color: string };
+// ستايل القمر الصناعي (Esri World Imagery) - raster، نفس مصدر الخريطة الحالية.
+const SATELLITE_STYLE = {
+  version: 8 as const,
+  sources: { sat: { type: 'raster' as const, tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'], tileSize: 256, attribution: 'Esri, Maxar, Earthstar Geographics' } },
+  layers: [{ id: 'sat', type: 'raster' as const, source: 'sat' }],
+};
 
-export function PeopleMapNative({ people, home, settings }: Props) {
+// دايرة جيوديسية (حلقة [lng,lat]) بنصف قطر بالمتر حوالين مركز - عشان نرسم
+// المناطق بحجمها الحقيقي على الأرض (CircleLayer نصف قطره بالبكسل مش بالمتر).
+function circleRing(lng: number, lat: number, radiusM: number, steps = 64): [number, number][] {
+  const earth = 6378137;
+  const dLat = (radiusM / earth) * (180 / Math.PI);
+  const dLng = (radiusM / (earth * Math.cos((Math.PI * lat) / 180))) * (180 / Math.PI);
+  const ring: [number, number][] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = (i / steps) * 2 * Math.PI;
+    ring.push([lng + dLng * Math.cos(t), lat + dLat * Math.sin(t)]);
+  }
+  return ring;
+}
+
+export function PeopleMapNative({ people, states, settings }: Props) {
   const { colors, resolvedMode } = useTheme();
   const cameraRef = useRef<CameraRef>(null);
-  const styleUrl = resolvedMode === 'dark' ? 'https://tiles.openfreemap.org/styles/dark' : 'https://tiles.openfreemap.org/styles/positron';
+  const [showHazards, setShowHazards] = useState(true);
+  const [satelliteOn, setSatelliteOn] = useState(false);
+  const vectorStyle = resolvedMode === 'dark' ? 'https://tiles.openfreemap.org/styles/dark' : 'https://tiles.openfreemap.org/styles/positron';
 
   const points = useMemo<Point[]>(
     () =>
@@ -45,14 +70,36 @@ export function PeopleMapNative({ people, home, settings }: Props) {
     [people, settings],
   );
 
-  const homeLat = home ? num(home.attributes.latitude) : NaN;
-  const homeLng = home ? num(home.attributes.longitude) : NaN;
-  const hasHome = Number.isFinite(homeLat) && Number.isFinite(homeLng);
-  const center: [number, number] = hasHome ? [homeLng, homeLat] : points[0] ? [points[0].lng, points[0].lat] : [0, 0];
+  const zones = useMemo<Zone[]>(
+    () =>
+      states
+        .filter(e => e.entity_id.startsWith('zone.') && Number.isFinite(num(e.attributes.latitude)) && Number.isFinite(num(e.attributes.longitude)))
+        .map(z => ({ id: z.entity_id, name: String(z.attributes.friendly_name ?? z.entity_id.replace('zone.', '')), lat: num(z.attributes.latitude), lng: num(z.attributes.longitude), radius: num(z.attributes.radius ?? 100) })),
+    [states],
+  );
+
+  const hazards = useMemo<Hazard[]>(
+    () =>
+      states
+        .filter(e => e.entity_id.startsWith('geo_location.') && Number.isFinite(num(e.attributes.latitude)) && Number.isFinite(num(e.attributes.longitude)))
+        .map(h => ({ id: h.entity_id, name: String(h.attributes.friendly_name ?? h.attributes.title ?? h.entity_id.replace('geo_location.', '')), lat: num(h.attributes.latitude), lng: num(h.attributes.longitude) })),
+    [states],
+  );
+
+  const zonesFC = useMemo(
+    () => ({
+      type: 'FeatureCollection' as const,
+      features: zones.map(z => ({ type: 'Feature' as const, properties: { id: z.id }, geometry: { type: 'Polygon' as const, coordinates: [circleRing(z.lng, z.lat, z.radius)] } })),
+    }),
+    [zones],
+  );
+
+  const homeZone = zones.find(z => z.id === 'zone.home') ?? zones[0];
+  const center: [number, number] = homeZone ? [homeZone.lng, homeZone.lat] : points[0] ? [points[0].lng, points[0].lat] : [0, 0];
 
   const fitAll = () => {
     const all: [number, number][] = points.map(p => [p.lng, p.lat]);
-    if (hasHome) all.push([homeLng, homeLat]);
+    if (homeZone) all.push([homeZone.lng, homeZone.lat]);
     if (all.length === 0) return;
     const lngs = all.map(c => c[0]);
     const lats = all.map(c => c[1]);
@@ -69,16 +116,33 @@ export function PeopleMapNative({ people, home, settings }: Props) {
 
   return (
     <View style={{ flex: 1 }}>
-      <MapView mapStyle={styleUrl} style={{ flex: 1 }}>
+      <MapView mapStyle={satelliteOn ? SATELLITE_STYLE : vectorStyle} style={{ flex: 1 }}>
         <Camera ref={cameraRef} center={center} zoom={15} />
         <UserLocation animated />
-        {hasHome ? (
-          <Marker id="home" lngLat={[homeLng, homeLat]} anchor="center">
-            <View style={[styles.homeChip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-              <Text style={{ color: colors.text, fontWeight: '700', fontSize: 12 }}>⌂ {String(home?.attributes.friendly_name ?? 'Home')}</Text>
+
+        <GeoJSONSource id="zones" data={zonesFC}>
+          <Layer id="zones-fill" type="fill" source="zones" paint={{ 'fill-color': '#4F8BFF', 'fill-opacity': 0.12 }} />
+          <Layer id="zones-line" type="line" source="zones" paint={{ 'line-color': '#4F8BFF', 'line-width': 2, 'line-opacity': 0.6 }} />
+        </GeoJSONSource>
+
+        {zones.map(z => (
+          <Marker key={z.id} id={`zlabel-${z.id}`} lngLat={[z.lng, z.lat]} anchor="center">
+            <View style={[styles.zoneChip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+              <Text style={{ color: colors.text, fontWeight: '700', fontSize: 11 }}>{z.id === 'zone.home' ? '⌂ ' : ''}{z.name}</Text>
             </View>
           </Marker>
-        ) : null}
+        ))}
+
+        {showHazards
+          ? hazards.map(h => (
+              <Marker key={h.id} id={`haz-${h.id}`} lngLat={[h.lng, h.lat]} anchor="center">
+                <View style={styles.hazard}>
+                  <Ionicons name="warning" size={16} color="#fff" />
+                </View>
+              </Marker>
+            ))
+          : null}
+
         {points.map(p => (
           <Marker key={p.id} id={p.id} lngLat={[p.lng, p.lat]} anchor="bottom">
             <View style={styles.markerWrap}>
@@ -90,9 +154,25 @@ export function PeopleMapNative({ people, home, settings }: Props) {
           </Marker>
         ))}
       </MapView>
-      <PressableScale style={[styles.fab, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} onPress={fitAll} hitSlop={8}>
-        <Ionicons name="locate" size={22} color={colors.primary} />
-      </PressableScale>
+
+      {showHazards && hazards.length ? (
+        <PressableScale style={[styles.banner, { backgroundColor: colors.danger }]} onPress={() => hazards[0] && cameraRef.current?.flyTo({ center: [hazards[0].lng, hazards[0].lat], zoom: 14, duration: 600 })}>
+          <Ionicons name="warning" size={16} color="#fff" />
+          <Text style={styles.bannerText}>{hazards.length} {i18n.t('hazards')}</Text>
+        </PressableScale>
+      ) : null}
+
+      <View style={styles.controls}>
+        <PressableScale style={[styles.ctrl, { backgroundColor: showHazards ? colors.danger : colors.surfaceElevated, borderColor: colors.border }]} onPress={() => setShowHazards(v => !v)} hitSlop={6}>
+          <Ionicons name="warning-outline" size={19} color={showHazards ? '#fff' : colors.text} />
+        </PressableScale>
+        <PressableScale style={[styles.ctrl, { backgroundColor: satelliteOn ? colors.primary : colors.surfaceElevated, borderColor: colors.border }]} onPress={() => setSatelliteOn(v => !v)} hitSlop={6}>
+          <Ionicons name="globe-outline" size={19} color={satelliteOn ? colors.black : colors.text} />
+        </PressableScale>
+        <PressableScale style={[styles.ctrl, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} onPress={fitAll} hitSlop={6}>
+          <Ionicons name="locate" size={19} color={colors.primary} />
+        </PressableScale>
+      </View>
     </View>
   );
 }
@@ -102,6 +182,10 @@ const styles = StyleSheet.create({
   avatar: { width: 44, height: 44, borderRadius: 22, borderWidth: 3, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   avatarImg: { width: '100%', height: '100%' },
   pin: { width: 10, height: 10, borderRadius: 5, marginTop: -3, transform: [{ rotate: '45deg' }] },
-  homeChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, borderWidth: 1 },
-  fab: { position: 'absolute', right: 16, bottom: 24, width: 48, height: 48, borderRadius: 24, borderWidth: 1, alignItems: 'center', justifyContent: 'center', elevation: 4 },
+  zoneChip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12, borderWidth: 1 },
+  hazard: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#E53935', borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  banner: { position: 'absolute', top: 14, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18 },
+  bannerText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  controls: { position: 'absolute', right: 16, bottom: 24, gap: 10 },
+  ctrl: { width: 48, height: 48, borderRadius: 24, borderWidth: 1, alignItems: 'center', justifyContent: 'center', elevation: 4 },
 });
