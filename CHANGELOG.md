@@ -6,6 +6,9 @@
 
 ## العربية
 
+### [2.16.86] — 2026-11-14  (تعديل JS — بيجي من metro)
+- **توحيد علامة "أنا" على الخريطة النيتف:** كان فيه علامتين لنفس الشخص — الأفاتار (على موقع HA القديم) + النقطة الزرقاء (الموقع الحي). دلوقتي علامة واحدة: **أفاتارك بيظهر عند موقعك الحي** (Fused، مكان النقطة الزرقاء) بحلقة زرقا تميّزه، واتشال من علامات الأشخاص العادية (مفيش تكرار)، والنقطة الزرقاء المنفصلة اتشالت. باقي أفراد العيلة بموقع HA زي ما هم (لأن مالناش GPS حي لتليفوناتهم). "أنا" بيتحدد من `selectedPersonId` (شخص المستخدم الحالي).
+
 ### [2.16.85] — 2026-11-14  (تعديل JS — بيجي من metro)
 - **الخريطة النيتف — المرحلة ب:** إضافة طبقات للخريطة النيتف (`PeopleMapNative`):
   - **المناطق كدوائر** بحجمها الحقيقي على الأرض (home وباقي `zone.*` من HA) — تعبئة + حدود + اسم المنطقة. (دايرة جيوديسية بالمتر، مش بكسل.)
@@ -710,6 +713,9 @@
 ---
 
 ## English
+
+### [2.16.86] — 2026-11-14  (JS change — ships via metro)
+- **Unified the "me" marker on the native map:** there were two markers for the same person — the avatar (at the stale HA location) and the blue dot (live location). Now it's one: **your avatar shows at your live location** (Fused, where the blue dot was) with a distinct blue ring, is removed from the regular family markers (no duplicate), and the separate blue dot is gone. Other family members stay at their HA location (we have no live GPS of their phones). "Me" is identified via `selectedPersonId` (the current user's person).
 
 ### [2.16.85] — 2026-11-14  (JS change — ships via metro)
 - **Native map — Phase B:** added layers to the native map (`PeopleMapNative`):

@@ -4,12 +4,13 @@
 // (UserLocation, Fused عبر locationEngine=google) + المناطق كدوائر (home وغيرها)
 // + طبقة المخاطر (geo_location) + مفتاح القمر الصناعي + أزرار تحكم + إعادة تمركز.
 // باقي (المسار، التايملاين، الموقع الحي عند الطلب) في مرحلة لاحقة.
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import type { CameraRef } from '@maplibre/maplibre-react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { absoluteHaUrl, authHeaders } from '../../api/homeAssistant';
+import { requestLocationPermission, watchLiveLocation, type LiveLocation } from '../../native/liveLocation';
 import { useTheme } from '../../theme';
 import { PressableScale } from '../../components/PressableScale';
 import { i18n } from '../../i18n';
@@ -18,6 +19,8 @@ import { i18n } from '../../i18n';
 // لنسخة بترجع undefined وقت التشغيل (مشكلة exports field مع metro)، بينما require
 // بيجيب النسخة الشغّالة — نفس اللي MapHost بيتأكد من وجودها قبل العرض.
 const { Camera, GeoJSONSource, Layer, Map: MapView, Marker, UserLocation } = require('@maplibre/maplibre-react-native') as typeof import('@maplibre/maplibre-react-native');
+
+const ME_COLOR = '#2a7bff';
 
 type Props = { people: HaEntity[]; home?: HaEntity; states: HaEntity[]; selectedPersonId?: string; settings: ConnectionSettings };
 type Point = { id: string; name: string; lat: number; lng: number; uri?: string; color: string };
@@ -48,12 +51,23 @@ function circleRing(lng: number, lat: number, radiusM: number, steps = 64): [num
   return ring;
 }
 
-export function PeopleMapNative({ people, states, settings }: Props) {
+export function PeopleMapNative({ people, states, selectedPersonId, settings }: Props) {
   const { colors, resolvedMode } = useTheme();
   const cameraRef = useRef<CameraRef>(null);
   const [showHazards, setShowHazards] = useState(true);
   const [satelliteOn, setSatelliteOn] = useState(false);
+  const [liveLocation, setLiveLocation] = useState<LiveLocation | null>(null);
   const vectorStyle = resolvedMode === 'dark' ? 'https://tiles.openfreemap.org/styles/dark' : 'https://tiles.openfreemap.org/styles/positron';
+
+  // الموقع الحي لتليفوني (Fused عبر Play Services) - بنعرض بيه علامة "أنا"
+  // الموحّدة مكان ما كانت النقطة الزرقاء، بدل الأفاتار اللي على موقع HA القديم.
+  useEffect(() => {
+    let stop: (() => void) | undefined;
+    void (async () => {
+      if (await requestLocationPermission()) stop = watchLiveLocation(setLiveLocation);
+    })();
+    return () => stop?.();
+  }, []);
 
   const points = useMemo<Point[]>(
     () =>
@@ -94,11 +108,28 @@ export function PeopleMapNative({ people, states, settings }: Props) {
     [zones],
   );
 
+  // "أنا" = الشخص المطابق لـ selectedPersonId (التطبيق بيظبطه على شخص المستخدم
+  // الحالي). علامتي بتبقى عند الموقع الحي لو متاح، وإلا على موقع HA.
+  const mePerson = selectedPersonId ? people.find(p => p.entity_id === selectedPersonId) : undefined;
+  const meUri = (() => {
+    const pic = mePerson?.attributes.entity_picture as string | undefined;
+    return pic ? (pic.startsWith('http') ? pic : absoluteHaUrl(settings, pic)) : undefined;
+  })();
+  const otherPoints = mePerson ? points.filter(p => p.id !== mePerson.entity_id) : points;
+  const meHaLat = mePerson ? num(mePerson.attributes.latitude) : NaN;
+  const meHaLng = mePerson ? num(mePerson.attributes.longitude) : NaN;
+  const myCoord: [number, number] | undefined = liveLocation
+    ? [liveLocation.longitude, liveLocation.latitude]
+    : Number.isFinite(meHaLat) && Number.isFinite(meHaLng)
+      ? [meHaLng, meHaLat]
+      : undefined;
+
   const homeZone = zones.find(z => z.id === 'zone.home') ?? zones[0];
-  const center: [number, number] = homeZone ? [homeZone.lng, homeZone.lat] : points[0] ? [points[0].lng, points[0].lat] : [0, 0];
+  const center: [number, number] = myCoord ?? (homeZone ? [homeZone.lng, homeZone.lat] : points[0] ? [points[0].lng, points[0].lat] : [0, 0]);
 
   const fitAll = () => {
-    const all: [number, number][] = points.map(p => [p.lng, p.lat]);
+    const all: [number, number][] = otherPoints.map(p => [p.lng, p.lat]);
+    if (myCoord) all.push(myCoord);
     if (homeZone) all.push([homeZone.lng, homeZone.lat]);
     if (all.length === 0) return;
     const lngs = all.map(c => c[0]);
@@ -118,7 +149,9 @@ export function PeopleMapNative({ people, states, settings }: Props) {
     <View style={{ flex: 1 }}>
       <MapView mapStyle={satelliteOn ? SATELLITE_STYLE : vectorStyle} style={{ flex: 1 }}>
         <Camera ref={cameraRef} center={center} zoom={15} />
-        <UserLocation animated />
+        {/* النقطة الزرقاء الافتراضية بتظهر بس لو ماعرفناش مين "أنا" (fallback) -
+            غير كده علامة "أنا" الموحّدة (الأفاتار) بتغطي الموقع الحي. */}
+        {!myCoord ? <UserLocation animated /> : null}
 
         <GeoJSONSource id="zones" data={zonesFC}>
           <Layer id="zones-fill" type="fill" source="zones" paint={{ 'fill-color': '#4F8BFF', 'fill-opacity': 0.12 }} />
@@ -143,7 +176,7 @@ export function PeopleMapNative({ people, states, settings }: Props) {
             ))
           : null}
 
-        {points.map(p => (
+        {otherPoints.map(p => (
           <Marker key={p.id} id={p.id} lngLat={[p.lng, p.lat]} anchor="bottom">
             <View style={styles.markerWrap}>
               <View style={[styles.avatar, { borderColor: p.color, backgroundColor: colors.surface }]}>
@@ -153,6 +186,19 @@ export function PeopleMapNative({ people, states, settings }: Props) {
             </View>
           </Marker>
         ))}
+
+        {/* علامة "أنا" الموحّدة: الأفاتار عند الموقع الحي (مكان النقطة الزرقاء) -
+            بحلقة زرقا تميّزها إنها موقعك الحي. */}
+        {mePerson && myCoord ? (
+          <Marker id="me" lngLat={myCoord} anchor="bottom">
+            <View style={styles.markerWrap}>
+              <View style={[styles.avatar, styles.avatarMe, { backgroundColor: colors.surface }]}>
+                {meUri ? <Image source={{ uri: meUri, headers: authHeaders(settings) }} style={styles.avatarImg} /> : <Ionicons name="person" size={22} color={colors.text} />}
+              </View>
+              <View style={[styles.pin, { backgroundColor: ME_COLOR }]} />
+            </View>
+          </Marker>
+        ) : null}
       </MapView>
 
       {showHazards && hazards.length ? (
@@ -180,6 +226,7 @@ export function PeopleMapNative({ people, states, settings }: Props) {
 const styles = StyleSheet.create({
   markerWrap: { alignItems: 'center' },
   avatar: { width: 44, height: 44, borderRadius: 22, borderWidth: 3, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  avatarMe: { borderColor: ME_COLOR, borderWidth: 4, shadowColor: ME_COLOR, shadowOpacity: 0.6, shadowRadius: 6, shadowOffset: { width: 0, height: 0 }, elevation: 6 },
   avatarImg: { width: '100%', height: '100%' },
   pin: { width: 10, height: 10, borderRadius: 5, marginTop: -3, transform: [{ rotate: '45deg' }] },
   zoneChip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12, borderWidth: 1 },
