@@ -6,6 +6,14 @@
 
 ## العربية
 
+### [2.16.91] — 2026-11-14  (تعديل JS — بيجي من metro)
+- **الخريطة النيتف — المرحلة ب (3/3): التايملاين + المتابعة.** اكتملت مطابقة النيتف لنسخة الويب:
+  - **مسار الحركة (تايملاين):** خط برتقالي متقطّع لحركة الفرد المختار — مدى **اليوم / ٣ أيام / أسبوع** (من `history` بتاع HA)، وزر **تشغيل** بيحرّك نقطة على المسار والكاميرا تتبعها.
+  - **وضع المتابعة:** الكاميرا تلاحق الفرد المختار وهو بيتحرك.
+  - **السرعة والاتجاه:** بيتحسبوا من فرق المواقع (مع تجاهل تشويش الـ GPS) — السرعة في كارت الفرد + أيقونة قيادة/مشي في اللستة + **سهم اتجاه** على علامة الفرد المتحرّك.
+  - **بانر بطارية ضعيفة:** تنبيه أول ما بطارية أي فرد تنزل ≤15%.
+  - منطق الحركة والثوابت اتحطّوا في `mapShared.ts` (مشترك مع الويب).
+
 ### [2.16.90] — 2026-11-14  (تعديل JS — بيجي من metro)
 - **الخريطة النيتف — المرحلة ب (2/3): المسار + الملاحة.** لما تختار فرد (مش نفسك) على الخريطة النيتف:
   - **خط مسار على الطريق** من موقعك ليه عبر OSRM المجاني (هندسة GeoJSON كاملة) — خط أزرق بإطار غامق تحت علامات الأشخاص.
@@ -742,6 +750,14 @@
 ---
 
 ## English
+
+### [2.16.91] — 2026-11-14  (JS change — ships via metro)
+- **Native map — Phase B (3/3): timeline + follow.** The native map now matches the web version:
+  - **Movement trail (timeline):** a dashed orange line of the selected member's movement — **today / 3 days / week** range (from HA history), with a **play** button that moves a dot along the trail and follows it with the camera.
+  - **Follow mode:** the camera tracks the selected member as they move.
+  - **Speed and heading:** computed from position deltas (GPS noise filtered) — speed in the member card + a driving/walking icon in the list + a **heading arrow** on a moving member's marker.
+  - **Low-battery banner:** alerts as soon as any member's battery drops to ≤15%.
+  - Motion logic and constants added to `mapShared.ts` (shared with web).
 
 ### [2.16.90] — 2026-11-14  (JS change — ships via metro)
 - **Native map — Phase B (2/3): route + navigation.** When you select a member (not yourself) on the native map:

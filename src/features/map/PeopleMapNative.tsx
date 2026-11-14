@@ -11,12 +11,27 @@ import { Image, Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import type { CameraRef } from '@maplibre/maplibre-react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
-import { absoluteHaUrl, authHeaders } from '../../api/homeAssistant';
+import { absoluteHaUrl, authHeaders, getPersonHistory, type HistoryPoint } from '../../api/homeAssistant';
 import { requestLocationPermission, watchLiveLocation, type LiveLocation } from '../../native/liveLocation';
 import { useTheme } from '../../theme';
 import { PressableScale } from '../../components/PressableScale';
 import { i18n } from '../../i18n';
-import { PERSON_RING, reverseGeocode, fetchRoute, type RouteMode, type RouteResult } from './mapShared';
+import {
+  PERSON_RING,
+  reverseGeocode,
+  fetchRoute,
+  haversine,
+  bearing,
+  batteryPct,
+  LOW_BATTERY,
+  MIN_MOVE_M,
+  MOVING_KMH,
+  MAX_SPEED_KMH,
+  STILL_AFTER_MS,
+  type RouteMode,
+  type RouteResult,
+  type Motion,
+} from './mapShared';
 import { MemberSheet, MEMBER_SHEET_PEEK } from './MemberSheet';
 
 // بنجيب مكوّنات الخريطة عبر require (CommonJS) مش import: الـ import كان بيتحل
@@ -64,6 +79,16 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
   const [addrMap, setAddrMap] = useState<Record<string, string>>({});
   const [routeMode, setRouteMode] = useState<RouteMode>('driving');
   const [routeInfo, setRouteInfo] = useState<RouteResult | null>(null);
+  const [motion, setMotion] = useState<Record<string, Motion>>({});
+  const [batteryAlert, setBatteryAlert] = useState<string | null>(null);
+  const [follow, setFollow] = useState(false);
+  const [trail, setTrail] = useState<HistoryPoint[]>([]);
+  const [trailRange, setTrailRange] = useState(24);
+  const [trailLoading, setTrailLoading] = useState(false);
+  const [playIdx, setPlayIdx] = useState<number | null>(null);
+  const stableMetaRef = useRef<Record<string, { lat: number; lng: number; t: number }>>({});
+  const batteryAlertedRef = useRef<Set<string>>(new Set());
+  const playTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const vectorStyle = resolvedMode === 'dark' ? 'https://tiles.openfreemap.org/styles/dark' : 'https://tiles.openfreemap.org/styles/positron';
 
   // لون ثابت لكل فرد (نفس ترتيب people) - عشان العلامة واللستة يبقوا متطابقين.
@@ -114,6 +139,55 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
       on = false;
     };
   }, [people.map(p => `${p.entity_id}:${p.state}:${num(p.attributes.latitude).toFixed(4)},${num(p.attributes.longitude).toFixed(4)}`).join('|')]);
+
+  const pointsKey = useMemo(() => points.map(p => `${p.id}:${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join('|'), [points]);
+
+  // حساب الحركة/السرعة/الاتجاه: مانعتبرهاش حركة إلا لو الإزاحة أكبر من دقة الـ GPS
+  // (أو 50م)، عشان التشويش ما يقولش "بيتحرك" وإحنا واقفين. مابيأثرش على مكان العلامة.
+  useEffect(() => {
+    const now = Date.now();
+    const meta = stableMetaRef.current;
+    const updates: Record<string, Motion> = {};
+    for (const p of people) {
+      const lat = num(p.attributes.latitude);
+      const lng = num(p.attributes.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      const acc = num(p.attributes.gps_accuracy);
+      const deadband = Math.max(Number.isFinite(acc) && acc > 0 ? acc : 0, MIN_MOVE_M);
+      const prev = meta[p.entity_id];
+      if (!prev) {
+        meta[p.entity_id] = { lat, lng, t: now };
+        continue;
+      }
+      const d = haversine({ latitude: prev.lat, longitude: prev.lng }, { latitude: lat, longitude: lng });
+      if (d > deadband) {
+        const dt = (now - prev.t) / 1000;
+        const speed = dt > 2 && dt < 3600 ? (d / dt) * 3.6 : 0;
+        const realMove = speed > 0 && speed <= MAX_SPEED_KMH;
+        updates[p.entity_id] = { speed: realMove ? speed : 0, heading: bearing(prev.lat, prev.lng, lat, lng), moving: realMove && speed >= MOVING_KMH };
+        meta[p.entity_id] = { lat, lng, t: now };
+      } else if (motion[p.entity_id]?.moving && now - prev.t > STILL_AFTER_MS) {
+        updates[p.entity_id] = { speed: 0, heading: motion[p.entity_id]?.heading ?? 0, moving: false };
+      }
+    }
+    if (Object.keys(updates).length) setMotion(m => ({ ...m, ...updates }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pointsKey]);
+
+  // تنبيه البطارية المنخفضة (مرة لكل فرد لحد ما يشحن فوق الحد+5).
+  useEffect(() => {
+    for (const p of people) {
+      const pct = batteryPct(p, states);
+      if (!Number.isFinite(pct)) continue;
+      if (pct <= LOW_BATTERY && !batteryAlertedRef.current.has(p.entity_id)) {
+        batteryAlertedRef.current.add(p.entity_id);
+        setBatteryAlert(String(p.attributes.friendly_name ?? p.entity_id));
+      } else if (pct > LOW_BATTERY + 5) {
+        batteryAlertedRef.current.delete(p.entity_id);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pointsKey]);
 
   const zones = useMemo<Zone[]>(
     () =>
@@ -197,6 +271,77 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
     );
   };
 
+  // وضع المتابعة: الكاميرا تلاحق الفرد المختار وهو بيتحرك.
+  useEffect(() => {
+    if (follow && pickedPoint) cameraRef.current?.flyTo({ center: [pickedPoint.lng, pickedPoint.lat], zoom: 16, duration: 600 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [follow, pickedCoordKey]);
+
+  // ====== التايملاين: مسار حركة الفرد (يوم/٣ أيام/أسبوع) + تشغيل ======
+  const stopPlay = () => {
+    if (playTimerRef.current) clearInterval(playTimerRef.current);
+    playTimerRef.current = null;
+    setPlayIdx(null);
+  };
+  const clearTrail = () => {
+    stopPlay();
+    setTrail([]);
+  };
+  const loadTrail = async (hours: number) => {
+    if (!picked) return;
+    setTrailLoading(true);
+    try {
+      const pts = await getPersonHistory(settings, picked, hours);
+      stopPlay();
+      setTrail(pts.length >= 2 ? pts : []);
+    } finally {
+      setTrailLoading(false);
+    }
+  };
+  const toggleTrail = () => {
+    if (trail.length) clearTrail();
+    else void loadTrail(trailRange);
+  };
+  const changeRange = (hours: number) => {
+    setTrailRange(hours);
+    if (trail.length) void loadTrail(hours);
+  };
+  const playTrail = () => {
+    if (trail.length < 2) return;
+    if (playTimerRef.current) {
+      stopPlay();
+      return;
+    }
+    let i = 0;
+    setPlayIdx(0);
+    cameraRef.current?.flyTo({ center: [trail[0].lng, trail[0].lat], zoom: 15, duration: 400 });
+    playTimerRef.current = setInterval(() => {
+      i += 1;
+      if (i >= trail.length) {
+        stopPlay();
+        return;
+      }
+      setPlayIdx(i);
+      cameraRef.current?.flyTo({ center: [trail[i].lng, trail[i].lat], zoom: 15, duration: 250 });
+    }, 300);
+  };
+
+  // تنظيف المؤقّت + مسح المسار لما يتغيّر الفرد المختار أو الشاشة تتقفل.
+  useEffect(() => () => stopPlay(), []);
+  useEffect(() => {
+    clearTrail();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [picked]);
+
+  const trailFC = useMemo(
+    () =>
+      trail.length >= 2
+        ? { type: 'FeatureCollection' as const, features: [{ type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: trail.map(t => [t.lng, t.lat] as [number, number]) } }] }
+        : { type: 'FeatureCollection' as const, features: [] },
+    [trail],
+  );
+  const playhead = playIdx !== null && trail[playIdx] ? ([trail[playIdx].lng, trail[playIdx].lat] as [number, number]) : undefined;
+
   const fitAll = () => {
     const all: [number, number][] = otherPoints.map(p => [p.lng, p.lat]);
     if (myCoord) all.push(myCoord);
@@ -242,6 +387,17 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
           <Layer id="route-line" type="line" source="route" layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': '#5C8DFF', 'line-width': 4.5 }} />
         </GeoJSONSource>
 
+        {/* مسار الحركة (تايملاين): خط برتقالي متقطّع. */}
+        <GeoJSONSource id="trail" data={trailFC}>
+          <Layer id="trail-line" type="line" source="trail" layout={{ 'line-cap': 'round', 'line-join': 'round' }} paint={{ 'line-color': '#FF9F0A', 'line-width': 4, 'line-dasharray': [1.6, 1.2] }} />
+        </GeoJSONSource>
+
+        {playhead ? (
+          <Marker id="playhead" lngLat={playhead} anchor="center">
+            <View style={styles.playhead} />
+          </Marker>
+        ) : null}
+
         {zones.map(z => (
           <Marker key={z.id} id={`zlabel-${z.id}`} lngLat={[z.lng, z.lat]} anchor="center">
             <View style={[styles.zoneChip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
@@ -260,16 +416,24 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
             ))
           : null}
 
-        {otherPoints.map(p => (
-          <Marker key={p.id} id={p.id} lngLat={[p.lng, p.lat]} anchor="bottom">
-            <View style={styles.markerWrap}>
-              <View style={[styles.avatar, { borderColor: p.color, backgroundColor: colors.surface }]}>
-                {p.uri ? <Image source={{ uri: p.uri, headers: authHeaders(settings) }} style={styles.avatarImg} /> : <Ionicons name="person" size={22} color={colors.text} />}
+        {otherPoints.map(p => {
+          const mo = motion[p.id];
+          return (
+            <Marker key={p.id} id={p.id} lngLat={[p.lng, p.lat]} anchor="bottom">
+              <View style={styles.markerWrap}>
+                {mo?.moving ? (
+                  <View style={[styles.heading, { transform: [{ rotate: `${Math.round(mo.heading)}deg` }] }]}>
+                    <Ionicons name="navigate" size={14} color={p.color} />
+                  </View>
+                ) : null}
+                <View style={[styles.avatar, { borderColor: p.color, backgroundColor: colors.surface }]}>
+                  {p.uri ? <Image source={{ uri: p.uri, headers: authHeaders(settings) }} style={styles.avatarImg} /> : <Ionicons name="person" size={22} color={colors.text} />}
+                </View>
+                <View style={[styles.pin, { backgroundColor: p.color }]} />
               </View>
-              <View style={[styles.pin, { backgroundColor: p.color }]} />
-            </View>
-          </Marker>
-        ))}
+            </Marker>
+          );
+        })}
 
         {/* علامة "أنا" الموحّدة: الأفاتار عند الموقع الحي (مكان النقطة الزرقاء) -
             بحلقة زرقا تميّزها إنها موقعك الحي. */}
@@ -289,6 +453,13 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
         <PressableScale style={[styles.banner, { backgroundColor: colors.danger }]} onPress={() => hazards[0] && cameraRef.current?.flyTo({ center: [hazards[0].lng, hazards[0].lat], zoom: 14, duration: 600 })}>
           <Ionicons name="warning" size={16} color="#fff" />
           <Text style={styles.bannerText}>{hazards.length} {i18n.t('hazards')}</Text>
+        </PressableScale>
+      ) : null}
+
+      {batteryAlert ? (
+        <PressableScale style={[styles.banner, styles.bannerLow, { backgroundColor: colors.warning }]} onPress={() => setBatteryAlert(null)}>
+          <Ionicons name="battery-dead" size={16} color={colors.black} />
+          <Text style={[styles.bannerText, { color: colors.black }]}>{batteryAlert} · {i18n.t('lowBattery')}</Text>
         </PressableScale>
       ) : null}
 
@@ -318,6 +489,16 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
         onRouteMode={setRouteMode}
         routeInfo={routeInfo}
         onNavigate={navigateTo}
+        motion={motion}
+        follow={follow}
+        onToggleFollow={() => setFollow(f => !f)}
+        trailActive={trail.length > 0}
+        trailLoading={trailLoading}
+        trailRange={trailRange}
+        onToggleTrail={toggleTrail}
+        onChangeRange={changeRange}
+        onPlayTrail={playTrail}
+        playing={playIdx !== null}
       />
     </View>
   );
@@ -331,6 +512,9 @@ const styles = StyleSheet.create({
   pin: { width: 10, height: 10, borderRadius: 5, marginTop: -3, transform: [{ rotate: '45deg' }] },
   zoneChip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12, borderWidth: 1 },
   hazard: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#E53935', borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  playhead: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#FF9F0A', borderWidth: 3, borderColor: '#fff', elevation: 4 },
+  heading: { marginBottom: 2 },
+  bannerLow: { top: 54 },
   banner: { position: 'absolute', top: 14, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18 },
   bannerText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   controls: { position: 'absolute', right: 16, bottom: MEMBER_SHEET_PEEK + 12, gap: 10 },
