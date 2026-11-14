@@ -33,6 +33,7 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -203,7 +204,7 @@ class MobileAppService : Service() {
         .setMinUpdateIntervalMillis(fastest)
         .build()
       fusedClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper())
-      fusedClient.lastLocation.addOnSuccessListener { loc -> loc?.let { sendLocation(it) } }
+      requestFreshLocation()
     } catch (e: SecurityException) {
       // مفيش إذن موقع في الخلفية - نكمّل بالحساسات بس.
     }
@@ -229,7 +230,7 @@ class MobileAppService : Service() {
       if (!fastMode) {
         fastMode = true
         restartLocationUpdates()
-        fusedClient.lastLocation.addOnSuccessListener { loc -> loc?.let { sendLocation(it) } }
+        requestFreshLocation()
       }
       val revert = Runnable {
         fastMode = false
@@ -268,6 +269,20 @@ class MobileAppService : Service() {
         response.close()
       }
     })
+  }
+
+  // بيطلب موقع "حالي" جديد ودقيق من Fused Provider (getCurrentLocation) بدل
+  // lastLocation المخزّن - لأن lastLocation بيرجّع آخر موقع مخبّأ وممكن يكون
+  // قديم أو بعيد بأميال حتى لو Google Maps/Find Hub شايفين الموقع الصح. بنمرّره
+  // على handleLocation عشان يتفلتر بالدقة زي أي تحديث عادي. ده بيُستخدم أول ما
+  // التتبّع يبدأ أو الوضع يتبدّل، فمايبعتش موقع بعيد غلط لـ HA.
+  private fun requestFreshLocation() {
+    try {
+      fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, CancellationTokenSource().token)
+        .addOnSuccessListener { loc -> loc?.let { handleLocation(it) } }
+    } catch (e: SecurityException) {
+      // مفيش إذن موقع - نتجاهل.
+    }
   }
 
   // يفلتر قراءات الموقع عشان يمنع تذبذب المناطق (home/away flapping):

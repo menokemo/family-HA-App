@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.16.81] — 2026-11-14  ⚠️ محتاج build APK على ويندوز (تعديل نيتف + JS)
+**إصلاح جذري لمشكلة الموقع (بعيد عن البيت + مهتز) — مبني على بحث في توثيق Android/HA:**
+- **النقطة الزرقاء (الموقع الحي على الخريطة)** كانت بتستخدم Android LocationManager الخام (الافتراضي "auto" في مكتبة الموقع فعليًا بيروح للخام)، واللي بيطلع موقع مهتز وغير دقيق جوّه المباني. دلوقتي بنجبر استخدام **Google Play Services (Fused Location)** — نفس اللي بيستخدمه Find Hub و Google Maps (بيدمج GPS + واي‑فاي + شبكة). *(JS — بيجي من metro)*
+- **علامة الشخص في HA** كانت بتتبعت من `fusedClient.lastLocation` وهو موقع **مخبّأ (cached) ممكن يكون قديم أو بعيد بأميال** حتى لو الموقع الحقيقي صح (موثّق رسميًا من Google). دلوقتي بنطلب موقع جديد فعلي بـ **`getCurrentLocation(HIGH_ACCURACY)`** وبنمرّره على فلتر الدقة قبل ما نبعته. *(نيتف — محتاج APK)*
+- اتلغى حل الـ hysteresis المؤقّت لتنبيهات المنطقة؛ لمّا الموقع يبقى دقيق وثابت زي Find Hub، التذبذب بيتحل من جذره مش بتأجيل التنبيه.
+
 ### [2.16.80] — 2026-11-14  (تعديل JS — بيجي من metro)
 - **إصلاح: تغيير اسم الجهاز ماكانش بيتطبّق في HA + كان بيعمل جهاز مكرر.** السبب: `update_registration` في HA مابيعيدش تسمية جهاز قائم بموثوقية، وأي إعادة تسجيل بتعمل جهاز جديد (تصميم HA). دلوقتي:
   - **إعادة التسمية موثوقة** عبر `config/device_registry/update` (نفس اللي HA بيعمله يدويًا — بيحط `name_by_user`)، فورية، من غير جهاز جديد ولا بقايا. بتتطلب صلاحية أدمن؛ لو مش أدمن بيرجع لـ `update_registration` كـ best-effort مع رسالة واضحة.
@@ -682,6 +688,12 @@
 ---
 
 ## English
+
+### [2.16.81] — 2026-11-14  ⚠️ Requires a Windows APK build (native + JS)
+**Root-cause fix for the location problem (far from home + jittery) — based on Android/HA docs research:**
+- **The live "blue dot" on the map** was using the raw Android LocationManager (the geolocation library's default "auto" actually falls back to raw), which is jittery and inaccurate indoors. It now forces **Google Play Services (Fused Location)** — the same source Find Hub and Google Maps use (GPS + Wi-Fi + cellular fused). *(JS — ships via metro)*
+- **The person marker in HA** was sent from `fusedClient.lastLocation`, a **cached location that can be stale or miles away** even when the true location is correct (officially documented by Google). It now requests a genuinely fresh fix via **`getCurrentLocation(HIGH_ACCURACY)`** and runs it through the accuracy filter before sending. *(native — needs APK)*
+- Removed the temporary zone-notification hysteresis; once the location is accurate and stable like Find Hub, flapping is fixed at its source rather than by delaying the alert.
 
 ### [2.16.80] — 2026-11-14  (JS change — ships via metro)
 - **Fix: renaming the device didn't apply in HA + created a duplicate device.** Root cause: HA's `update_registration` does not reliably rename an existing device, and any re-registration creates a new device (HA design). Now:

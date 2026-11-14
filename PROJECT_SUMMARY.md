@@ -149,6 +149,11 @@ webhook + device_tracker) ونبعت البيانات للـwebhook. النطا�
 /registrations` بيعمل جهاز جديد — فإعادة التسجيل للطوارئ بس. بنخزّن
 `mobileAppDeviceId` للاستهداف الدقيق. (تفاصيل في `BUGS_AND_FIXES.md`.)
 
+**دقة الموقع (2.16.81):** لازم المصدر يكون **Fused Location (Play Services)** زي
+Find Hub — مش GPS الخام ولا `lastLocation` المخبّأ. النقطة الحية في التطبيق
+بتُضبط بـ `setRNConfiguration({locationProvider:'playServices'})`، والخدمة النيتف
+بتجيب موقع جديد بـ `getCurrentLocation(HIGH_ACCURACY)` وتفلتره قبل الإرسال لـ HA.
+
 ### القيود المعروفة (موثّقة بالتفصيل في `BUGS_AND_FIXES.md`)
 - بيئة التطوير (LXC/Metro) حساسة لتشغيل أكتر من عملية `git pull`/
   `gradle` في نفس الوقت — دايمًا اتأكد من جلسة `tmux` واحدة نضيفة.
