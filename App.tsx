@@ -34,7 +34,7 @@ import { SwipeToConfirm } from './src/components/SwipeToConfirm';
 import { OAuthLoginWebView } from './src/components/OAuthLoginWebView';
 import { PressableScale } from './src/components/PressableScale';
 import { setLiveSettings, onLiveSettingsChange, getLiveSettings } from './src/storage/liveSettings';
-import { startAlarmMonitor, stopAlarmMonitor, isAlarmMonitorRunning, canUseFullScreenIntent, openFullScreenIntentSettings, canDrawOverlays, openOverlaySettings, setWatchedPersons, startMobileAppReporting, setLocationMode } from './src/native/AlarmMonitor';
+import { startAlarmMonitor, stopAlarmMonitor, isAlarmMonitorRunning, canUseFullScreenIntent, openFullScreenIntentSettings, canDrawOverlays, openOverlaySettings, setWatchedPersons, startMobileAppReporting, setLocationMode, setMobileAppZones } from './src/native/AlarmMonitor';
 import { isBiometricAvailable, enableBiometricDisarm, disableBiometricDisarm, getBiometricCode } from './src/storage/biometric';
 import type { AlarmModeKey, AlarmoEvent, ConnectionSettings, HaEntity, SirenTone } from './src/types/homeAssistant';
 
@@ -111,6 +111,12 @@ function AppContent({themeMode,onThemeModeChange}:{themeMode:ThemeMode;onThemeMo
  // تشغيل خدمة mobile_app النيتف (موقع في الخلفية + بطارية + واي‑فاي). بتشتغل
  // طول ما الجهاز مسجّل؛ الموقع بس هو اللي بيتحكّم فيه مفتاح المشاركة.
  useEffect(()=>{if(!settings.mobileAppWebhookId||!settings.baseUrl||!settings.token)return;void startMobileAppReporting(settings.baseUrl,settings.mobileAppWebhookId,settings.shareLocation===true);},[settings.mobileAppWebhookId,settings.baseUrl,settings.token,settings.shareLocation]);
+ // مزامنة مناطق HA (zone.*) للخدمة النيتف عشان تسجّلها كـ geofences وتبلّغ الحضور
+ // بـ location_name (home/not_home/اسم المنطقة) بدل حساب HA من GPS الخام — ده
+ // بيمنع تذبذب الدخول/الخروج على حافة البيت.
+ const mobileZones=useMemo(()=>states.filter(e=>e.entity_id.startsWith('zone.')&&isFiniteCoord(e)).map(z=>({name:z.entity_id==='zone.home'?'home':String(z.attributes.friendly_name??z.entity_id.replace('zone.','')),lat:Number(z.attributes.latitude),lng:Number(z.attributes.longitude),radius:Number(z.attributes.radius??100)})),[states]);
+ const mobileZonesKey=mobileZones.map(z=>`${z.name}:${z.lat.toFixed(5)},${z.lng.toFixed(5)}:${z.radius}`).join('|');
+ useEffect(()=>{if(!settings.mobileAppWebhookId||settings.shareLocation!==true||mobileZones.length===0)return;void setMobileAppZones(mobileZones);},[mobileZonesKey,settings.mobileAppWebhookId,settings.shareLocation]);
  // تشغيل مراقبة الخلفية (Lock-screen alert) تلقائيًا لو مفعّلة في الإعداد العائلي
  // — ميزة أمان مهمة لازم تبقى شغّالة عند الكل.
  useEffect(()=>{if(settings.backgroundMonitoringEnabled!==true||!settings.baseUrl||!settings.token||!settings.alarmEntityId)return;let cancelled=false;void(async()=>{let token=settings.token;if(settings.authMethod==='oauth'){let mt=settings.monitorToken;if(!mt){mt=await createMonitorToken(settings);if(mt&&!cancelled)await saveFieldImmediately({monitorToken:mt});}if(mt)token=mt;}if(cancelled||!settings.alarmEntityId)return;void startAlarmMonitor(settings.baseUrl,token,settings.alarmEntityId,settings.alarmCode??'',settings.language??'en',settings.sirenTone??'classic',settings.biometricDisarmEnabled===true);})();return()=>{cancelled=true;};},[settings.backgroundMonitoringEnabled,settings.alarmEntityId,settings.baseUrl,settings.token,settings.monitorToken,settings.authMethod,settings.alarmCode,settings.language,settings.sirenTone,settings.biometricDisarmEnabled]);

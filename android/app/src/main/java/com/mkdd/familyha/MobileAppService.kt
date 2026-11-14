@@ -28,6 +28,9 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.ActivityRecognition
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.Geofence
+import com.google.android.gms.location.GeofencingClient
+import com.google.android.gms.location.GeofencingRequest
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
@@ -76,6 +79,15 @@ class MobileAppService : Service() {
   private val fusedClient: FusedLocationProviderClient by lazy {
     LocationServices.getFusedLocationProviderClient(this)
   }
+  private val geofencingClient: GeofencingClient by lazy {
+    LocationServices.getGeofencingClient(this)
+  }
+  private fun geofencePendingIntent(): PendingIntent {
+    val intent = Intent(this, GeofenceReceiver::class.java)
+    var flags = PendingIntent.FLAG_UPDATE_CURRENT
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) flags = flags or PendingIntent.FLAG_MUTABLE
+    return PendingIntent.getBroadcast(this, 1, intent, flags)
+  }
   private val locationCallback = object : LocationCallback() {
     override fun onLocationResult(result: LocationResult) {
       result.lastLocation?.let { handleLocation(it) }
@@ -95,6 +107,14 @@ class MobileAppService : Service() {
       val fast = intent.getBooleanExtra(EXTRA_LIVE, false)
       val ttl = intent.getLongExtra(EXTRA_TTL_MS, LIVE_TTL_MS)
       applyLocationMode(fast, ttl)
+      return START_STICKY
+    }
+    // مزامنة مناطق HA: نخزّنها ونسجّلها كـ geofences عشان نبلّغ الحضور بدقة.
+    if (intent?.action == ACTION_SET_ZONES) {
+      ensureStarted()
+      startAsForeground()
+      val zonesJson = intent.getStringExtra(EXTRA_ZONES) ?: "[]"
+      setupGeofences(zonesJson)
       return START_STICKY
     }
     baseUrl = intent?.getStringExtra("baseUrl")?.ifEmpty { baseUrl } ?: baseUrl
@@ -289,8 +309,65 @@ class MobileAppService : Service() {
   // - بيرفض الـ fixes ضعيفة الدقة (fix وحش ممكن يرمي الموقع برّه المنطقة).
   // - مابيبعتش موقع جديد إلا لو الحركة أكبر من ضوضاء GPS فعلاً (مش اهتزاز وإحنا
   //   واقفين في مكاننا).
+  // بيسجّل مناطق HA كـ geofences. بنشيل القديم الأول عشان مايتكررش، وبنخزّن
+  // تعريف المناطق في prefs عشان GeofenceReceiver يحسب الحضور عند العبور.
+  private fun setupGeofences(zonesJson: String) {
+    getSharedPreferences("mobile_app", Context.MODE_PRIVATE).edit().putString("zones", zonesJson).apply()
+    if (!hasLocationPermission()) return
+    val geofences = buildGeofences(zonesJson)
+    try {
+      geofencingClient.removeGeofences(geofencePendingIntent())
+      if (geofences.isEmpty()) return
+      // INITIAL_TRIGGER_ENTER/DWELL: لو إحنا جوه منطقة وقت التسجيل، يتبلّغ فورًا
+      // فالحالة تبدأ صح من غير ما نستنى عبور.
+      val request = GeofencingRequest.Builder()
+        .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER or GeofencingRequest.INITIAL_TRIGGER_DWELL)
+        .addGeofences(geofences)
+        .build()
+      geofencingClient.addGeofences(request, geofencePendingIntent())
+    } catch (e: SecurityException) {
+      // مفيش إذن موقع في الخلفية - من غير geofences.
+    }
+  }
+
+  // Play Services بيسمح بحد أقصى 100 geofence؛ ناخد أول 100 لو أكتر.
+  private fun buildGeofences(zonesJson: String): List<Geofence> {
+    val out = ArrayList<Geofence>()
+    try {
+      val arr = JSONArray(zonesJson)
+      for (i in 0 until minOf(arr.length(), 100)) {
+        val o = arr.optJSONObject(i) ?: continue
+        val name = o.optString("name")
+        val lat = o.optDouble("lat")
+        val lng = o.optDouble("lng")
+        val radius = o.optDouble("radius", 100.0).toFloat()
+        if (name.isEmpty() || lat.isNaN() || lng.isNaN() || radius <= 0f) continue
+        out.add(
+          Geofence.Builder()
+            .setRequestId(name)
+            .setCircularRegion(lat, lng, radius)
+            .setExpirationDuration(Geofence.NEVER_EXPIRE)
+            .setLoiteringDelay(GEOFENCE_LOITER_MS)
+            .setTransitionTypes(
+              Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT or Geofence.GEOFENCE_TRANSITION_DWELL,
+            )
+            .build(),
+        )
+      }
+    } catch (e: Exception) {
+    }
+    return out
+  }
+
+  private fun currentZone(): String =
+    getSharedPreferences("mobile_app", Context.MODE_PRIVATE).getString("current_zone", "") ?: ""
+
   private fun handleLocation(loc: Location) {
     if (loc.hasAccuracy() && loc.accuracy > MAX_ACCURACY_M) return
+    // جوه منطقة معروفة (geofence) الحالة بتتحدد بـ location_name القاطع، فمابنبعتش
+    // GPS خام عشان مانعملش تذبذب على حافة المنطقة — إلا في الوضع اللايف (حد
+    // بيتفرّج دلوقتي وعايز يشوف الحركة لحظيًا).
+    if (!fastMode && currentZone().isNotEmpty()) return
     val last = lastLocation
     if (last != null) {
       val moved = last.distanceTo(loc)
@@ -572,8 +649,12 @@ class MobileAppService : Service() {
 
   companion object {
     const val ACTION_SET_MODE = "com.mkdd.familyha.action.SET_LOCATION_MODE"
+    const val ACTION_SET_ZONES = "com.mkdd.familyha.action.SET_ZONES"
     const val EXTRA_LIVE = "live"
     const val EXTRA_TTL_MS = "ttlMs"
+    const val EXTRA_ZONES = "zones"
+    // تأخير الاستقرار جوه المنطقة قبل حدث DWELL (تهدئة زي التطبيق الرسمي).
+    private const val GEOFENCE_LOITER_MS = 30000
     private const val CHANNEL = "mobile_app_report"
     private const val NOTIF_ID = 7731
     private const val LOCATION_INTERVAL_MS = 120000L

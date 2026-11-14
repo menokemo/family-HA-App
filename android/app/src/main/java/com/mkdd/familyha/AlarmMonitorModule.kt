@@ -89,6 +89,26 @@ class AlarmMonitorModule(private val reactContext: ReactApplicationContext) :
     }
   }
 
+  // بيمرّر مناطق HA (zone.*) للخدمة عشان تسجّلها كـ geofences وتبلّغ الحضور
+  // بدقة (location_name) بدل حساب HA من GPS الخام. zonesJson = مصفوفة
+  // [{name, lat, lng, radius}].
+  @ReactMethod
+  fun setMobileAppZones(zonesJson: String, promise: Promise) {
+    try {
+      val intent = Intent(reactContext, MobileAppService::class.java)
+      intent.action = MobileAppService.ACTION_SET_ZONES
+      intent.putExtra(MobileAppService.EXTRA_ZONES, zonesJson)
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        reactContext.startForegroundService(intent)
+      } else {
+        reactContext.startService(intent)
+      }
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("mobileapp_failed", e.message, e)
+    }
+  }
+
   @ReactMethod
   fun stopMobileApp(promise: Promise) {
     try {

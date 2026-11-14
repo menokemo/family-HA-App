@@ -6,6 +6,14 @@
 
 ## العربية
 
+### [2.16.93] — 2026-11-14  (تغيير NATIVE — محتاج بناء APK جديد، مش metro)
+- **الحل الجذري لتذبذب الموقع وإشعارات الدخول/الخروج: Geofencing (زي التطبيق الرسمي).** تطبيقنا كان بيبعت GPS خام ويسيب HA يحسب الحضور، فيتذبذب home↔away على حافة البيت. دلوقتي:
+  - **`GeofenceReceiver.kt`** + الخدمة بتسجّل مناطق HA كـ **geofences** (Play Services، ENTER/EXIT/DWELL + تهدئة 30ث).
+  - عند الدخول/الخروج بنبعت **`location_name`** (اسم المنطقة / `not_home`) كحالة قاطعة — HA مابيحسبش من GPS فمفيش تذبذب. الاسم محسوب من موقع الحدث مقابل كل المناطق (تداخل + خروج صح).
+  - **إيقاف بثّ GPS الخام وإحنا ثابتين جوه منطقة** (إلا الوضع اللايف).
+  - التطبيق بيمرّر المناطق للخدمة (`setMobileAppZones`) أول ما تتعرف وتتغيّر.
+  - **مهم:** تغيير Kotlin → لازم **APK جديد** (versionCode 104 / 2.16.93).
+
 ### [2.16.92] — 2026-11-14  (تعديل JS — بيجي من metro)
 - **الخريطة النيتف — كارت سفلي بتبويبات.** الكارت السفلي بقى **4 تبويبات** بدل اللستة الواحدة:
   - **People:** لستة الأفراد الغنية بكل مميزاتها (مسار/ملاحة/تايملاين/متابعة).
@@ -758,6 +766,14 @@
 ---
 
 ## English
+
+### [2.16.93] — 2026-11-14  (NATIVE change — needs a new APK build, not metro)
+- **Root fix for location scatter + enter/leave spam: geofencing (like the official app).** Our app was sending raw GPS and letting HA compute presence, which flapped home↔away at the zone edge. Now:
+  - **`GeofenceReceiver.kt`** + the service registers HA zones as **geofences** (Play Services, ENTER/EXIT/DWELL + 30s loitering).
+  - On transitions it sends **`location_name`** (zone name / `not_home`) as an authoritative state — HA no longer computes from GPS, so no flapping. The name is computed from the transition location against all zones (handles overlaps and correct exit).
+  - **Raw GPS reporting is suppressed while stationary inside a zone** (except live mode).
+  - The app pushes zones to the service (`setMobileAppZones`) when known and on change.
+  - **Important:** Kotlin change → requires a **new APK** (versionCode 104 / 2.16.93).
 
 ### [2.16.92] — 2026-11-14  (JS change — ships via metro)
 - **Native map — tabbed bottom sheet.** The bottom card is now **4 tabs** instead of a single list:

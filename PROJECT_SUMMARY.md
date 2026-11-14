@@ -155,6 +155,15 @@ Find Hub — مش GPS الخام ولا `lastLocation` المخبّأ. النق�
 بتُضبط بـ `setRNConfiguration({locationProvider:'playServices'})`، والخدمة النيتف
 بتجيب موقع جديد بـ `getCurrentLocation(HIGH_ACCURACY)` وتفلتره قبل الإرسال لـ HA.
 
+**الحضور بـ Geofencing بدل GPS الخام (2.16.93 — NATIVE، محتاج APK):** الحل الجذري
+لتذبذب home↔away وإشعارات الدخول/الخروج. بدل ما نبعت GPS خام ونسيب HA يحسب الحضور
+(بيتذبذب على حافة المنطقة لأن HA بيعتبرك داخلها لو دائرة الدقة بتتقاطع معها)، بقينا
+نعمل زي التطبيق الرسمي وLife360: نسجّل مناطق HA كـ **geofences** في نظام التشغيل
+(`GeofenceReceiver.kt` + `GeofencingClient`, ENTER/EXIT/DWELL + تهدئة)، وعند العبور
+نبعت **`location_name`** (اسم المنطقة/not_home) كحالة قاطعة، **ونوقف بثّ GPS الخام
+وإحنا جوه منطقة**. التطبيق بيمرّر المناطق للخدمة عبر `setMobileAppZones`. (تفاصيل
+وأساس التشخيص في `BUGS_AND_FIXES.md`.)
+
 **جهاز نشط واحد لكل مستخدم + موافقة الأدمن (2.16.87 + المكوّن 0.3.3):** معرّف
 ثابت للموبايل (`src/storage/deviceId.ts`) + خدمة `request_registration`. أول/نفس
 الموبايل = تسجيل مباشر (صفر تكرار). موبايل جديد والحساب نشط = موافقة أدمن بكود

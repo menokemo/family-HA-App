@@ -91,6 +91,17 @@ export function stopMobileAppReporting(): Promise<boolean> {
   return n?.stopMobileApp?.() ?? Promise.resolve(false);
 }
 
+export type MobileAppZone = { name: string; lat: number; lng: number; radius: number };
+
+// بيمرّر مناطق HA للخدمة النيتف عشان تسجّلها كـ geofences وتبلّغ الحضور بدقة
+// (location_name عند الدخول/الخروج) بدل ما HA يحسب من GPS الخام — ده بيمنع تذبذب
+// home↔away على حافة المنطقة. name = الاسم اللي هيتبعت لـHA ("home" لمنطقة البيت،
+// أو اسم المنطقة لغيرها).
+export function setMobileAppZones(zones: MobileAppZone[]): Promise<boolean> {
+  const n = NativeModules.AlarmMonitor as (AlarmMonitorNative & { setMobileAppZones?: (z: string) => Promise<boolean> }) | undefined;
+  return n?.setMobileAppZones?.(JSON.stringify(zones)) ?? Promise.resolve(false);
+}
+
 // الوضع اللايف: لما فرد تاني بيتفرّج على موقعي، نخلّي الخدمة النيتف تبعت موقعي
 // بسرعة (كل ~10 ثواني) لمدة ttlMs ثم ترجع عادي تلقائيًا. كل نبضة بتجدّد المدة.
 export function setLocationMode(fast: boolean, ttlMs: number): Promise<boolean> {
