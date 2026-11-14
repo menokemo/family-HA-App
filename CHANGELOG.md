@@ -6,6 +6,9 @@
 
 ## العربية
 
+### [2.17.0] — 2026-11-15  (تعديل JS — بييجي من metro)
+- **أرقام المباني بقت تبان على زوم أعمق (17)** بدل 15 — عشان ماتعملش زحمة؛ تظهر لما تقرّب لمستوى الشارع.
+
 ### [2.16.99] — 2026-11-15  (تعديل JS — بييجي من metro)
 - **أرقام المباني بقت ظاهرة دايمًا** في كل الأوضاع (مش مربوطة بزرار 3D) من زوم 15، مع هالة للوضوح (collision detection بيخفي المتداخل تلقائيًا).
 
@@ -793,6 +796,9 @@
 ---
 
 ## English
+
+### [2.17.0] — 2026-11-15  (JS change — ships via metro)
+- **Building numbers now appear at a deeper zoom (17)** instead of 15 — to avoid clutter; they show once you zoom to street level.
 
 ### [2.16.99] — 2026-11-15  (JS change — ships via metro)
 - **Building numbers are now always visible** in every mode (not tied to the 3D button) from zoom 15, with a halo for readability (collision detection hides overlaps automatically).

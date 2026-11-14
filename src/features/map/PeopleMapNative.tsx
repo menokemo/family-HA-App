@@ -426,14 +426,14 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
         <Camera ref={cameraRef} center={center} zoom={15} pitch={pitch} />
 
         {/* أرقام المباني: طبقة صريحة من مصدر OpenFreeMap المتجه — ظاهرة دايمًا
-            (مش مربوطة بوضع 3D) من زوم 15. collision detection بيخفي المتداخل. */}
+            (مش مربوطة بوضع 3D) من زوم 17 (مستوى الشارع) عشان ماتعملش زحمة. */}
         <VectorSource id="omt" url="https://tiles.openfreemap.org/planet">
           <Layer
             id="housenumbers"
             type="symbol"
             source="omt"
             source-layer="housenumber"
-            minzoom={15}
+            minzoom={17}
             layout={{ 'text-field': ['get', 'housenumber'], 'text-font': ['Noto Sans Regular'], 'text-size': 11 }}
             paint={{
               'text-color': resolvedMode === 'dark' ? '#cbd2db' : '#4a4f59',
