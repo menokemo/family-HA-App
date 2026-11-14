@@ -40,7 +40,7 @@ import type { SimpleItem } from './SimpleList';
 // بنجيب مكوّنات الخريطة عبر require (CommonJS) مش import: الـ import كان بيتحل
 // لنسخة بترجع undefined وقت التشغيل (مشكلة exports field مع metro)، بينما require
 // بيجيب النسخة الشغّالة — نفس اللي MapHost بيتأكد من وجودها قبل العرض.
-const { Camera, GeoJSONSource, Layer, Map: MapView, Marker, UserLocation } = require('@maplibre/maplibre-react-native') as typeof import('@maplibre/maplibre-react-native');
+const { Camera, GeoJSONSource, Layer, Map: MapView, Marker, UserLocation, VectorSource } = require('@maplibre/maplibre-react-native') as typeof import('@maplibre/maplibre-react-native');
 
 const ME_COLOR = '#2a7bff';
 
@@ -424,6 +424,25 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
     <View style={{ flex: 1 }}>
       <MapView mapStyle={mapStyle} style={{ flex: 1 }}>
         <Camera ref={cameraRef} center={center} zoom={15} pitch={pitch} />
+
+        {/* أرقام المباني: طبقة صريحة من مصدر OpenFreeMap المتجه، تبان من زوم 16. */}
+        {buildings3D ? (
+          <VectorSource id="omt" url="https://tiles.openfreemap.org/planet">
+            <Layer
+              id="housenumbers"
+              type="symbol"
+              source="omt"
+              source-layer="housenumber"
+              minzoom={16}
+              layout={{ 'text-field': ['get', 'housenumber'], 'text-font': ['Noto Sans Regular'], 'text-size': 11 }}
+              paint={{
+                'text-color': resolvedMode === 'dark' ? '#cbd2db' : '#4a4f59',
+                'text-halo-color': resolvedMode === 'dark' ? '#11151c' : '#ffffff',
+                'text-halo-width': 1.3,
+              }}
+            />
+          </VectorSource>
+        ) : null}
         {/* النقطة الزرقاء الافتراضية بتظهر بس لو ماعرفناش مين "أنا" (fallback) -
             غير كده علامة "أنا" الموحّدة (الأفاتار) بتغطي الموقع الحي. */}
         {!myCoord ? <UserLocation animated /> : null}

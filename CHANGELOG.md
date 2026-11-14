@@ -6,6 +6,9 @@
 
 ## العربية
 
+### [2.16.98] — 2026-11-15  (تعديل JS — بييجي من metro)
+- **إصلاح: أرقام المباني مكنتش بتظهر في وضع 3D.** كنا بنعتمد على أرقام ستايل Liberty اللي بتبان عند زوم عالي جدًا أو خفيفة. دلوقتي بنضيف **طبقة أرقام مباني صريحة** (`housenumber` من مصدر OpenFreeMap المتجه) تبان من زوم 16 بتنسيق واضح (خط Noto Sans + هالة).
+
 ### [2.16.97] — 2026-11-15  (تعديل JS — بييجي من metro)
 - **وضع المباني المجسّمة + أرقام المباني في الخريطة النيتف.** زرار جديد (🏢) بيفعّل وضع 3D: بيحوّل الستايل لـ OpenFreeMap **Liberty** (فيه مباني مجسّمة `fill-extrusion` وأرقام مباني جاهزين) ويميل الكاميرا 55°. ضغطة تانية بترجّع الخريطة المسطّحة. (أرقام المباني بتبان لما تقرّب الزوم.)
 
@@ -787,6 +790,9 @@
 ---
 
 ## English
+
+### [2.16.98] — 2026-11-15  (JS change — ships via metro)
+- **Fix: building numbers weren't showing in 3D mode.** We relied on Liberty's house numbers, which only appear at very high zoom or faintly. Now we add an **explicit house-number layer** (`housenumber` from the OpenFreeMap vector source) that appears from zoom 16 with clear styling (Noto Sans font + halo).
 
 ### [2.16.97] — 2026-11-15  (JS change — ships via metro)
 - **3D buildings + building numbers on the native map.** A new button (🏢) enables 3D mode: it switches the base style to OpenFreeMap **Liberty** (which has built-in `fill-extrusion` 3D buildings and house numbers) and pitches the camera to 55°. Tap again to return to the flat map. (House numbers appear as you zoom in.)
