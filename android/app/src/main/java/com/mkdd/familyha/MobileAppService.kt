@@ -331,43 +331,21 @@ class MobileAppService : Service() {
   }
 
   // Play Services بيسمح بحد أقصى 100 geofence؛ ناخد أول 100 لو أكتر.
-  private fun buildGeofences(zonesJson: String): List<Geofence> {
-    val out = ArrayList<Geofence>()
-    try {
-      val arr = JSONArray(zonesJson)
-      for (i in 0 until minOf(arr.length(), 100)) {
-        val o = arr.optJSONObject(i) ?: continue
-        val name = o.optString("name")
-        val lat = o.optDouble("lat")
-        val lng = o.optDouble("lng")
-        val radius = o.optDouble("radius", 100.0).toFloat()
-        if (name.isEmpty() || lat.isNaN() || lng.isNaN() || radius <= 0f) continue
-        out.add(
-          Geofence.Builder()
-            .setRequestId(name)
-            .setCircularRegion(lat, lng, radius)
-            .setExpirationDuration(Geofence.NEVER_EXPIRE)
-            .setLoiteringDelay(GEOFENCE_LOITER_MS)
-            .setTransitionTypes(
-              Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT or Geofence.GEOFENCE_TRANSITION_DWELL,
-            )
-            .build(),
+  private fun buildGeofences(zonesJson: String): List<Geofence> =
+    GeoZones.parse(zonesJson).take(100).filter { it.radius > 0f && !it.lat.isNaN() && !it.lng.isNaN() }.map { z ->
+      Geofence.Builder()
+        .setRequestId(z.name)
+        .setCircularRegion(z.lat, z.lng, z.radius)
+        .setExpirationDuration(Geofence.NEVER_EXPIRE)
+        .setLoiteringDelay(GEOFENCE_LOITER_MS)
+        .setTransitionTypes(
+          Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT or Geofence.GEOFENCE_TRANSITION_DWELL,
         )
-      }
-    } catch (e: Exception) {
+        .build()
     }
-    return out
-  }
-
-  private fun currentZone(): String =
-    getSharedPreferences("mobile_app", Context.MODE_PRIVATE).getString("current_zone", "") ?: ""
 
   private fun handleLocation(loc: Location) {
     if (loc.hasAccuracy() && loc.accuracy > MAX_ACCURACY_M) return
-    // جوه منطقة معروفة (geofence) الحالة بتتحدد بـ location_name القاطع، فمابنبعتش
-    // GPS خام عشان مانعملش تذبذب على حافة المنطقة — إلا في الوضع اللايف (حد
-    // بيتفرّج دلوقتي وعايز يشوف الحركة لحظيًا).
-    if (!fastMode && currentZone().isNotEmpty()) return
     val last = lastLocation
     if (last != null) {
       val moved = last.distanceTo(loc)
@@ -377,12 +355,36 @@ class MobileAppService : Service() {
     sendLocation(loc)
   }
 
+  // بيحسب اسم المنطقة الحالية من الموقع + المناطق المخزّنة، مع hysteresis زي منطق
+  // HA نفسه (تفضل في المنطقة لحد ما تبعد أكتر من نصف القطر + الدقة) عشان الحالة
+  // تكون ثابتة بدون تذبذب. بيحدّث current_zone. بيرجّع null لو مفيش مناطق متزامنة.
+  private fun computeZoneName(loc: Location): String? {
+    val prefs = getSharedPreferences("mobile_app", Context.MODE_PRIVATE)
+    val zones = GeoZones.parse(prefs.getString("zones", "") ?: "")
+    if (zones.isEmpty()) return null
+    val acc = if (loc.hasAccuracy()) loc.accuracy else 0f
+    // لو لسه ضمن منطقته الحالية (+ هامش الدقة) نفضل فيها (hysteresis للخروج).
+    val current = prefs.getString("current_zone", "") ?: ""
+    if (current.isNotEmpty()) {
+      val z = zones.firstOrNull { it.name == current }
+      if (z != null && GeoZones.distanceTo(z, loc.latitude, loc.longitude) <= z.radius + acc) return current
+    }
+    // مش في منطقته الحالية — ندخل منطقة بس لو واضح إننا جواها (ضمن نصف القطر).
+    val entered = GeoZones.smallestContaining(zones, loc.latitude, loc.longitude)?.name ?: NOT_HOME
+    prefs.edit().putString("current_zone", if (entered == NOT_HOME) "" else entered).apply()
+    return entered
+  }
+
   private fun sendLocation(location: Location) {
     lastLocation = location
     val data = JSONObject()
       .put("gps", JSONArray().put(location.latitude).put(location.longitude))
       .put("gps_accuracy", location.accuracy.toInt())
       .put("battery", batteryLevel())
+    // نرفق location_name (محسوب محليًا بـ hysteresis) عشان HA ياخد الحالة منّنا
+    // مش من حساب GPS الخام (= صفر تذبذب)، مع الإبقاء على الإحداثيات (الشخص يفضل
+    // ظاهر على الخريطة).
+    computeZoneName(location)?.let { data.put("location_name", it) }
     post(JSONObject().put("type", "update_location").put("data", data))
   }
 
@@ -655,6 +657,7 @@ class MobileAppService : Service() {
     const val EXTRA_ZONES = "zones"
     // تأخير الاستقرار جوه المنطقة قبل حدث DWELL (تهدئة زي التطبيق الرسمي).
     private const val GEOFENCE_LOITER_MS = 30000
+    private const val NOT_HOME = "not_home"
     private const val CHANNEL = "mobile_app_report"
     private const val NOTIF_ID = 7731
     private const val LOCATION_INTERVAL_MS = 120000L

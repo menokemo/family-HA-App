@@ -3,7 +3,6 @@ package com.mkdd.familyha
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.location.Location
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingEvent
 import okhttp3.Call
@@ -19,11 +18,12 @@ import java.io.IOException
 
 /**
  * بيستقبل دخول/خروج مناطق Home Assistant (geofences من Play Services) ويبلّغ
- * الحضور لـHA مباشرة عبر `location_name` في رسالة update_location — بدل ما نسيب
- * HA يحسب المنطقة من GPS خام (اللي بيعمل تذبذب home↔away على حافة المنطقة).
+ * الحضور لـHA عبر `location_name` — بدل ما نسيب HA يحسب المنطقة من GPS خام (اللي
+ * بيعمل تذبذب home↔away على الحافة). نفس أسلوب التطبيق الرسمي.
  *
- * نفس أسلوب التطبيق الرسمي: نظام التشغيل هو اللي بيكتشف عبور الحدود (فيه تهدئة
- * مدمجة)، واحنا بنبعت اسم المنطقة (أو not_home) كحالة قاطعة.
+ * مهم: بنرفق **إحداثيات** مع location_name (من موقع الحدث) عشان الـ device_tracker
+ * مايفقدش lat/lng — من غير إحداثيات الشخص بيختفي من الخريطة. لو موقع الحدث مش
+ * متاح، مابنبعتش (بنحدّث current_zone بس) عشان مانمسحش الإحداثيات القديمة.
  */
 class GeofenceReceiver : BroadcastReceiver() {
   private val client = OkHttpClient()
@@ -39,50 +39,29 @@ class GeofenceReceiver : BroadcastReceiver() {
     val webhookId = prefs.getString("webhookId", "") ?: ""
     if (baseUrl.isEmpty() || webhookId.isEmpty()) return
 
-    val zones = parseZones(prefs.getString("zones", "") ?: "")
+    val zones = GeoZones.parse(prefs.getString("zones", "") ?: "")
     val loc = event.triggeringLocation
 
-    // الاسم اللي هنبلّغه: المنطقة اللي إحنا فيها دلوقتي (الأصغر لو متداخلة)، وإلا
-    // not_home. نحسبه من موقع الحدث مقابل كل المناطق عشان نتعامل مع التداخل
-    // والخروج لمنطقة تانية صح.
+    // الاسم: أصغر منطقة بتحتوي موقع الحدث (للتعامل مع التداخل والخروج لمنطقة تانية
+    // صح)، وإلا not_home.
     val name: String = when {
-      loc != null -> containingZone(zones, loc.latitude, loc.longitude) ?: NOT_HOME
+      loc != null -> GeoZones.smallestContaining(zones, loc.latitude, loc.longitude)?.name ?: NOT_HOME
       transition == Geofence.GEOFENCE_TRANSITION_EXIT -> NOT_HOME
       else -> event.triggeringGeofences?.firstOrNull()?.requestId ?: return
     }
 
     prefs.edit().putString("current_zone", if (name == NOT_HOME) "" else name).apply()
-    post(baseUrl, webhookId, name)
+
+    // نبعت إحداثيات مع الاسم عشان مانفقدش موقع الشخص على الخريطة. من غير موقع،
+    // نكتفي بتحديث current_zone وسيبنا للخدمة تبعت بموقع صح.
+    if (loc != null) post(baseUrl, webhookId, name, loc.latitude, loc.longitude, if (loc.hasAccuracy()) loc.accuracy.toInt() else null)
   }
 
-  // أصغر منطقة (بنصف قطر) بتحتوي النقطة، أو null لو بره كل المناطق.
-  private fun containingZone(zones: List<ZoneDef>, lat: Double, lng: Double): String? {
-    var best: ZoneDef? = null
-    val out = FloatArray(1)
-    for (z in zones) {
-      Location.distanceBetween(lat, lng, z.lat, z.lng, out)
-      if (out[0] <= z.radius && (best == null || z.radius < best!!.radius)) best = z
-    }
-    return best?.name
-  }
-
-  private fun parseZones(raw: String): List<ZoneDef> {
-    if (raw.isEmpty()) return emptyList()
-    return try {
-      val arr = JSONArray(raw)
-      (0 until arr.length()).mapNotNull { i ->
-        val o = arr.optJSONObject(i) ?: return@mapNotNull null
-        val name = o.optString("name")
-        if (name.isEmpty()) return@mapNotNull null
-        ZoneDef(name, o.optDouble("lat"), o.optDouble("lng"), o.optDouble("radius", 100.0).toFloat())
-      }
-    } catch (e: Exception) {
-      emptyList()
-    }
-  }
-
-  private fun post(baseUrl: String, webhookId: String, locationName: String) {
-    val data = JSONObject().put("location_name", locationName)
+  private fun post(baseUrl: String, webhookId: String, locationName: String, lat: Double, lng: Double, acc: Int?) {
+    val data = JSONObject()
+      .put("location_name", locationName)
+      .put("gps", JSONArray().put(lat).put(lng))
+    if (acc != null) data.put("gps_accuracy", acc)
     val body = JSONObject().put("type", "update_location").put("data", data)
     val request = Request.Builder()
       .url("$baseUrl/api/webhook/$webhookId")
@@ -95,8 +74,6 @@ class GeofenceReceiver : BroadcastReceiver() {
       }
     })
   }
-
-  private data class ZoneDef(val name: String, val lat: Double, val lng: Double, val radius: Float)
 
   companion object {
     private const val NOT_HOME = "not_home"

@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.16.94] — 2026-11-14  (JS فوري عبر metro + إصلاح NATIVE للـ APK الجاي)
+- **إصلاح اختفاء الشخص من الخريطة بعد الـ geofencing.** `location_name` من غير إحداثيات بيخلّي الـ person يفقد lat/lng فيختفي (HA بيعرض بس اللي ليه إحداثيات).
+  - **JS (بييجي من metro فورًا):** الشخص اللي في منطقة من غير إحداثيات يتعرض في **مركز منطقته** (`mapPeople`) — الخريطة بقت متينة لأي tracker.
+  - **NATIVE (APK):** وقف إيقاف بثّ GPS، وبقينا نبعت **GPS + `location_name` مع بعض** (محسوب بـ hysteresis) → إحداثيات دايمًا موجودة + حالة ثابتة بدون تذبذب. الـ geofence receiver بيرفق إحداثيات. util مشترك `GeoZones.kt`.
+  - versionCode 105 / 2.16.94.
+
 ### [2.16.93] — 2026-11-14  (تغيير NATIVE — محتاج بناء APK جديد، مش metro)
 - **الحل الجذري لتذبذب الموقع وإشعارات الدخول/الخروج: Geofencing (زي التطبيق الرسمي).** تطبيقنا كان بيبعت GPS خام ويسيب HA يحسب الحضور، فيتذبذب home↔away على حافة البيت. دلوقتي:
   - **`GeofenceReceiver.kt`** + الخدمة بتسجّل مناطق HA كـ **geofences** (Play Services، ENTER/EXIT/DWELL + تهدئة 30ث).
@@ -766,6 +772,12 @@
 ---
 
 ## English
+
+### [2.16.94] — 2026-11-14  (JS now via metro + NATIVE fix for the next APK)
+- **Fix: person disappeared from the map after geofencing.** `location_name` without GPS makes the person lose lat/lng, so they vanish (HA only maps entities with coords).
+  - **JS (ships via metro immediately):** a person in a zone without coords is shown at the **zone center** (`mapPeople`) — the map is now robust to any tracker type.
+  - **NATIVE (APK):** stopped suppressing GPS; we now send **GPS + `location_name` together** (computed with hysteresis) → coords always present + stable state with no flapping. The geofence receiver now includes coords. Shared `GeoZones.kt` util.
+  - versionCode 105 / 2.16.94.
 
 ### [2.16.93] — 2026-11-14  (NATIVE change — needs a new APK build, not metro)
 - **Root fix for location scatter + enter/leave spam: geofencing (like the official app).** Our app was sending raw GPS and letting HA compute presence, which flapped home↔away at the zone edge. Now:
