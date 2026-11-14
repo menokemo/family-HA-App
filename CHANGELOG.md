@@ -6,6 +6,9 @@
 
 ## العربية
 
+### [2.16.84] — 2026-11-14  (تعديل JS — بيجي من metro)
+- **إصلاح: الخريطة النيتف كانت بتعمل `Cannot read property 'Map' of undefined`.** السبب الجذري: metro في RN 0.83 مفعّل عنده `unstable_enablePackageExports`، فالـ `import` من `@maplibre/maplibre-react-native` كان بيتحل لنسخة ESM (`lib/module`) اللي بترجع namespace undefined وقت التشغيل، بينما `require` بيتحل لنسخة CommonJS الشغّالة (`lib/commonjs`). دلوقتي `PeopleMapNative` بيجيب مكوّنات الخريطة عبر `require` (زي `MapHost` اللي كان شغّال)، والأنواع عبر `import type`. ده بيخلّي الخريطة النيتف تشتغل لما الـ APK يكون فيه الموديول، وترجع للويب بنظافة لو مش موجود.
+
 ### [2.16.83] — 2026-11-14  (تعديل JS — بيجي من metro)
 - **إصلاح: مفتاح "خريطة نيتف" كان بيعمل crash لو اتفعّل على APK ماعندوش الموديول النيتف** (`Cannot read property 'Map' of undefined`). السبب: المكتبة النيتف بترجع namespace undefined لما الموديول مش موجود في الـ APK، والـ fallback القديم مامسكش الحالة دي. دلوقتي `MapHost` بيتأكد إن `require('@maplibre/...').Map` متاح فعلاً قبل العرض، وفيه حدود خطأ (ErrorBoundary) ترجع للخريطة الويب تلقائيًا لو النيتف فشل. **الخريطة النيتف لسه محتاجة build APK بالمكتبة الجديدة عشان تشتغل.**
 
@@ -699,6 +702,9 @@
 ---
 
 ## English
+
+### [2.16.84] — 2026-11-14  (JS change — ships via metro)
+- **Fix: the native map threw `Cannot read property 'Map' of undefined`.** Root cause: RN 0.83's metro has `unstable_enablePackageExports` on, so `import` from `@maplibre/maplibre-react-native` resolved to the ESM build (`lib/module`) whose namespace came back undefined at runtime, while `require` resolves to the working CommonJS build (`lib/commonjs`). `PeopleMapNative` now pulls the map components via `require` (same path `MapHost` already used successfully) and types via `import type`. The native map now renders when the APK has the module, and falls back to web cleanly when it doesn't.
 
 ### [2.16.83] — 2026-11-14  (JS change — ships via metro)
 - **Fix: the "Native map" toggle crashed when enabled on an APK without the native module** (`Cannot read property 'Map' of undefined`). The native library's namespace is undefined when the module isn't in the APK, and the old fallback didn't catch that render-time failure. `MapHost` now verifies `require('@maplibre/...').Map` is actually available before rendering, plus an ErrorBoundary falls back to the web map if native fails. **The native map still needs an APK rebuilt with the new library to actually work.**

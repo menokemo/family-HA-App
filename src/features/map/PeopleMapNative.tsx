@@ -6,8 +6,13 @@
 // المخاطر، القمر الصناعي، أرقام العمارات) بتتنقل في المرحلة ب بعد تأكيد البناء.
 import { useMemo, useRef } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
-import { Camera, type CameraRef, Map, Marker, UserLocation } from '@maplibre/maplibre-react-native';
+import type { CameraRef } from '@maplibre/maplibre-react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+
+// بنجيب مكوّنات الخريطة عبر require (CommonJS) مش import: الـ import كان بيتحل
+// لنسخة بترجع undefined وقت التشغيل (مشكلة exports field مع metro)، بينما require
+// بيجيب النسخة الشغّالة — نفس اللي MapHost بيتأكد من وجودها قبل العرض.
+const { Camera, Map: MapView, Marker, UserLocation } = require('@maplibre/maplibre-react-native') as typeof import('@maplibre/maplibre-react-native');
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { absoluteHaUrl, authHeaders } from '../../api/homeAssistant';
 import { useTheme } from '../../theme';
@@ -64,7 +69,7 @@ export function PeopleMapNative({ people, home, settings }: Props) {
 
   return (
     <View style={{ flex: 1 }}>
-      <Map mapStyle={styleUrl} style={{ flex: 1 }}>
+      <MapView mapStyle={styleUrl} style={{ flex: 1 }}>
         <Camera ref={cameraRef} center={center} zoom={15} />
         <UserLocation animated />
         {hasHome ? (
@@ -84,7 +89,7 @@ export function PeopleMapNative({ people, home, settings }: Props) {
             </View>
           </Marker>
         ))}
-      </Map>
+      </MapView>
       <PressableScale style={[styles.fab, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} onPress={fitAll} hitSlop={8}>
         <Ionicons name="locate" size={22} color={colors.primary} />
       </PressableScale>
