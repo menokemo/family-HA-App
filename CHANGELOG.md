@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.16.96] — 2026-11-14  (JS فوري عبر metro + إصلاح NATIVE للـ APK)
+- **الحل الجذري لسرعة "Driving · 52 km/h" الكاذبة وإنت في البيت + بطارية "Discharging%".** السبب إننا مكناش بنبعت `speed` وكنا بنحسبها محليًا (غير موثوق)، بينما HA بيوفّرها كـ attribute (التطبيق الرسمي بيبعتها).
+  - **JS (metro):** الخريطة بتقرا السرعة/الاتجاه/البطارية من المصدر الموثوق (الـ device_tracker بتاع الشخص): `readMotion` + `batteryText`. لو مفيش `speed` → مفيش حركة (مفيش "بيسوق" كاذب). اتشال الحساب المحلي.
+  - **NATIVE (APK):** الخدمة بقت تبعت `speed` و`course` في `update_location` فأجهزتنا يبقى عندها سرعة موثوقة في HA.
+  - البطارية بتقرا نسبة رقمية بس (`battery_level`) وتتجاهل حسّاس حالة الشحن. versionCode 106.
+
 ### [2.16.95] — 2026-11-14  (تعديل JS — بييجي من metro)
 - **إصلاح: نشر الداشبورد بيفتح داشبورد تانية عند بعض الأفراد.** السبب إن الداشبورد admin-only أو مش متاحة للفرد في HA، فـHA بيوديه للافتراضية (الكود عندنا سليم — المشكلة صلاحيات HA).
   - اختيار الداشبورد بيعلّم الـ **admin-only** بقفل + تنبيه إن الأفراد مش هيشوفوها (`listDashboards` بقى يجيب `require_admin`).
@@ -778,6 +784,12 @@
 ---
 
 ## English
+
+### [2.16.96] — 2026-11-14  (JS now via metro + NATIVE fix for the APK)
+- **Root fix for false "Driving · 52 km/h" while at home + "Discharging%" battery.** We weren't sending `speed` and were computing it client-side (unreliable), while HA provides it as an attribute (the official app sends it).
+  - **JS (metro):** the map reads speed/heading/battery from the authoritative source (the person's device_tracker): `readMotion` + `batteryText`. No `speed` → no motion (no false "driving"). The client-side computation was removed.
+  - **NATIVE (APK):** the service now sends `speed` and `course` in `update_location`, so our own devices also carry authoritative speed in HA.
+  - Battery reads only a numeric percentage (`battery_level`), ignoring the charging-state sensor. versionCode 106.
 
 ### [2.16.95] — 2026-11-14  (JS change — ships via metro)
 - **Fix: publishing a dashboard opens a different dashboard for some members.** The dashboard is admin-only or not accessible to the member in HA, so HA redirects them to their default (our code is correct — it's an HA access setting).

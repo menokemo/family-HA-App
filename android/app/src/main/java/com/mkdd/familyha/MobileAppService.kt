@@ -381,6 +381,10 @@ class MobileAppService : Service() {
       .put("gps", JSONArray().put(location.latitude).put(location.longitude))
       .put("gps_accuracy", location.accuracy.toInt())
       .put("battery", batteryLevel())
+    // السرعة الحقيقية من الـ GPS (m/s) — HA بيعرضها كـ attribute والخريطة بتقراها
+    // بدل ما تحسبها محليًا (حساب غلط). HA بيستقبلها كعدد صحيح موجب.
+    if (location.hasSpeed() && location.speed >= 0f) data.put("speed", location.speed.toInt())
+    if (location.hasBearing()) data.put("course", location.bearing.toInt())
     // نرفق location_name (محسوب محليًا بـ hysteresis) عشان HA ياخد الحالة منّنا
     // مش من حساب GPS الخام (= صفر تذبذب)، مع الإبقاء على الإحداثيات (الشخص يفضل
     // ظاهر على الخريطة).

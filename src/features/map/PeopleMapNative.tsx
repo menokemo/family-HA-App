@@ -21,17 +21,13 @@ import {
   reverseGeocode,
   fetchRoute,
   haversine,
-  bearing,
+  readMotion,
   batteryPct,
   batteryText,
   placeLabel,
   timeAgo,
   distance,
   LOW_BATTERY,
-  MIN_MOVE_M,
-  MOVING_KMH,
-  MAX_SPEED_KMH,
-  STILL_AFTER_MS,
   type RouteMode,
   type RouteResult,
   type Motion,
@@ -84,14 +80,12 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
   const [addrMap, setAddrMap] = useState<Record<string, string>>({});
   const [routeMode, setRouteMode] = useState<RouteMode>('driving');
   const [routeInfo, setRouteInfo] = useState<RouteResult | null>(null);
-  const [motion, setMotion] = useState<Record<string, Motion>>({});
   const [batteryAlert, setBatteryAlert] = useState<string | null>(null);
   const [follow, setFollow] = useState(false);
   const [trail, setTrail] = useState<HistoryPoint[]>([]);
   const [trailRange, setTrailRange] = useState(24);
   const [trailLoading, setTrailLoading] = useState(false);
   const [playIdx, setPlayIdx] = useState<number | null>(null);
-  const stableMetaRef = useRef<Record<string, { lat: number; lng: number; t: number }>>({});
   const batteryAlertedRef = useRef<Set<string>>(new Set());
   const playTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const vectorStyle = resolvedMode === 'dark' ? 'https://tiles.openfreemap.org/styles/dark' : 'https://tiles.openfreemap.org/styles/positron';
@@ -147,37 +141,18 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
 
   const pointsKey = useMemo(() => points.map(p => `${p.id}:${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join('|'), [points]);
 
-  // حساب الحركة/السرعة/الاتجاه: مانعتبرهاش حركة إلا لو الإزاحة أكبر من دقة الـ GPS
-  // (أو 50م)، عشان التشويش ما يقولش "بيتحرك" وإحنا واقفين. مابيأثرش على مكان العلامة.
-  useEffect(() => {
-    const now = Date.now();
-    const meta = stableMetaRef.current;
-    const updates: Record<string, Motion> = {};
+  // الحركة/السرعة/الاتجاه من attribute السرعة الموثوق في الـ device_tracker (HA
+  // بيجيبه من الجهاز نفسه) — مش حساب محلي من قفز الموقع (اللي كان بيطلّع سرعة
+  // وهمية ومختلفة من موبايل لموبايل). لو الجهاز مش بيبعت سرعة، مفيش حركة (مفيش
+  // "بيسوق" كاذب). علامتنا بتبعت speed من الخدمة النيتف.
+  const motion = useMemo(() => {
+    const m: Record<string, Motion> = {};
     for (const p of people) {
-      const lat = num(p.attributes.latitude);
-      const lng = num(p.attributes.longitude);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-      const acc = num(p.attributes.gps_accuracy);
-      const deadband = Math.max(Number.isFinite(acc) && acc > 0 ? acc : 0, MIN_MOVE_M);
-      const prev = meta[p.entity_id];
-      if (!prev) {
-        meta[p.entity_id] = { lat, lng, t: now };
-        continue;
-      }
-      const d = haversine({ latitude: prev.lat, longitude: prev.lng }, { latitude: lat, longitude: lng });
-      if (d > deadband) {
-        const dt = (now - prev.t) / 1000;
-        const speed = dt > 2 && dt < 3600 ? (d / dt) * 3.6 : 0;
-        const realMove = speed > 0 && speed <= MAX_SPEED_KMH;
-        updates[p.entity_id] = { speed: realMove ? speed : 0, heading: bearing(prev.lat, prev.lng, lat, lng), moving: realMove && speed >= MOVING_KMH };
-        meta[p.entity_id] = { lat, lng, t: now };
-      } else if (motion[p.entity_id]?.moving && now - prev.t > STILL_AFTER_MS) {
-        updates[p.entity_id] = { speed: 0, heading: motion[p.entity_id]?.heading ?? 0, moving: false };
-      }
+      const mo = readMotion(p, states);
+      if (mo) m[p.entity_id] = mo;
     }
-    if (Object.keys(updates).length) setMotion(m => ({ ...m, ...updates }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pointsKey]);
+    return m;
+  }, [people, states]);
 
   // تنبيه البطارية المنخفضة (مرة لكل فرد لحد ما يشحن فوق الحد+5).
   useEffect(() => {

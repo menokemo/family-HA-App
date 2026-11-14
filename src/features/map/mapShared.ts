@@ -67,12 +67,37 @@ export function timeAgo(iso?: string): string {
 }
 
 // نسبة البطارية كنص (من attribute الشخص أو من sensor بطارية مرتبط باسمه).
+// الـ device_tracker المصدر للشخص (من attribute.source) — هو اللي بيحمل السرعة
+// والبطارية الحقيقية اللي HA بياخدها من الجهاز.
+export function sourceTracker(p: HaEntity, states: HaEntity[]): HaEntity | undefined {
+  const src = p.attributes.source as string | undefined;
+  return src && src.startsWith('device_tracker.') ? states.find(x => x.entity_id === src) : undefined;
+}
+
+// الحركة من المصدر الموثوق: attribute السرعة (m/s من HA) مش من حساب محلي (اللي
+// بيطلّع سرعة وهمية من قفز الموقع وتوقيت التطبيق). undefined لو الجهاز مش بيبعت سرعة.
+export function readMotion(p: HaEntity, states: HaEntity[]): Motion | undefined {
+  const tracker = sourceTracker(p, states);
+  const raw = Number(tracker?.attributes.speed ?? p.attributes.speed); // m/s
+  if (!Number.isFinite(raw) || raw < 0) return undefined;
+  const kmh = raw * 3.6;
+  const course = Number(tracker?.attributes.course ?? p.attributes.course);
+  return { speed: kmh, heading: Number.isFinite(course) ? course : 0, moving: kmh >= MOVING_KMH };
+}
+
+// نسبة البطارية كنص — من الشخص، أو من الـ device_tracker المصدر، أو من sensor رقمي
+// مرتبط باسمه. لازم تكون قيمة رقمية — بنستبعد حسّاس حالة الشحن (Charging/Discharging).
 export function batteryText(p: HaEntity, states: HaEntity[]): string {
-  const n = Number(p.attributes.battery_level);
-  if (Number.isFinite(n)) return `${n}%`;
+  const direct = Number(p.attributes.battery_level);
+  if (Number.isFinite(direct)) return `${Math.round(direct)}%`;
+  const fromTracker = Number(sourceTracker(p, states)?.attributes.battery_level);
+  if (Number.isFinite(fromTracker)) return `${Math.round(fromTracker)}%`;
   const key = p.entity_id.split('.')[1];
-  const e = states.find(x => x.entity_id.startsWith('sensor.') && x.entity_id.includes(key) && x.entity_id.includes('battery'));
-  return e ? `${e.state}%` : '—';
+  const cand = states.filter(
+    x => x.entity_id.startsWith('sensor.') && x.entity_id.includes(key) && x.entity_id.includes('battery') && Number.isFinite(Number(x.state)),
+  );
+  const lvl = cand.find(x => x.entity_id.includes('battery_level')) ?? cand[0];
+  return lvl ? `${Math.round(Number(lvl.state))}%` : '—';
 }
 
 export function batteryPct(p: HaEntity, states: HaEntity[]): number {
