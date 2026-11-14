@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
+import { Component, useEffect, useMemo, useRef, useState, type PropsWithChildren, type ReactNode } from 'react';
 import { Alert, Animated, AppState, Easing, FlatList, I18nManager, Image, Modal, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -231,17 +231,31 @@ function AlarmoSettings({draft,setDraft,alarms,sensors,states,autoSensors,isAdmi
  const selectedSensors=draft.selectedSensorIds??[];
  const candidateSensors=useMemo(()=>sensorCandidates(states,showAllSensors),[states,showAllSensors]);
  return <><Card><Field label={i18n.t('code')} value={draft.alarmCode} onChangeText={alarmCode=>setDraft({...draft,alarmCode})} secure keyboard="number-pad"/>{isAdmin?<>{alarms.length>1?alarms.map(a=><PressableScale key={a.entity_id} onPress={()=>setDraft({...draft,alarmEntityId:a.entity_id})} style={[styles.entityChoice,draft.alarmEntityId===a.entity_id&&styles.entitySelected]}><Text style={styles.text}>{String(a.attributes.friendly_name??a.entity_id)}</Text><Text style={styles.muted}>{a.entity_id}</Text></PressableScale>):null}<Toggle label={i18n.t('directStatus')} value={draft.directStatusChange!==false} onChange={directStatusChange=>setDraft({...draft,directStatusChange})}/><Toggle label={i18n.t('showStatusBadge')} value={draft.showStatusBadge!==false} onChange={showStatusBadge=>setDraft({...draft,showStatusBadge})}/><Text style={styles.sectionLabel}>{i18n.t('chipModes')}</Text>{([{key:'disarm',label:'disarm'},{key:'home',label:'showHome'},{key:'away',label:'showAway'},{key:'night',label:'showNight'},{key:'vacation',label:'showVacation'},{key:'custom',label:'showCustom'}] as {key:AlarmModeKey;label:string}[]).map(({key:mode,label})=><Toggle key={mode} label={i18n.t(label)} value={draft.visibleAlarmModes?.[mode]!==false} onChange={value=>setDraft({...draft,visibleAlarmModes:{...defaultModes,...draft.visibleAlarmModes,[mode]:value}})}/>)}</>:null}</Card><Card><Text style={styles.title}>{i18n.t('sirenSettings')}</Text><Toggle label={i18n.t('siren')} value={draft.sirenEnabled!==false} onChange={sirenEnabled=>setDraft({...draft,sirenEnabled})}/><SelectField label={i18n.t('ringtone')} value={draft.sirenTone??'classic'} options={(['classic','digital','pulse'] as SirenTone[]).map(value=>({value,label:i18n.t(value)}))} onChange={sirenTone=>setDraft({...draft,sirenTone:sirenTone as SirenTone})}/></Card>{isAdmin?<Card><Text style={styles.title}>{i18n.t('lockScreenAlert')}</Text><Text style={styles.muted}>{i18n.t('lockScreenAlertHint')}</Text><Toggle label={i18n.t('lockScreenAlertToggle')} value={monitorOn} onChange={v=>void toggleMonitor(v)} disabled={monitorBusy}/></Card>:null}{bioAvailable?<Card><Text style={styles.title}>{i18n.t('biometricDisarm')}</Text><Text style={styles.muted}>{i18n.t('biometricDisarmHint')}</Text><Toggle label={i18n.t('biometricDisarmToggle')} value={draft.biometricDisarmEnabled===true} onChange={v=>void toggleBiometric(v)}/></Card>:null}{isAdmin?<><Card><PressableScale onPress={()=>setShowSensors(v=>!v)} style={styles.collapsibleHeader}><Text style={styles.title}>{i18n.t('registeredSensors')} · {sensors.length}</Text><Ionicons name={showSensors?'chevron-up':'chevron-down'} size={20} color={colors.muted}/></PressableScale>{showSensors?(sensors.length?sensors.map(s=><SensorRow key={s.entity_id} item={s}/>):<Text style={styles.muted}>{i18n.t('noSensors')}</Text>):null}</Card>{!autoSensors?<Card><PressableScale onPress={()=>setShowCandidates(v=>!v)} style={styles.collapsibleHeader}><Text style={styles.title}>{i18n.t('chooseSensors')}</Text><Ionicons name={showCandidates?'chevron-up':'chevron-down'} size={20} color={colors.muted}/></PressableScale>{showCandidates?(<><Text style={styles.muted}>{i18n.t('chooseSensorsHint')}</Text>{candidateSensors.map(s=><Toggle key={s.entity_id} label={String(s.attributes.friendly_name??s.entity_id)} value={selectedSensors.includes(s.entity_id)} onChange={value=>setDraft({...draft,selectedSensorIds:value?[...new Set([...selectedSensors,s.entity_id])]:selectedSensors.filter(x=>x!==s.entity_id)})}/>)}{candidateSensors.length===0?<Text style={styles.muted}>{i18n.t('noSensors')}</Text>:null}<Toggle label={i18n.t('showAllSensors')} value={showAllSensors} onChange={setShowAllSensors}/></>):null}</Card>:null}</>:null}</>}
+// حدود خطأ: لو الخريطة النيتف فشلت وقت العرض (مثلاً الموديول النيتف مش موجود في
+// الـ APK) بترجع للخريطة البديلة بدل ما التطبيق يعمل crash.
+class MapErrorBoundary extends Component<{fallback:ReactNode;children:ReactNode},{failed:boolean}>{
+ state={failed:false};
+ static getDerivedStateFromError(){return{failed:true};}
+ componentDidCatch(){/* مُمسَك - بنعرض البديل */}
+ render(){return this.state.failed?this.props.fallback:this.props.children;}
+}
+
 // مضيف الخريطة: بيختار بين النيتف والويب. المكتبة النيتف بتتحمّل كسول (require
-// وقت العرض بس) عشان لو الـ APK القديم ماعندوش الموديول النيتف مايعملش crash —
-// بيرجع للويب بدل كده. الافتراضي 'web' مايلمسش المكتبة النيتف خالص.
+// وقت العرض بس) وبنتأكد إن `Map` متاح فعلاً قبل العرض — عشان لو الـ APK القديم
+// ماعندوش الموديول النيتف مايعملش crash، بيرجع للويب. الافتراضي 'web' مايلمسش
+// المكتبة النيتف خالص.
 function MapHost(props:{people:HaEntity[];home?:HaEntity;states:HaEntity[];selectedPersonId?:string;settings:ConnectionSettings}){
+ const web=<PeopleMapWeb {...props}/>;
  if(props.settings.mapEngine==='native'){
   try{
-   const Native=(require('./src/features/map/PeopleMapNative') as typeof import('./src/features/map/PeopleMapNative')).PeopleMapNative;
-   return <Native {...props}/>;
+   const ml=require('@maplibre/maplibre-react-native') as {Map?:unknown};
+   if(ml&&ml.Map){
+    const Native=(require('./src/features/map/PeopleMapNative') as typeof import('./src/features/map/PeopleMapNative')).PeopleMapNative;
+    return <MapErrorBoundary fallback={web}><Native {...props}/></MapErrorBoundary>;
+   }
   }catch{/* المكتبة النيتف مش موجودة في الـ APK ده (محتاج build أحدث) - نرجع للويب */}
  }
- return <PeopleMapWeb {...props}/>;
+ return web;
 }
 
 function MapSettings({draft,setDraft,people}:{draft:ConnectionSettings;setDraft:(x:ConnectionSettings)=>void;people:HaEntity[]}){

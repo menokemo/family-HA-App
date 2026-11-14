@@ -6,6 +6,9 @@
 
 ## العربية
 
+### [2.16.83] — 2026-11-14  (تعديل JS — بيجي من metro)
+- **إصلاح: مفتاح "خريطة نيتف" كان بيعمل crash لو اتفعّل على APK ماعندوش الموديول النيتف** (`Cannot read property 'Map' of undefined`). السبب: المكتبة النيتف بترجع namespace undefined لما الموديول مش موجود في الـ APK، والـ fallback القديم مامسكش الحالة دي. دلوقتي `MapHost` بيتأكد إن `require('@maplibre/...').Map` متاح فعلاً قبل العرض، وفيه حدود خطأ (ErrorBoundary) ترجع للخريطة الويب تلقائيًا لو النيتف فشل. **الخريطة النيتف لسه محتاجة build APK بالمكتبة الجديدة عشان تشتغل.**
+
 ### [2.16.82] — 2026-11-14  ⚠️ محتاج build APK على ويندوز (dependency نيتف جديد)
 **بداية نقل الخريطة للنيتف (MapLibre React Native v11) — المرحلة أ (de-risk البناء):**
 - أُضيفت مكتبة `@maplibre/maplibre-react-native@11` (متوافقة مع RN 0.83 + New Architecture + Hermes، minSdk≥23؛ MapLibre SDK من mavenCentral فمفيش repo إضافي).
@@ -696,6 +699,9 @@
 ---
 
 ## English
+
+### [2.16.83] — 2026-11-14  (JS change — ships via metro)
+- **Fix: the "Native map" toggle crashed when enabled on an APK without the native module** (`Cannot read property 'Map' of undefined`). The native library's namespace is undefined when the module isn't in the APK, and the old fallback didn't catch that render-time failure. `MapHost` now verifies `require('@maplibre/...').Map` is actually available before rendering, plus an ErrorBoundary falls back to the web map if native fails. **The native map still needs an APK rebuilt with the new library to actually work.**
 
 ### [2.16.82] — 2026-11-14  ⚠️ Requires a Windows APK build (new native dependency)
 **Start of the Map migration to native (MapLibre React Native v11) — Phase A (build de-risk):**
