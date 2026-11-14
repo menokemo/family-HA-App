@@ -3,8 +3,8 @@
 // المرحلة أ+ب: خريطة أساسية + علامات الأشخاص بالأفاتار + النقطة الزرقاء النيتف
 // (UserLocation, Fused عبر locationEngine=google) + المناطق كدوائر (home وغيرها)
 // + طبقة المخاطر (geo_location) + مفتاح القمر الصناعي + أزرار تحكم + إعادة تمركز
-// + لستة الأعضاء (MemberSheet): صورة + حلقة ملونة + عنوان + بطارية + آخر ظهور،
-//   والضغط على فرد يركّز الكاميرا عليه.
+// + كارت سفلي بتبويبات (MapSheet): People / Devices / Zones / Alerts،
+//   والضغط على عنصر يركّز الكاميرا عليه.
 // باقي (المسار والملاحة، التايملاين والمتابعة) في المرحلتين الجايتين.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Linking, Platform, StyleSheet, Text, View } from 'react-native';
@@ -23,6 +23,10 @@ import {
   haversine,
   bearing,
   batteryPct,
+  batteryText,
+  placeLabel,
+  timeAgo,
+  distance,
   LOW_BATTERY,
   MIN_MOVE_M,
   MOVING_KMH,
@@ -32,7 +36,8 @@ import {
   type RouteResult,
   type Motion,
 } from './mapShared';
-import { MemberSheet, MEMBER_SHEET_PEEK } from './MemberSheet';
+import { MapSheet, MAP_SHEET_PEEK } from './MapSheet';
+import type { SimpleItem } from './SimpleList';
 
 // بنجيب مكوّنات الخريطة عبر require (CommonJS) مش import: الـ import كان بيتحل
 // لنسخة بترجع undefined وقت التشغيل (مشكلة exports field مع metro)، بينما require
@@ -44,7 +49,7 @@ const ME_COLOR = '#2a7bff';
 type Props = { people: HaEntity[]; home?: HaEntity; states: HaEntity[]; selectedPersonId?: string; settings: ConnectionSettings };
 type Point = { id: string; name: string; lat: number; lng: number; uri?: string; color: string };
 type Zone = { id: string; name: string; lat: number; lng: number; radius: number };
-type Hazard = { id: string; name: string; lat: number; lng: number };
+type Hazard = { id: string; name: string; lat: number; lng: number; source: string };
 
 const num = (v: unknown) => Number(v);
 
@@ -201,8 +206,28 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
     () =>
       states
         .filter(e => e.entity_id.startsWith('geo_location.') && Number.isFinite(num(e.attributes.latitude)) && Number.isFinite(num(e.attributes.longitude)))
-        .map(h => ({ id: h.entity_id, name: String(h.attributes.friendly_name ?? h.attributes.title ?? h.entity_id.replace('geo_location.', '')), lat: num(h.attributes.latitude), lng: num(h.attributes.longitude) })),
+        .map(h => ({ id: h.entity_id, name: String(h.attributes.friendly_name ?? h.attributes.title ?? h.entity_id.replace('geo_location.', '')), lat: num(h.attributes.latitude), lng: num(h.attributes.longitude), source: String(h.attributes.source ?? '') })),
     [states],
+  );
+
+  // الأجهزة = device_tracker مش مربوط بأي شخص (تاجات/عربيات/تراكرات مستقلة).
+  const personTrackers = useMemo(() => {
+    const set = new Set<string>();
+    states
+      .filter(e => e.entity_id.startsWith('person.'))
+      .forEach(p => (p.attributes.device_trackers as string[] | undefined)?.forEach(t => set.add(t)));
+    return set;
+  }, [states]);
+  const deviceEntities = useMemo(
+    () =>
+      states.filter(
+        e =>
+          e.entity_id.startsWith('device_tracker.') &&
+          !personTrackers.has(e.entity_id) &&
+          Number.isFinite(num(e.attributes.latitude)) &&
+          Number.isFinite(num(e.attributes.longitude)),
+      ),
+    [states, personTrackers],
   );
 
   const zonesFC = useMemo(
@@ -270,6 +295,50 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
       Linking.openURL(`https://www.openstreetmap.org/?mlat=${pt.lat}&mlon=${pt.lng}#map=17/${pt.lat}/${pt.lng}`).catch(() => undefined),
     );
   };
+
+  const focusAt = (lng: number, lat: number, zoom = 15) => cameraRef.current?.flyTo({ center: [lng, lat], zoom, duration: 600 });
+  const fromMeText = (lat: number, lng: number) => (myCoord ? distance(haversine({ latitude: myCoord[1], longitude: myCoord[0] }, { latitude: lat, longitude: lng })) : undefined);
+
+  // عناصر التبويبات البسيطة (أجهزة / مناطق / تنبيهات).
+  const deviceItems = useMemo<SimpleItem[]>(
+    () =>
+      deviceEntities.map(d => {
+        const bat = batteryText(d, states);
+        return {
+          id: d.entity_id,
+          title: String(d.attributes.friendly_name ?? d.entity_id.replace('device_tracker.', '')),
+          subtitle: `${placeLabel(d, addrMap)} · ${timeAgo(d.last_changed)}`,
+          meta: bat !== '—' ? bat : undefined,
+          icon: 'hardware-chip-outline',
+          tint: colors.primary,
+        };
+      }),
+    [deviceEntities, states, addrMap, colors.primary],
+  );
+  const zoneItems = useMemo<SimpleItem[]>(
+    () =>
+      zones.map(z => ({
+        id: z.id,
+        title: z.name,
+        subtitle: `${i18n.t('zoneRadius')}: ${z.radius < 1000 ? `${Math.round(z.radius)} m` : `${(z.radius / 1000).toFixed(1)} km`}`,
+        icon: z.id === 'zone.home' ? 'home-outline' : 'location-outline',
+        tint: colors.primary,
+      })),
+    [zones, colors.primary],
+  );
+  const alertItems = useMemo<SimpleItem[]>(
+    () =>
+      hazards.map(h => ({
+        id: h.id,
+        title: h.name,
+        subtitle: h.source || i18n.t('hazards'),
+        meta: fromMeText(h.lat, h.lng),
+        icon: 'warning',
+        tint: colors.danger,
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hazards, myCoordKey, colors.danger],
+  );
 
   // وضع المتابعة: الكاميرا تلاحق الفرد المختار وهو بيتحرك.
   useEffect(() => {
@@ -435,6 +504,18 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
           );
         })}
 
+        {/* الأجهزة (device_tracker مش مربوط بشخص): علامة مربّعة بأيقونة جهاز. */}
+        {deviceEntities.map(d => (
+          <Marker key={d.entity_id} id={d.entity_id} lngLat={[num(d.attributes.longitude), num(d.attributes.latitude)]} anchor="bottom">
+            <View style={styles.markerWrap}>
+              <View style={[styles.deviceMarker, { backgroundColor: colors.primary }]}>
+                <Ionicons name="hardware-chip" size={16} color="#fff" />
+              </View>
+              <View style={[styles.pin, { backgroundColor: colors.primary }]} />
+            </View>
+          </Marker>
+        ))}
+
         {/* علامة "أنا" الموحّدة: الأفاتار عند الموقع الحي (مكان النقطة الزرقاء) -
             بحلقة زرقا تميّزها إنها موقعك الحي. */}
         {mePerson && myCoord ? (
@@ -475,30 +556,47 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
         </PressableScale>
       </View>
 
-      <MemberSheet
-        people={people}
-        states={states}
-        settings={settings}
-        colorFor={colorFor}
-        addrMap={addrMap}
-        myCoord={myCoord}
-        meId={mePerson?.entity_id}
-        selectedId={picked}
-        onSelect={focusPerson}
-        routeMode={routeMode}
-        onRouteMode={setRouteMode}
-        routeInfo={routeInfo}
-        onNavigate={navigateTo}
-        motion={motion}
-        follow={follow}
-        onToggleFollow={() => setFollow(f => !f)}
-        trailActive={trail.length > 0}
-        trailLoading={trailLoading}
-        trailRange={trailRange}
-        onToggleTrail={toggleTrail}
-        onChangeRange={changeRange}
-        onPlayTrail={playTrail}
-        playing={playIdx !== null}
+      <MapSheet
+        people={{
+          people,
+          states,
+          settings,
+          colorFor,
+          addrMap,
+          myCoord,
+          meId: mePerson?.entity_id,
+          selectedId: picked,
+          onSelect: focusPerson,
+          routeMode,
+          onRouteMode: setRouteMode,
+          routeInfo,
+          onNavigate: navigateTo,
+          motion,
+          follow,
+          onToggleFollow: () => setFollow(f => !f),
+          trailActive: trail.length > 0,
+          trailLoading,
+          trailRange,
+          onToggleTrail: toggleTrail,
+          onChangeRange: changeRange,
+          onPlayTrail: playTrail,
+          playing: playIdx !== null,
+        }}
+        devices={deviceItems}
+        zones={zoneItems}
+        alerts={alertItems}
+        onPickDevice={id => {
+          const d = deviceEntities.find(e => e.entity_id === id);
+          if (d) focusAt(num(d.attributes.longitude), num(d.attributes.latitude), 16);
+        }}
+        onPickZone={id => {
+          const z = zones.find(x => x.id === id);
+          if (z) focusAt(z.lng, z.lat, 14);
+        }}
+        onPickAlert={id => {
+          const h = hazards.find(x => x.id === id);
+          if (h) focusAt(h.lng, h.lat, 13);
+        }}
       />
     </View>
   );
@@ -512,11 +610,12 @@ const styles = StyleSheet.create({
   pin: { width: 10, height: 10, borderRadius: 5, marginTop: -3, transform: [{ rotate: '45deg' }] },
   zoneChip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12, borderWidth: 1 },
   hazard: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#E53935', borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  deviceMarker: { width: 32, height: 32, borderRadius: 9, borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   playhead: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#FF9F0A', borderWidth: 3, borderColor: '#fff', elevation: 4 },
   heading: { marginBottom: 2 },
   bannerLow: { top: 54 },
   banner: { position: 'absolute', top: 14, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18 },
   bannerText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  controls: { position: 'absolute', right: 16, bottom: MEMBER_SHEET_PEEK + 12, gap: 10 },
+  controls: { position: 'absolute', right: 16, bottom: MAP_SHEET_PEEK + 12, gap: 10 },
   ctrl: { width: 48, height: 48, borderRadius: 24, borderWidth: 1, alignItems: 'center', justifyContent: 'center', elevation: 4 },
 });

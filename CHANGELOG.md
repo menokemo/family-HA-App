@@ -6,6 +6,14 @@
 
 ## العربية
 
+### [2.16.92] — 2026-11-14  (تعديل JS — بيجي من metro)
+- **الخريطة النيتف — كارت سفلي بتبويبات.** الكارت السفلي بقى **4 تبويبات** بدل اللستة الواحدة:
+  - **People:** لستة الأفراد الغنية بكل مميزاتها (مسار/ملاحة/تايملاين/متابعة).
+  - **Devices:** الأجهزة اللي **مش مربوطة بشخص** (`device_tracker` زي التاجات/العربيات/التراكرات المستقلة) — اسم + مكان + بطارية، وليها **علامات مربّعة** على الخريطة، والضغط يركّز عليها.
+  - **Zones:** المناطق (`zone.*`) + نصف القطر، الضغط يركّز على المنطقة.
+  - **Alerts:** المخاطر/التنبيهات (`geo_location.*`) + المصدر + المسافة مني، الضغط يركّز عليها (شارة التبويب بتبقى حمرا لو فيه تنبيهات).
+  - **تنظيم:** الكارت اتقسّم لمكوّنات صغيرة — `MapSheet.tsx` (القشرة + التبويبات)، `PeopleList.tsx` (تبويب People)، `SimpleList.tsx` (تبويبات الأجهزة/المناطق/التنبيهات). (اتشال `MemberSheet.tsx` القديم.)
+
 ### [2.16.91] — 2026-11-14  (تعديل JS — بيجي من metro)
 - **الخريطة النيتف — المرحلة ب (3/3): التايملاين + المتابعة.** اكتملت مطابقة النيتف لنسخة الويب:
   - **مسار الحركة (تايملاين):** خط برتقالي متقطّع لحركة الفرد المختار — مدى **اليوم / ٣ أيام / أسبوع** (من `history` بتاع HA)، وزر **تشغيل** بيحرّك نقطة على المسار والكاميرا تتبعها.
@@ -750,6 +758,14 @@
 ---
 
 ## English
+
+### [2.16.92] — 2026-11-14  (JS change — ships via metro)
+- **Native map — tabbed bottom sheet.** The bottom card is now **4 tabs** instead of a single list:
+  - **People:** the full-featured member list (route/navigate/timeline/follow).
+  - **Devices:** device_trackers **not tied to any person** (tags/cars/standalone trackers) — name + place + battery, with **square markers** on the map; tap to focus.
+  - **Zones:** zones (`zone.*`) + radius; tap to focus the zone.
+  - **Alerts:** hazards (`geo_location.*`) + source + distance from me; tap to focus (the tab badge turns red when alerts exist).
+  - **Organized:** the sheet is split into small components — `MapSheet.tsx` (shell + tabs), `PeopleList.tsx` (People tab), `SimpleList.tsx` (Devices/Zones/Alerts tabs). (Old `MemberSheet.tsx` removed.)
 
 ### [2.16.91] — 2026-11-14  (JS change — ships via metro)
 - **Native map — Phase B (3/3): timeline + follow.** The native map now matches the web version:
