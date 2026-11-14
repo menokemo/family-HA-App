@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.16.88] — 2026-11-14  (تعديل JS — بيجي من metro + المكوّن 0.3.4)
+- **الحل النهائي لتكرار نفس الموبايل + التسمية التلقائية.** ميزة الجهاز الواحد (0.3.3) كانت بتسجّل الموافقة لكن `registerMobileApp` كان لسه بيعمل جهاز جديد في HA كل مرة. دلوقتي:
+  - **خدمة `check_device` جديدة:** التطبيق بيسأل المكوّن قبل التسجيل — لو **نفس الموبايل** عنده تسجيل شغّال (الجهاز لسه في HA) **بيعيد استخدام نفس الـ webhook** من غير ما يعمل جهاز جديد → **صفر تكرار وصفر تشويش**. غير كده بيسجّل عادي.
+  - **زر إعادة التسجيل** بقى يعيد المزامنة بأمان (بيعيد استخدام نفس الجهاز) — مابيكررش.
+  - **اسم الجهاز بياخد اسم المستخدم تلقائيًا من أول مرة** (المكوّن بيحطّه من التوكن عبر `name_by_user`)، أو الاسم المخصّص لو اتكتب.
+  - لو نفس الموبايل سجّل بـ webhook جديد (الـ webhook القديم اتفقد)، المكوّن **بيمسح الجهاز القديم** تلقائيًا.
+
 ### [2.16.87] — 2026-11-14  (تعديل JS — بيجي من metro + المكوّن 0.3.3)
 - **ميزة أمان: جهاز نشط واحد لكل مستخدم + موافقة الأدمن عند الاستبدال.** بتحل مشكلة تسجيل نفس الحساب أكتر من مرة من جذرها + بتضيف أمان.
   - معرّف ثابت للموبايل (`getPhysicalDeviceId` — UUID متخزّن) بيفرّق نفس الموبايل عن موبايل جديد.
@@ -721,6 +728,13 @@
 ---
 
 ## English
+
+### [2.16.88] — 2026-11-14  (JS change — ships via metro + component 0.3.4)
+- **Final fix for the same-phone duplicate + automatic naming.** The single-device feature (0.3.3) recorded approval but `registerMobileApp` still created a new HA device every time. Now:
+  - **New `check_device` service:** the app asks the component before registering — if the **same phone** already has a valid active registration (the device still exists in HA) it **reuses the same webhook** without creating a new device → **zero duplicates, zero noise**. Otherwise it registers normally.
+  - The **re-register button** now re-syncs safely (reuses the same device) — no duplicate.
+  - The **device name takes the user's name automatically from the first time** (the component sets it from the token via `name_by_user`), or the custom name if set.
+  - If the same phone did register with a new webhook (the old one was lost), the component **removes the old device** automatically.
 
 ### [2.16.87] — 2026-11-14  (JS change — ships via metro + component 0.3.3)
 - **Security feature: one active device per user + admin approval on replacement.** Fixes the repeated-registration problem at its root and adds real security.

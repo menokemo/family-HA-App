@@ -301,6 +301,14 @@ export async function publishFamilyConfig(
 export type DeviceRegResult = { status: 'approved' | 'pending' | 'denied'; request_id?: string; old_device_name?: string };
 export type PendingRegistration = { request_id: string; user_name: string; new_device_name: string; old_device_name: string; code: string; expires_at: string };
 
+// قبل التسجيل: لو نفس الموبايل عنده تسجيل شغّال، المكوّن بيرجّع reuse + الـ
+// webhook القديم (فمانعملش جهاز جديد = صفر تكرار/تشويش)، وإلا register.
+export async function checkDevice(settings: ConnectionSettings, deviceId: string, name: string): Promise<{ action: 'reuse' | 'register'; webhook_id?: string }> {
+  const r = (await wsCommand(settings, { type: 'call_service', domain: 'secure_family', service: 'check_device', service_data: { device_id: deviceId, name }, return_response: true })) as { response?: { action?: 'reuse' | 'register'; webhook_id?: string } };
+  const resp = r?.response;
+  return { action: resp?.action === 'reuse' ? 'reuse' : 'register', webhook_id: resp?.webhook_id };
+}
+
 // التطبيق بيطالب بخانة الجهاز النشط لليوزر بعد تسجيل mobile_app. بيرجّع approved
 // (أول/نفس الجهاز) أو pending (الحساب نشط على جهاز تاني — محتاج موافقة أدمن).
 export async function requestDeviceRegistration(settings: ConnectionSettings, deviceId: string, webhookId: string, name: string): Promise<DeviceRegResult> {
