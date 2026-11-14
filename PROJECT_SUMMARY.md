@@ -155,6 +155,13 @@ Find Hub — مش GPS الخام ولا `lastLocation` المخبّأ. النق�
 بتُضبط بـ `setRNConfiguration({locationProvider:'playServices'})`، والخدمة النيتف
 بتجيب موقع جديد بـ `getCurrentLocation(HIGH_ACCURACY)` وتفلتره قبل الإرسال لـ HA.
 
+**جهاز نشط واحد لكل مستخدم + موافقة الأدمن (2.16.87 + المكوّن 0.3.3):** معرّف
+ثابت للموبايل (`src/storage/deviceId.ts`) + خدمة `request_registration`. أول/نفس
+الموبايل = تسجيل مباشر (صفر تكرار). موبايل جديد والحساب نشط = موافقة أدمن بكود
+سرّي (عبر خدمة أدمن، مش مبثوث)، وعند الموافقة الجهاز القديم يتمسح ويخرج فورًا
+(`familyha_force_logout`). الواجهة في `src/features/devices/`، ومنطق المكوّن في
+`devices.py` + `device_store.py`. (تفاصيل في `BUGS_AND_FIXES.md`.)
+
 ### القيود المعروفة (موثّقة بالتفصيل في `BUGS_AND_FIXES.md`)
 - بيئة التطوير (LXC/Metro) حساسة لتشغيل أكتر من عملية `git pull`/
   `gradle` في نفس الوقت — دايمًا اتأكد من جلسة `tmux` واحدة نضيفة.

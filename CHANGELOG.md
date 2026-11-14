@@ -6,6 +6,14 @@
 
 ## العربية
 
+### [2.16.87] — 2026-11-14  (تعديل JS — بيجي من metro + المكوّن 0.3.3)
+- **ميزة أمان: جهاز نشط واحد لكل مستخدم + موافقة الأدمن عند الاستبدال.** بتحل مشكلة تسجيل نفس الحساب أكتر من مرة من جذرها + بتضيف أمان.
+  - معرّف ثابت للموبايل (`getPhysicalDeviceId` — UUID متخزّن) بيفرّق نفس الموبايل عن موبايل جديد.
+  - عند التسجيل التطبيق بينادي `secure_family.request_registration`: أول/نفس الموبايل = تسجيل مباشر (صفر تكرار)؛ موبايل جديد والحساب نشط = نافذة *"الحساب نشط على جهاز تاني"* + لازم موافقة أدمن بكود.
+  - كود 6 أرقام (ينتهي خلال 10 دقايق، استخدام واحد) **سرّي** — مابيتبثّش في أي حدث؛ الأدمن بس بيجيبه عبر خدمة محصورة. تنبيه الأدمن عبر حدث WebSocket + إشعار ثابت في HA (بدون كود).
+  - الأدمن يوافق من تطبيقه مباشرة أو يملي الكود للجهاز الجديد. عند الموافقة: **الجهاز القديم بيتمسح ويتسجّل خروجه فورًا** (حدث `familyha_force_logout`).
+  - المكوّن 0.3.3: خدمات `request_registration` / `approve_registration` / `deny_registration` / `list_pending_registrations` + مخزن أجهزة مستقل. (كود منظم في موديولات صغيرة: `devices.py` + `device_store.py`.)
+
 ### [2.16.86] — 2026-11-14  (تعديل JS — بيجي من metro)
 - **توحيد علامة "أنا" على الخريطة النيتف:** كان فيه علامتين لنفس الشخص — الأفاتار (على موقع HA القديم) + النقطة الزرقاء (الموقع الحي). دلوقتي علامة واحدة: **أفاتارك بيظهر عند موقعك الحي** (Fused، مكان النقطة الزرقاء) بحلقة زرقا تميّزه، واتشال من علامات الأشخاص العادية (مفيش تكرار)، والنقطة الزرقاء المنفصلة اتشالت. باقي أفراد العيلة بموقع HA زي ما هم (لأن مالناش GPS حي لتليفوناتهم). "أنا" بيتحدد من `selectedPersonId` (شخص المستخدم الحالي).
 
@@ -713,6 +721,14 @@
 ---
 
 ## English
+
+### [2.16.87] — 2026-11-14  (JS change — ships via metro + component 0.3.3)
+- **Security feature: one active device per user + admin approval on replacement.** Fixes the repeated-registration problem at its root and adds real security.
+  - Stable per-phone id (`getPhysicalDeviceId` — stored UUID) distinguishes the same phone from a new one.
+  - On registration the app calls `secure_family.request_registration`: first/same phone = registered directly (zero duplicates); a new phone while the account is active = a "this account is active on another device" prompt + admin approval via code.
+  - 6-digit code (expires in 10 min, single-use) is **secret** — never broadcast in an event; only admins fetch it via an admin-gated service. Admin is alerted via a WebSocket event + an HA persistent notification (no code).
+  - The admin approves from their app or relays the code to the new device. On approval the **old device is removed and signed out instantly** (`familyha_force_logout`).
+  - Component 0.3.3: `request_registration` / `approve_registration` / `deny_registration` / `list_pending_registrations` services + a separate device store. (Organized into small modules: `devices.py` + `device_store.py`.)
 
 ### [2.16.86] — 2026-11-14  (JS change — ships via metro)
 - **Unified the "me" marker on the native map:** there were two markers for the same person — the avatar (at the stale HA location) and the blue dot (live location). Now it's one: **your avatar shows at your live location** (Fused, where the blue dot was) with a distinct blue ring, is removed from the regular family markers (no duplicate), and the separate blue dot is gone. Other family members stay at their HA location (we have no live GPS of their phones). "Me" is identified via `selectedPersonId` (the current user's person).

@@ -297,6 +297,38 @@ export async function publishFamilyConfig(
   });
 }
 
+// ===== تسجيل جهاز واحد نشط لكل مستخدم + موافقة الأدمن (مكوّن secure_family) =====
+export type DeviceRegResult = { status: 'approved' | 'pending' | 'denied'; request_id?: string; old_device_name?: string };
+export type PendingRegistration = { request_id: string; user_name: string; new_device_name: string; old_device_name: string; code: string; expires_at: string };
+
+// التطبيق بيطالب بخانة الجهاز النشط لليوزر بعد تسجيل mobile_app. بيرجّع approved
+// (أول/نفس الجهاز) أو pending (الحساب نشط على جهاز تاني — محتاج موافقة أدمن).
+export async function requestDeviceRegistration(settings: ConnectionSettings, deviceId: string, webhookId: string, name: string): Promise<DeviceRegResult> {
+  const r = (await wsCommand(settings, { type: 'call_service', domain: 'secure_family', service: 'request_registration', service_data: { device_id: deviceId, webhook_id: webhookId, name }, return_response: true })) as { response?: DeviceRegResult };
+  return r?.response ?? { status: 'approved' };
+}
+
+// الجهاز الجديد بيوافق بالكود اللي الأدمن داهوله. بيرمي خطأ لو الكود غلط/منتهي.
+export async function approveDeviceByCode(settings: ConnectionSettings, code: string): Promise<void> {
+  await request(settings, '/api/services/secure_family/approve_registration', { method: 'POST', body: JSON.stringify({ code }) });
+}
+
+// الأدمن بيوافق مباشرة من تطبيقه بالـ request_id.
+export async function approveDeviceByRequest(settings: ConnectionSettings, requestId: string): Promise<void> {
+  await request(settings, '/api/services/secure_family/approve_registration', { method: 'POST', body: JSON.stringify({ request_id: requestId }) });
+}
+
+// الأدمن بيرفض طلب جهاز جديد.
+export async function denyDeviceRequest(settings: ConnectionSettings, requestId: string): Promise<void> {
+  await request(settings, '/api/services/secure_family/deny_registration', { method: 'POST', body: JSON.stringify({ request_id: requestId }) });
+}
+
+// الأدمن بس: قائمة الطلبات المعلّقة بأكوادها (الكود سرّي — مابيتبثّش في الأحداث).
+export async function listPendingRegistrations(settings: ConnectionSettings): Promise<PendingRegistration[]> {
+  const r = (await wsCommand(settings, { type: 'call_service', domain: 'secure_family', service: 'list_pending_registrations', return_response: true })) as { response?: { pending?: PendingRegistration[] } };
+  return r?.response?.pending ?? [];
+}
+
 // ينشئ Long-Lived Access Token لخدمة المراقبة في الخلفية. توكن OAuth قصير
 // العمر (بينتهي بعد ~نص ساعة)، والخدمة النيتف مش بتقدر تجدده والتطبيق مقفول
 // فبتفشل المصادقة وتموت. LLAT بيدوم سنين، فالمراقبة تفضل شغّالة بإستمرار.
