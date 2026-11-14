@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.16.89] — 2026-11-14  (تعديل JS — بيجي من metro)
+- **الخريطة النيتف — المرحلة ب (1/3): لستة الأعضاء + كارت الفرد.** الخريطة النيتف كانت بترسم نقاط بس من غير أي تفاعل. دلوقتي فيها **Bottom sheet** قابل للسحب (بـ `Animated` + `PanResponder`، بدون أي مكتبة) بلستة أعضاء العيلة: صورة + حلقة ملونة ثابتة لكل فرد + وصف المكان (بيت/منطقة/عنوان حقيقي/بره) + البطارية بأيقونتها + آخر ظهور. الضغط على فرد **يركّز الكاميرا عليه** ويفتح كارت تفاصيل مصغّر (بطارية + المسافة مني + دقة الموقع).
+  - **العناوين الحقيقية** للأفراد اللي بره المناطق عبر BigDataCloud (مجاني، بيدعم العربي) مع كاش.
+  - **تنظيم بدون تكرار:** استخراج كل الهيلبرز المشتركة بين النيتف والويب في `src/features/map/mapShared.ts` (المسافة/الاتجاه/وقت الوصول/آخر ظهور/البطارية/العنوان العكسي/وصف المكان)، ولستة الأعضاء في مكوّن مستقل `src/features/map/MemberSheet.tsx`. (ملف الويب لسه عنده نسخته لحد ما ننقله بالكامل للنيتف — مؤجّل مقصود.)
+  - أزرار التحكم اترفعت فوق اللستة فمايحصلش تداخل.
+
 ### [2.16.88] — 2026-11-14  (تعديل JS — بيجي من metro + المكوّن 0.3.4)
 - **الحل النهائي لتكرار نفس الموبايل + التسمية التلقائية.** ميزة الجهاز الواحد (0.3.3) كانت بتسجّل الموافقة لكن `registerMobileApp` كان لسه بيعمل جهاز جديد في HA كل مرة. دلوقتي:
   - **خدمة `check_device` جديدة:** التطبيق بيسأل المكوّن قبل التسجيل — لو **نفس الموبايل** عنده تسجيل شغّال (الجهاز لسه في HA) **بيعيد استخدام نفس الـ webhook** من غير ما يعمل جهاز جديد → **صفر تكرار وصفر تشويش**. غير كده بيسجّل عادي.
@@ -728,6 +734,12 @@
 ---
 
 ## English
+
+### [2.16.89] — 2026-11-14  (JS change — ships via metro)
+- **Native map — Phase B (1/3): member list + member card.** The native map only drew dots with no interaction. It now has a draggable **bottom sheet** (built with `Animated` + `PanResponder`, no external library) listing family members: avatar + stable per-person colored ring + place label (home/zone/real address/away) + battery with its icon + last seen. Tapping a member **centers the camera** on them and opens a compact detail card (battery + distance from me + location accuracy).
+  - **Real addresses** for members outside zones via BigDataCloud (free, Arabic-capable) with caching.
+  - **Organized, no duplication:** all helpers shared between native and web extracted to `src/features/map/mapShared.ts` (distance/bearing/ETA/last-seen/battery/reverse-geocode/place label); the member list is its own component `src/features/map/MemberSheet.tsx`. (The web file still keeps its own copies until it is fully retired in favor of native — intentional deferral.)
+  - Map controls raised above the sheet so they no longer overlap.
 
 ### [2.16.88] — 2026-11-14  (JS change — ships via metro + component 0.3.4)
 - **Final fix for the same-phone duplicate + automatic naming.** The single-device feature (0.3.3) recorded approval but `registerMobileApp` still created a new HA device every time. Now:

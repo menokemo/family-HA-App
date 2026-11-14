@@ -2,8 +2,10 @@
 // على WebView (PeopleMapWeb). بترسم بالـ GPU مباشرة فأنعم وأسرع.
 // المرحلة أ+ب: خريطة أساسية + علامات الأشخاص بالأفاتار + النقطة الزرقاء النيتف
 // (UserLocation, Fused عبر locationEngine=google) + المناطق كدوائر (home وغيرها)
-// + طبقة المخاطر (geo_location) + مفتاح القمر الصناعي + أزرار تحكم + إعادة تمركز.
-// باقي (المسار، التايملاين، الموقع الحي عند الطلب) في مرحلة لاحقة.
+// + طبقة المخاطر (geo_location) + مفتاح القمر الصناعي + أزرار تحكم + إعادة تمركز
+// + لستة الأعضاء (MemberSheet): صورة + حلقة ملونة + عنوان + بطارية + آخر ظهور،
+//   والضغط على فرد يركّز الكاميرا عليه.
+// باقي (المسار والملاحة، التايملاين والمتابعة) في المرحلتين الجايتين.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import type { CameraRef } from '@maplibre/maplibre-react-native';
@@ -14,6 +16,8 @@ import { requestLocationPermission, watchLiveLocation, type LiveLocation } from 
 import { useTheme } from '../../theme';
 import { PressableScale } from '../../components/PressableScale';
 import { i18n } from '../../i18n';
+import { PERSON_RING, reverseGeocode } from './mapShared';
+import { MemberSheet, MEMBER_SHEET_PEEK } from './MemberSheet';
 
 // بنجيب مكوّنات الخريطة عبر require (CommonJS) مش import: الـ import كان بيتحل
 // لنسخة بترجع undefined وقت التشغيل (مشكلة exports field مع metro)، بينما require
@@ -27,7 +31,6 @@ type Point = { id: string; name: string; lat: number; lng: number; uri?: string;
 type Zone = { id: string; name: string; lat: number; lng: number; radius: number };
 type Hazard = { id: string; name: string; lat: number; lng: number };
 
-const PERSON_RING = ['#4F8BFF', '#34C759', '#FF9F0A', '#FF375F', '#AF52DE', '#5AC8FA'];
 const num = (v: unknown) => Number(v);
 
 // ستايل القمر الصناعي (Esri World Imagery) - raster، نفس مصدر الخريطة الحالية.
@@ -57,7 +60,16 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
   const [showHazards, setShowHazards] = useState(true);
   const [satelliteOn, setSatelliteOn] = useState(false);
   const [liveLocation, setLiveLocation] = useState<LiveLocation | null>(null);
+  const [picked, setPicked] = useState<string | undefined>(undefined);
+  const [addrMap, setAddrMap] = useState<Record<string, string>>({});
   const vectorStyle = resolvedMode === 'dark' ? 'https://tiles.openfreemap.org/styles/dark' : 'https://tiles.openfreemap.org/styles/positron';
+
+  // لون ثابت لكل فرد (نفس ترتيب people) - عشان العلامة واللستة يبقوا متطابقين.
+  const colorFor = useMemo(() => {
+    const m: Record<string, string> = {};
+    people.forEach((p, i) => (m[p.entity_id] = PERSON_RING[i % PERSON_RING.length]));
+    return m;
+  }, [people]);
 
   // الموقع الحي لتليفوني (Fused عبر Play Services) - بنعرض بيه علامة "أنا"
   // الموحّدة مكان ما كانت النقطة الزرقاء، بدل الأفاتار اللي على موقع HA القديم.
@@ -78,11 +90,28 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
           if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
           const pic = p.attributes.entity_picture as string | undefined;
           const uri = pic ? (pic.startsWith('http') ? pic : absoluteHaUrl(settings, pic)) : undefined;
-          return { id: p.entity_id, name: String(p.attributes.friendly_name ?? p.entity_id), lat, lng, uri, color: PERSON_RING[i % PERSON_RING.length] };
+          return { id: p.entity_id, name: String(p.attributes.friendly_name ?? p.entity_id), lat, lng, uri, color: colorFor[p.entity_id] ?? PERSON_RING[i % PERSON_RING.length] };
         })
         .filter((p): p is Point => p !== null),
-    [people, settings],
+    [people, settings, colorFor],
   );
+
+  // العناوين الحقيقية للأفراد اللي بره المناطق (not_home) - BigDataCloud مع كاش.
+  useEffect(() => {
+    let on = true;
+    void (async () => {
+      const updates: Record<string, string> = {};
+      for (const p of people) {
+        if (String(p.state) !== 'not_home') continue;
+        const addr = await reverseGeocode(num(p.attributes.latitude), num(p.attributes.longitude), i18n.locale || 'en');
+        if (addr) updates[p.entity_id] = addr;
+      }
+      if (on && Object.keys(updates).length) setAddrMap(m => ({ ...m, ...updates }));
+    })();
+    return () => {
+      on = false;
+    };
+  }, [people.map(p => `${p.entity_id}:${p.state}:${num(p.attributes.latitude).toFixed(4)},${num(p.attributes.longitude).toFixed(4)}`).join('|')]);
 
   const zones = useMemo<Zone[]>(
     () =>
@@ -143,6 +172,14 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
       return;
     }
     cameraRef.current?.fitBounds([w, sLat, e, nLat], { padding: { top: 90, bottom: 90, left: 60, right: 60 }, duration: 600 });
+  };
+
+  // اختيار فرد من اللستة: نركّز الكاميرا عليه ونحدّده (highlight في اللستة).
+  const focusPerson = (id: string) => {
+    setPicked(id);
+    const pt = points.find(p => p.id === id);
+    const target: [number, number] | undefined = pt ? [pt.lng, pt.lat] : id === mePerson?.entity_id ? myCoord : undefined;
+    if (target) cameraRef.current?.flyTo({ center: target, zoom: 16, duration: 600 });
   };
 
   return (
@@ -219,6 +256,18 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
           <Ionicons name="locate" size={19} color={colors.primary} />
         </PressableScale>
       </View>
+
+      <MemberSheet
+        people={people}
+        states={states}
+        settings={settings}
+        colorFor={colorFor}
+        addrMap={addrMap}
+        myCoord={myCoord}
+        meId={mePerson?.entity_id}
+        selectedId={picked}
+        onSelect={focusPerson}
+      />
     </View>
   );
 }
@@ -233,6 +282,6 @@ const styles = StyleSheet.create({
   hazard: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#E53935', borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   banner: { position: 'absolute', top: 14, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18 },
   bannerText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  controls: { position: 'absolute', right: 16, bottom: 24, gap: 10 },
+  controls: { position: 'absolute', right: 16, bottom: MEMBER_SHEET_PEEK + 12, gap: 10 },
   ctrl: { width: 48, height: 48, borderRadius: 24, borderWidth: 1, alignItems: 'center', justifyContent: 'center', elevation: 4 },
 });
