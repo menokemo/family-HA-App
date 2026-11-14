@@ -6,6 +6,9 @@
 
 ## العربية
 
+### [2.16.97] — 2026-11-15  (تعديل JS — بييجي من metro)
+- **وضع المباني المجسّمة + أرقام المباني في الخريطة النيتف.** زرار جديد (🏢) بيفعّل وضع 3D: بيحوّل الستايل لـ OpenFreeMap **Liberty** (فيه مباني مجسّمة `fill-extrusion` وأرقام مباني جاهزين) ويميل الكاميرا 55°. ضغطة تانية بترجّع الخريطة المسطّحة. (أرقام المباني بتبان لما تقرّب الزوم.)
+
 ### [2.16.96] — 2026-11-14  (JS فوري عبر metro + إصلاح NATIVE للـ APK)
 - **الحل الجذري لسرعة "Driving · 52 km/h" الكاذبة وإنت في البيت + بطارية "Discharging%".** السبب إننا مكناش بنبعت `speed` وكنا بنحسبها محليًا (غير موثوق)، بينما HA بيوفّرها كـ attribute (التطبيق الرسمي بيبعتها).
   - **JS (metro):** الخريطة بتقرا السرعة/الاتجاه/البطارية من المصدر الموثوق (الـ device_tracker بتاع الشخص): `readMotion` + `batteryText`. لو مفيش `speed` → مفيش حركة (مفيش "بيسوق" كاذب). اتشال الحساب المحلي.
@@ -784,6 +787,9 @@
 ---
 
 ## English
+
+### [2.16.97] — 2026-11-15  (JS change — ships via metro)
+- **3D buildings + building numbers on the native map.** A new button (🏢) enables 3D mode: it switches the base style to OpenFreeMap **Liberty** (which has built-in `fill-extrusion` 3D buildings and house numbers) and pitches the camera to 55°. Tap again to return to the flat map. (House numbers appear as you zoom in.)
 
 ### [2.16.96] — 2026-11-14  (JS now via metro + NATIVE fix for the APK)
 - **Root fix for false "Driving · 52 km/h" while at home + "Discharging%" battery.** We weren't sending `speed` and were computing it client-side (unreliable), while HA provides it as an attribute (the official app sends it).

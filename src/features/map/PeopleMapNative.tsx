@@ -5,6 +5,8 @@
 // + طبقة المخاطر (geo_location) + مفتاح القمر الصناعي + أزرار تحكم + إعادة تمركز
 // + كارت سفلي بتبويبات (MapSheet): People / Devices / Zones / Alerts،
 //   والضغط على عنصر يركّز الكاميرا عليه.
+// + وضع المباني المجسّمة (3D): بيحوّل الستايل لـ Liberty (فيه مباني مجسّمة وأرقام
+//   مباني جاهزين) ويميل الكاميرا.
 // باقي (المسار والملاحة، التايملاين والمتابعة) في المرحلتين الجايتين.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Linking, Platform, StyleSheet, Text, View } from 'react-native';
@@ -75,6 +77,7 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
   const cameraRef = useRef<CameraRef>(null);
   const [showHazards, setShowHazards] = useState(true);
   const [satelliteOn, setSatelliteOn] = useState(false);
+  const [buildings3D, setBuildings3D] = useState(false);
   const [liveLocation, setLiveLocation] = useState<LiveLocation | null>(null);
   const [picked, setPicked] = useState<string | undefined>(undefined);
   const [addrMap, setAddrMap] = useState<Record<string, string>>({});
@@ -89,6 +92,11 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
   const batteryAlertedRef = useRef<Set<string>>(new Set());
   const playTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const vectorStyle = resolvedMode === 'dark' ? 'https://tiles.openfreemap.org/styles/dark' : 'https://tiles.openfreemap.org/styles/positron';
+  // Liberty فيه مباني مجسّمة (fill-extrusion) وأرقام مباني جاهزين — بنحوّله مع
+  // ميلان الكاميرا لما المستخدم يفعّل وضع المباني المجسّمة.
+  const LIBERTY_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
+  const mapStyle = satelliteOn ? SATELLITE_STYLE : buildings3D ? LIBERTY_STYLE : vectorStyle;
+  const pitch = buildings3D && !satelliteOn ? 55 : 0;
 
   // لون ثابت لكل فرد (نفس ترتيب people) - عشان العلامة واللستة يبقوا متطابقين.
   const colorFor = useMemo(() => {
@@ -414,8 +422,8 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
 
   return (
     <View style={{ flex: 1 }}>
-      <MapView mapStyle={satelliteOn ? SATELLITE_STYLE : vectorStyle} style={{ flex: 1 }}>
-        <Camera ref={cameraRef} center={center} zoom={15} />
+      <MapView mapStyle={mapStyle} style={{ flex: 1 }}>
+        <Camera ref={cameraRef} center={center} zoom={15} pitch={pitch} />
         {/* النقطة الزرقاء الافتراضية بتظهر بس لو ماعرفناش مين "أنا" (fallback) -
             غير كده علامة "أنا" الموحّدة (الأفاتار) بتغطي الموقع الحي. */}
         {!myCoord ? <UserLocation animated /> : null}
@@ -525,6 +533,9 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
         </PressableScale>
         <PressableScale style={[styles.ctrl, { backgroundColor: satelliteOn ? colors.primary : colors.surfaceElevated, borderColor: colors.border }]} onPress={() => setSatelliteOn(v => !v)} hitSlop={6}>
           <Ionicons name="globe-outline" size={19} color={satelliteOn ? colors.black : colors.text} />
+        </PressableScale>
+        <PressableScale style={[styles.ctrl, { backgroundColor: buildings3D ? colors.primary : colors.surfaceElevated, borderColor: colors.border }]} onPress={() => setBuildings3D(v => !v)} hitSlop={6}>
+          <Ionicons name="business-outline" size={19} color={buildings3D ? colors.black : colors.text} />
         </PressableScale>
         <PressableScale style={[styles.ctrl, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} onPress={fitAll} hitSlop={6}>
           <Ionicons name="locate" size={19} color={colors.primary} />
