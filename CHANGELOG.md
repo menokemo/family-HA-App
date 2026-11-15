@@ -6,6 +6,9 @@
 
 ## العربية
 
+### [2.17.9] — 2026-11-15  (تعديل JS — بييجي من metro)
+- **تراجع كامل عن أسلوب "تثبيت الفرد على مركز المنطقة" (2.17.6→2.17.8).** الأسلوب ده طلع ترقيع وجاب مشاكل متتالية (تكدّس → خروج برّه الدايرة → الفرد بعيد عن البيت). رجعنا لعرض **الموقع الحقيقي** للفرد زي ما كان في 2.17.5 (حالة ثابتة ومعروفة). الحل الجذري الصح لتشتت الموقع هيتعمل بأسلوب تاني (hold/deadband أو فلترة عند المصدر native) بعد الاتفاق عليه.
+
 ### [2.17.8] — 2026-11-15  (تعديل JS — بييجي من metro)
 - **إصلاح: توزيع المتكدّسين كان بيطلّع بعضهم برّه دايرة المنطقة (شارع تاني).** دلوقتي نصف قطر الحلقة **محصور جوه دايرة المنطقة** (≤ 60% من نصف قطرها الحقيقي)، فكل الأفراد يفضلوا **جوه دايرة البيت** مهما كان عددهم. (بنقرا نصف قطر الـ zone من HA.)
 
@@ -836,6 +839,9 @@
 ---
 
 ## English
+
+### [2.17.9] — 2026-11-15  (JS change — ships via metro)
+- **Reverted the "snap member to zone center" approach entirely (2.17.6→2.17.8).** It turned out to be a patch that caused a chain of problems (stacking → landing outside the circle → member far from home). Back to showing the member's **real location** as in 2.17.5 (a known-good, stable state). The proper root fix for location scatter will be done differently (a hold/deadband filter, or filtering at the native source) once agreed.
 
 ### [2.17.8] — 2026-11-15  (JS change — ships via metro)
 - **Fix: the fan-out pushed some members outside the zone circle (onto another street).** The ring radius is now **clamped inside the zone circle** (≤ 60% of its real radius), so everyone stays **inside the home circle** regardless of count. (Zone radius read from HA.)

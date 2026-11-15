@@ -112,27 +112,6 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
     return m;
   }, [people]);
 
-  // مركز ونصف قطر كل منطقة بمفتاح حالتها (الاسم/الـ slug بكل الحالات) — عشان نثبّت
-  // الفرد على مركز منطقته وهو جواها بدل GPS الخام المتذبذب (= صفر تشتت في البيت،
-  // زي Life360). الخام بيتعرض بس وهو بره المناطق (بيتنقّل فعلًا). نصف القطر بنستخدمه
-  // عشان نحصر توزيع المتكدّسين جوه دايرة المنطقة فمايطلعوش لشارع تاني.
-  const zoneCenterByState = useMemo(() => {
-    const m: Record<string, { c: [number, number]; r: number }> = {};
-    for (const e of states) {
-      if (!e.entity_id.startsWith('zone.')) continue;
-      const lat = num(e.attributes.latitude);
-      const lng = num(e.attributes.longitude);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-      const z = { c: [lng, lat] as [number, number], r: num(e.attributes.radius ?? 100) || 100 };
-      const slug = e.entity_id.slice('zone.'.length);
-      const fname = String(e.attributes.friendly_name ?? slug);
-      for (const k of [slug, fname, slug.toLowerCase(), fname.toLowerCase()]) m[k] = z;
-    }
-    return m;
-  }, [states]);
-  const zoneOf = (state: string): { c: [number, number]; r: number } | undefined =>
-    zoneCenterByState[state] ?? zoneCenterByState[state.toLowerCase()];
-
   // الموقع الحي لتليفوني (Fused عبر Play Services) - بنعرض بيه علامة "أنا"
   // الموحّدة مكان ما كانت النقطة الزرقاء، بدل الأفاتار اللي على موقع HA القديم.
   useEffect(() => {
@@ -143,47 +122,20 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
     return () => stop?.();
   }, []);
 
-  const points = useMemo<Point[]>(() => {
-    // تمريرة ١: الموقع الأساسي — مركز المنطقة لو جواها (ثابت)، وإلا GPS الخام.
-    // snapKey = مفتاح تجميع للمتكدّسين على نفس مركز منطقة.
-    type Base = Point & { snapKey?: string; zoneR?: number };
-    const bases: Base[] = [];
-    people.forEach((p, i) => {
-      const z = zoneOf(String(p.state ?? ''));
-      const lat = z ? z.c[1] : num(p.attributes.latitude);
-      const lng = z ? z.c[0] : num(p.attributes.longitude);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-      const pic = p.attributes.entity_picture as string | undefined;
-      const uri = pic ? (pic.startsWith('http') ? pic : absoluteHaUrl(settings, pic)) : undefined;
-      bases.push({
-        id: p.entity_id,
-        name: String(p.attributes.friendly_name ?? p.entity_id),
-        lat,
-        lng,
-        uri,
-        color: colorFor[p.entity_id] ?? PERSON_RING[i % PERSON_RING.length],
-        snapKey: z ? `${z.c[0].toFixed(5)},${z.c[1].toFixed(5)}` : undefined,
-        zoneR: z?.r,
-      });
-    });
-    // تمريرة ٢: الأفراد المتكدّسين على نفس مركز منطقة → نوزّعهم في حلقة صغيرة ثابتة
-    // (بالترتيب، مش عشوائي) عشان كلهم يبانوا من غير ما يرجع التشتت. نصف قطر الحلقة
-    // محصور جوه دايرة المنطقة (≤ 60% من نصف قطرها) فمايطلعوش لبرّه/شارع تاني.
-    const groups: Record<string, Base[]> = {};
-    for (const b of bases) if (b.snapKey) (groups[b.snapKey] ??= []).push(b);
-    return bases.map((b): Point => {
-      const g = b.snapKey ? groups[b.snapKey] : undefined;
-      if (!g || g.length < 2) return { id: b.id, name: b.name, lat: b.lat, lng: b.lng, uri: b.uri, color: b.color };
-      const k = g.indexOf(b);
-      const n = g.length;
-      const radiusM = Math.min(16 + 6 * (n - 1), (b.zoneR ?? 100) * 0.6);
-      const ang = (k / n) * 2 * Math.PI;
-      const lat = b.lat + (radiusM / 111320) * Math.sin(ang);
-      const lng = b.lng + (radiusM / (111320 * Math.cos((b.lat * Math.PI) / 180))) * Math.cos(ang);
-      return { id: b.id, name: b.name, lat, lng, uri: b.uri, color: b.color };
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [people, settings, colorFor, zoneCenterByState]);
+  const points = useMemo<Point[]>(
+    () =>
+      people
+        .map((p, i): Point | null => {
+          const lat = num(p.attributes.latitude);
+          const lng = num(p.attributes.longitude);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+          const pic = p.attributes.entity_picture as string | undefined;
+          const uri = pic ? (pic.startsWith('http') ? pic : absoluteHaUrl(settings, pic)) : undefined;
+          return { id: p.entity_id, name: String(p.attributes.friendly_name ?? p.entity_id), lat, lng, uri, color: colorFor[p.entity_id] ?? PERSON_RING[i % PERSON_RING.length] };
+        })
+        .filter((p): p is Point => p !== null),
+    [people, settings, colorFor],
+  );
 
   // العناوين الحقيقية للأفراد اللي بره المناطق (not_home) - BigDataCloud مع كاش.
   useEffect(() => {
@@ -320,16 +272,11 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
   const otherPoints = mePerson ? points.filter(p => p.id !== mePerson.entity_id) : points;
   const meHaLat = mePerson ? num(mePerson.attributes.latitude) : NaN;
   const meHaLng = mePerson ? num(mePerson.attributes.longitude) : NaN;
-  // وأنا جوه منطقة: علامتي على مركزها (مستقر، مفيش تشتت وأنا في البيت). بره
-  // المناطق: الموقع الحي من تليفوني (أسرع استجابة وأنا بتنقّل)، وإلا موقع HA.
-  const meZone = mePerson ? zoneOf(String(mePerson.state ?? '')) : undefined;
-  const myCoord: [number, number] | undefined = meZone
-    ? meZone.c
-    : liveLocation
-      ? [liveLocation.longitude, liveLocation.latitude]
-      : Number.isFinite(meHaLat) && Number.isFinite(meHaLng)
-        ? [meHaLng, meHaLat]
-        : undefined;
+  const myCoord: [number, number] | undefined = liveLocation
+    ? [liveLocation.longitude, liveLocation.latitude]
+    : Number.isFinite(meHaLat) && Number.isFinite(meHaLng)
+      ? [meHaLng, meHaLat]
+      : undefined;
 
   // المسار على الطريق (OSRM) من موقعي للفرد المختار - بيتحدّث مع تغيير الاختيار
   // أو وضع المسار أو موقعي. مابيرسمش مسار لنفسي. بيلغي الطلب القديم قبل الجديد.
