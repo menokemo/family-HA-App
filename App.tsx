@@ -1,13 +1,14 @@
 import { Component, useEffect, useMemo, useRef, useState, type PropsWithChildren, type ReactNode } from 'react';
-import { Alert, Animated, AppState, Easing, FlatList, I18nManager, Image, Modal, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Alert, Animated, AppState, Easing, FlatList, I18nManager, Image, Modal, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useSirenPlayers } from './src/audio/useSirenPlayers';
 import { absoluteHaUrl, approveDeviceByCode, approveDeviceByRequest, authHeaders, checkDevice, createMonitorToken, denyDeviceRequest, findAlarmoEntities, findPersonByUserId, getAlarmoSensors, getCurrentUserId, getEntityRegistry, getStates, isCurrentUserAdmin, listDashboards, listPendingRegistrations, normalizeUrl, publishFamilyConfig, registerMobileApp, renameMobileAppDevice, requestDeviceRegistration, testConnection, updateRegistration, type DashboardInfo, type RegistryEntry } from './src/api/homeAssistant';
-import { getPhysicalDeviceId } from './src/storage/deviceId';
+import { getPhysicalDeviceId, uuidV4 } from './src/storage/deviceId';
 import { DeviceApprovalModals, type ApprovalReq, type Takeover } from './src/features/devices/DeviceApprovalModals';
 import { pickFamilyConfig, readFamilyConfig } from './src/family/familyConfig';
 import { PermissionsWizard } from './src/features/permissions/PermissionsWizard';
+import { requestBeaconPermission } from './src/native/permissions';
 import { HomeAssistantSocket } from './src/api/socket';
 import { entitiesByIds, isProblemState, sensorCandidates } from './src/features/alarmo/model';
 import { alarmProvider, type AlarmMode } from './src/alarm';
@@ -34,7 +35,7 @@ import { SwipeToConfirm } from './src/components/SwipeToConfirm';
 import { OAuthLoginWebView } from './src/components/OAuthLoginWebView';
 import { PressableScale } from './src/components/PressableScale';
 import { setLiveSettings, onLiveSettingsChange, getLiveSettings } from './src/storage/liveSettings';
-import { startAlarmMonitor, stopAlarmMonitor, isAlarmMonitorRunning, canUseFullScreenIntent, openFullScreenIntentSettings, canDrawOverlays, openOverlaySettings, setWatchedPersons, startMobileAppReporting, setLocationMode, setMobileAppZones } from './src/native/AlarmMonitor';
+import { startAlarmMonitor, stopAlarmMonitor, isAlarmMonitorRunning, canUseFullScreenIntent, openFullScreenIntentSettings, canDrawOverlays, openOverlaySettings, setWatchedPersons, startMobileAppReporting, setLocationMode, setMobileAppZones, setBeaconConfig } from './src/native/AlarmMonitor';
 import { isBiometricAvailable, enableBiometricDisarm, disableBiometricDisarm, getBiometricCode } from './src/storage/biometric';
 import type { AlarmModeKey, AlarmoEvent, ConnectionSettings, HaEntity, SirenTone } from './src/types/homeAssistant';
 
@@ -120,6 +121,9 @@ function AppContent({themeMode,onThemeModeChange}:{themeMode:ThemeMode;onThemeMo
  const mobileZones=useMemo(()=>states.filter(e=>e.entity_id.startsWith('zone.')&&isFiniteCoord(e)).map(z=>({name:z.entity_id==='zone.home'?'home':String(z.attributes.friendly_name??z.entity_id.replace('zone.','')),lat:Number(z.attributes.latitude),lng:Number(z.attributes.longitude),radius:Number(z.attributes.radius??100)})),[states]);
  const mobileZonesKey=mobileZones.map(z=>`${z.name}:${z.lat.toFixed(5)},${z.lng.toFixed(5)}:${z.radius}`).join('|');
  useEffect(()=>{if(!settings.mobileAppWebhookId||settings.shareLocation!==true||mobileZones.length===0)return;void setMobileAppZones(mobileZones);},[mobileZonesKey,settings.mobileAppWebhookId,settings.shareLocation]);
+ // إعدادات البيكونات للخدمة النيتف. بنبعتها كمان لما الاتنين مقفولين عشان
+ // الإيقاف يوصل فعلًا للخدمة (مش بس يتخزّن في الإعدادات).
+ useEffect(()=>{if(!settings.mobileAppWebhookId)return;void setBeaconConfig(settings.beaconMonitor===true,settings.bleEmitter===true,settings.bleUuid??'');},[settings.mobileAppWebhookId,settings.beaconMonitor,settings.bleEmitter,settings.bleUuid]);
  // تشغيل مراقبة الخلفية (Lock-screen alert) تلقائيًا لو مفعّلة في الإعداد العائلي
  // — ميزة أمان مهمة لازم تبقى شغّالة عند الكل.
  useEffect(()=>{if(settings.backgroundMonitoringEnabled!==true||!settings.baseUrl||!settings.token||!settings.alarmEntityId)return;let cancelled=false;void(async()=>{let token=settings.token;if(settings.authMethod==='oauth'){let mt=settings.monitorToken;if(!mt){mt=await createMonitorToken(settings);if(mt&&!cancelled)await saveFieldImmediately({monitorToken:mt});}if(mt)token=mt;}if(cancelled||!settings.alarmEntityId)return;void startAlarmMonitor(settings.baseUrl,token,settings.alarmEntityId,settings.alarmCode??'',settings.language??'en',settings.sirenTone??'classic',settings.biometricDisarmEnabled===true);})();return()=>{cancelled=true;};},[settings.backgroundMonitoringEnabled,settings.alarmEntityId,settings.baseUrl,settings.token,settings.monitorToken,settings.authMethod,settings.alarmCode,settings.language,settings.sirenTone,settings.biometricDisarmEnabled]);
@@ -275,7 +279,14 @@ function MapHost(props:{people:HaEntity[];home?:HaEntity;states:HaEntity[];selec
 
 function MapSettings({draft,setDraft,people}:{draft:ConnectionSettings;setDraft:(x:ConnectionSettings)=>void;people:HaEntity[]}){
  const selected=draft.zoneWatchPersonIds??[];
- return <Card><Toggle label={i18n.t('nativeMap')} value={draft.mapEngine==='native'} onChange={v=>setDraft({...draft,mapEngine:v?'native':'web'})}/><Text style={styles.muted}>{i18n.t('nativeMapHint')}</Text><Toggle label={i18n.t('shareLocation')} value={draft.shareLocation===true} onChange={shareLocation=>setDraft({...draft,shareLocation})}/><Text style={styles.muted}>{i18n.t('shareLocationHint')}</Text><Text style={styles.title}>{i18n.t('zoneNotifications')}</Text><Text style={styles.muted}>{i18n.t('zoneNotificationsHint')}</Text>{people.length===0?<Text style={styles.muted}>{i18n.t('noPeople')}</Text>:people.map(p=><Toggle key={p.entity_id} label={String(p.attributes.friendly_name??p.entity_id)} value={selected.includes(p.entity_id)} onChange={value=>setDraft({...draft,zoneWatchPersonIds:value?[...new Set([...selected,p.entity_id])]:selected.filter(x=>x!==p.entity_id)})}/>)}</Card>;
+ // كل موبايل له UUID خاص بيتولّد مرة واحدة وبيفضل ثابت — هو ده اللي بيتحدّد بيه
+ // الموبايل عند الراصد (ESPHome/HA)، فبنعرضه للمستخدم عشان ينسخه.
+ const enableBeacon=async(kind:'monitor'|'transmit',value:boolean)=>{
+  if(value&&!(await requestBeaconPermission(kind)))return;
+  const uuid=draft.bleUuid??uuidV4();
+  setDraft({...draft,bleUuid:uuid,...(kind==='monitor'?{beaconMonitor:value}:{bleEmitter:value})});
+ };
+ return <Card><Toggle label={i18n.t('nativeMap')} value={draft.mapEngine==='native'} onChange={v=>setDraft({...draft,mapEngine:v?'native':'web'})}/><Text style={styles.muted}>{i18n.t('nativeMapHint')}</Text><Toggle label={i18n.t('shareLocation')} value={draft.shareLocation===true} onChange={shareLocation=>setDraft({...draft,shareLocation})}/><Text style={styles.muted}>{i18n.t('shareLocationHint')}</Text><Text style={styles.title}>{i18n.t('beacons')}</Text><Text style={styles.muted}>{i18n.t('beaconsHint')}</Text><Toggle label={i18n.t('beaconMonitor')} value={draft.beaconMonitor===true} onChange={v=>{void enableBeacon('monitor',v);}}/><Text style={styles.muted}>{i18n.t('beaconMonitorHint')}</Text><Toggle label={i18n.t('bleEmitter')} value={draft.bleEmitter===true} onChange={v=>{void enableBeacon('transmit',v);}}/><Text style={styles.muted}>{i18n.t('bleEmitterHint')}</Text>{draft.bleEmitter===true&&draft.bleUuid?<View style={{gap:4}}><Text style={styles.label}>{i18n.t('bleUuid')}</Text><Text selectable style={[styles.muted,{fontFamily:Platform.OS==='ios'?'Courier':'monospace'}]}>{draft.bleUuid}</Text></View>:null}<Text style={styles.title}>{i18n.t('zoneNotifications')}</Text><Text style={styles.muted}>{i18n.t('zoneNotificationsHint')}</Text>{people.length===0?<Text style={styles.muted}>{i18n.t('noPeople')}</Text>:people.map(p=><Toggle key={p.entity_id} label={String(p.attributes.friendly_name??p.entity_id)} value={selected.includes(p.entity_id)} onChange={value=>setDraft({...draft,zoneWatchPersonIds:value?[...new Set([...selected,p.entity_id])]:selected.filter(x=>x!==p.entity_id)})}/>)}</Card>;
 }
 
 function DashboardSettings({draft,setDraft,settings}:{draft:ConnectionSettings;setDraft:(x:ConnectionSettings)=>void;settings:ConnectionSettings}){

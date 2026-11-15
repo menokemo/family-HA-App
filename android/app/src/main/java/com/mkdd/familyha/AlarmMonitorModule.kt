@@ -109,6 +109,29 @@ class AlarmMonitorModule(private val reactContext: ReactApplicationContext) :
     }
   }
 
+  // إعدادات البيكونات: رصد iBeacon للحضور على مستوى الغرفة، وبث الموبايل نفسه
+  // كبيكون. الاتنين مقفولين افتراضيًا لأنهم بياكلوا بطارية.
+  @ReactMethod
+  fun setBeaconConfig(monitor: Boolean, transmit: Boolean, uuid: String, major: String, minor: String, promise: Promise) {
+    try {
+      val intent = Intent(reactContext, MobileAppService::class.java)
+      intent.action = MobileAppService.ACTION_SET_BEACONS
+      intent.putExtra(MobileAppService.EXTRA_BEACON_MONITOR, monitor)
+      intent.putExtra(MobileAppService.EXTRA_BEACON_TRANSMIT, transmit)
+      intent.putExtra(MobileAppService.EXTRA_BEACON_UUID, uuid)
+      intent.putExtra(MobileAppService.EXTRA_BEACON_MAJOR, major)
+      intent.putExtra(MobileAppService.EXTRA_BEACON_MINOR, minor)
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        reactContext.startForegroundService(intent)
+      } else {
+        reactContext.startService(intent)
+      }
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("mobileapp_failed", e.message, e)
+    }
+  }
+
   @ReactMethod
   fun stopMobileApp(promise: Promise) {
     try {

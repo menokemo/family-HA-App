@@ -19,7 +19,14 @@
 - **تحديث لحظي بدل انتظار الدورة:** بقى في مستقبل أحداث للبلوتوث (فتح/قفل، اتصال/فصل جهاز) وقفل الشاشة والمنبّه الجاي وحالة المكالمة، مع **تجميع 1.5 ثانية** عشان الحدث الواحد مايعملش كذا إرسال (السماعة بتتصل على كذا بروفايل في نفس اللحظة).
 - **أذونات جديدة:** `BLUETOOTH_CONNECT` (أندرويد 12+) و`READ_PHONE_STATE`، واتضافوا للمعالج (wizard) الأذونات بأسمائهم وشرحهم بالثلاث لغات. لو الإذن مش ممنوح المستشعر بيرجّع قيمة فاضية بدل ما يكسّر باقي التحديث.
 - **اتشالت لوحة التشخيص المؤقتة** من الخريطة بعد ما قاست السبب ووصلنا لحل 2.19.0.
-- **لسه جاي (دفعة 2):** `beacon_monitor` و`ble_emitter` — رصد البيكونات لتحديد الغرفة. محتاجين مسح BLE مستمر، فلازم يبقى ليهم مفتاح تشغيل في الإعدادات الأول عشان مايأكلوش بطارية. versionCode 112.
+- **البيكونات (دفعة 2، في نفس البناء):** مستشعرين جداد بمفتاحين في إعدادات «الموقع والخريطة»، **الاتنين مقفولين افتراضيًا** لأن مسح/بث BLE بياكل بطارية:
+  - **`beacon_monitor`** — رصد بيكونات iBeacon حوالين الموبايل للحضور على **مستوى الغرفة** (أدق بكتير من GPS جوّه البيت). الحالة `Monitoring`/`Stopped`/`Bluetooth is turned off`، والـ attributes = اسم كل بيكون (`uuid_major_minor`) → مسافته المقدّرة، مرتّبين بالأقرب — نفس شكل الرسمي بالظبط فأي أتوميشن «في أنهي غرفة» تشتغل زي ما هي.
+  - **`ble_emitter`** — الموبايل نفسه يبث كـ iBeacon عشان ESPHome أو أي راصد تاني يشوفه. كل موبايل بياخد UUID خاص بيتولّد مرة واحدة وبيتعرض في الإعدادات عشان المستخدم ينسخه للراصد.
+  - **ملف جديد `BleBeacons.kt` — من غير أي مكتبة خارجية.** التطبيق الرسمي بيستخدم مكتبة AltBeacon؛ إحنا عملناها بـ`BluetoothLeScanner` و`BluetoothLeAdvertiser` من أندرويد نفسه وبنفك تنسيق iBeacon بإيدينا (نفس التخطيط اللي الرسمي بيوّرثه للمكتبة: `m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24`)، والمسافة بنفس معادلة AltBeacon المنشورة وقوة مرجعية ‎-59‎ على متر. يعني صفر تبعيّات جديدة وتحكّم كامل في دورة المسح.
+  - **المسح بدورات مش مستمر:** ثانيتين كل 10 ثواني (الرسمي بيمسح شبه مستمر: 1.1ث مسح و0.5ث راحة، وعلشان كده بيحذّر من البطارية). حضور على مستوى الغرفة مامحتاجش استجابة أقل من ثانية. بيكون مابانش في 5 دورات = بَعُد، يتشال.
+  - **حالات مهمة اتعاملنا معاها:** البلوتوث يتقفل → القائمة تتفضّى (وإلا تفضل كذب في المستشعر) والبث يترجّع لما يتفتح تاني؛ المعرّف يتغيّر والبث شغّال → يوقف ويبدأ بالجديد؛ الإعدادات بتتخزّن عشان الرصد/البث يكمّلوا بعد إعادة تشغيل الموبايل من غير ما التطبيق يتفتح.
+  - **الأذونات مش في المعالج عن قصد:** `BLUETOOTH_SCAN` و`BLUETOOTH_ADVERTISE` بيتطلبوا **في لحظة تشغيل المفتاح** بس — مش منطقي نطلب «مسح الأجهزة القريبة» من كل مستخدم وهو مش هيستخدم الميزة. لو الإذن اترفض المفتاح مايتشغّلش.
+- versionCode 112.
 
 ### [2.19.0] — 2026-11-15  (NATIVE + JS — محتاج بناء APK) — **مطابقة التطبيق الرسمي**
 بعد فحص كود `home-assistant/android` و`home-assistant/core` و`home-assistant/frontend`،
@@ -905,7 +912,14 @@ Seven new sensors registered in Home Assistant, mirroring the official app, all 
 - **Event-driven updates instead of waiting for the tick:** a receiver now listens for Bluetooth (on/off, device connect/disconnect), screen lock, next alarm and call state, with a **1.5 s debounce** so one event doesn't cause several sends (a headset connects on several profiles at once).
 - **New permissions:** `BLUETOOTH_CONNECT` (Android 12+) and `READ_PHONE_STATE`, added to the permissions wizard with names and descriptions in all three languages. Without the permission the sensor reports an empty value rather than breaking the rest of the update.
 - **Removed the temporary debug overlay** from the map now that it has served its purpose and 2.19.0 is confirmed.
-- **Still to come (batch 2):** `beacon_monitor` and `ble_emitter` — beacon detection for room-level presence. These need continuous BLE scanning, so they need their own settings toggle first to avoid draining the battery. versionCode 112.
+- **Beacons (batch 2, same build):** two more sensors with their own toggles under Location & Map settings, **both off by default** because BLE scanning and broadcasting cost battery:
+  - **`beacon_monitor`** — detects nearby iBeacons for **room-level** presence (far more precise than GPS indoors). State is `Monitoring`/`Stopped`/`Bluetooth is turned off`, attributes map each beacon name (`uuid_major_minor`) to its estimated distance, nearest first — the same shape as the official app, so existing "which room" automations work unchanged.
+  - **`ble_emitter`** — broadcasts this phone as an iBeacon so ESPHome or any other detector can see it. Each phone gets its own UUID, generated once and shown in settings so it can be copied into the detector.
+  - **New file `BleBeacons.kt` — no external library.** The official app uses the AltBeacon library; this uses Android's own `BluetoothLeScanner` and `BluetoothLeAdvertiser` and parses the iBeacon format directly (the same layout the official app hands to the library: `m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24`), with AltBeacon's published distance formula and a -59 reference power at 1 m. Zero new dependencies and full control of the scan cycle.
+  - **Duty-cycled scanning, not continuous:** 2 s every 10 s (the official app scans near-continuously — 1.1 s on, 0.5 s off — which is why it warns about battery). Room-level presence doesn't need sub-second response. A beacon missed for 5 cycles is dropped as out of range.
+  - **Edge cases handled:** Bluetooth switched off clears the beacon list (otherwise the sensor keeps reporting stale beacons) and the broadcast restarts when it comes back on; changing the UUID while transmitting stops and restarts with the new one; the config is persisted so monitoring and broadcasting resume after a reboot without the app being opened.
+  - **Permissions deliberately not in the wizard:** `BLUETOOTH_SCAN` and `BLUETOOTH_ADVERTISE` are requested **at the moment the toggle is switched on** — asking every user for "scan nearby devices" when they'll never use the feature is wrong. If the permission is denied the toggle doesn't switch on.
+- versionCode 112.
 
 ### [2.19.0] — 2026-11-15  (NATIVE + JS — requires APK build) — **parity with the official app**
 After reading `home-assistant/android`, `home-assistant/core` and `home-assistant/frontend`, the service and the map now match the official app instead of local heuristics that froze the location.

@@ -40,6 +40,25 @@ const BACKGROUND_LOCATION = 'android.permission.ACCESS_BACKGROUND_LOCATION' as c
 // القديم بيتمنح وقت التثبيت فمافيش حاجة نطلبها.
 const BLUETOOTH_CONNECT = 'android.permission.BLUETOOTH_CONNECT' as const;
 const READ_PHONE_STATE = 'android.permission.READ_PHONE_STATE' as const;
+const BLUETOOTH_SCAN = 'android.permission.BLUETOOTH_SCAN' as const;
+const BLUETOOTH_ADVERTISE = 'android.permission.BLUETOOTH_ADVERTISE' as const;
+
+// أذونات البيكونات مش في معالج الأذونات عن قصد: الميزة مقفولة افتراضيًا،
+// فمش منطقي نطلب "مسح الأجهزة القريبة" من كل مستخدم وهو مش هيستخدمها.
+// بنطلبها في اللحظة اللي المستخدم بيشغّل فيها المفتاح.
+export async function requestBeaconPermission(kind: 'monitor' | 'transmit'): Promise<boolean> {
+  if (Platform.OS !== 'android') return true;
+  // قبل أندرويد 12 المسح كان شغّال بإذن الموقع (موجود أصلاً) والبث بإذن
+  // البلوتوث القديم اللي بيتمنح وقت التثبيت.
+  if ((Platform.Version as number) < 31) return true;
+  try {
+    const perm = kind === 'monitor' ? BLUETOOTH_SCAN : BLUETOOTH_ADVERTISE;
+    const result = await PermissionsAndroid.request(perm as never);
+    return result === PermissionsAndroid.RESULTS.GRANTED;
+  } catch {
+    return false;
+  }
+}
 
 export async function checkPermission(key: PermKey): Promise<boolean> {
   if (Platform.OS !== 'android') return true;

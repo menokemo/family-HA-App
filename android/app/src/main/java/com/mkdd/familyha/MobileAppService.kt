@@ -85,6 +85,12 @@ class MobileAppService : Service() {
   private var phoneState = "idle"
   private var stateReceiver: BroadcastReceiver? = null
   private var stateDebounce: Runnable? = null
+  // إعدادات البيكونات — بتوصل من التطبيق وبتتخزّن عشان تفضل بعد إعادة تشغيل الخدمة.
+  private var beaconMonitorEnabled = false
+  private var beaconTransmitEnabled = false
+  private var beaconUuid = ""
+  private var beaconMajor = BleBeacons.DEFAULT_MAJOR
+  private var beaconMinor = BleBeacons.DEFAULT_MINOR
 
   private fun hasLocationPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -129,6 +135,20 @@ class MobileAppService : Service() {
       requestSingleAccurateLocation()
       return START_STICKY
     }
+    // إعدادات البيكونات من التطبيق (رصد/بث + UUID).
+    if (intent?.action == ACTION_SET_BEACONS) {
+      ensureStarted()
+      startAsForeground()
+      beaconMonitorEnabled = intent.getBooleanExtra(EXTRA_BEACON_MONITOR, false)
+      beaconTransmitEnabled = intent.getBooleanExtra(EXTRA_BEACON_TRANSMIT, false)
+      beaconUuid = intent.getStringExtra(EXTRA_BEACON_UUID) ?: ""
+      beaconMajor = intent.getStringExtra(EXTRA_BEACON_MAJOR)?.ifEmpty { BleBeacons.DEFAULT_MAJOR } ?: BleBeacons.DEFAULT_MAJOR
+      beaconMinor = intent.getStringExtra(EXTRA_BEACON_MINOR)?.ifEmpty { BleBeacons.DEFAULT_MINOR } ?: BleBeacons.DEFAULT_MINOR
+      saveBeaconConfig()
+      applyBeaconConfig()
+      updateSensors()
+      return START_STICKY
+    }
     // مزامنة مناطق HA: نخزّنها ونسجّلها كـ geofences عشان نبلّغ الحضور بدقة.
     if (intent?.action == ACTION_SET_ZONES) {
       ensureStarted()
@@ -157,6 +177,8 @@ class MobileAppService : Service() {
       .putString("webhookId", webhookId)
       .apply()
     startAsForeground()
+    loadBeaconConfig()
+    applyBeaconConfig()
     registerSensors()
     startLocationUpdates()
     startActivityUpdates()
@@ -172,9 +194,11 @@ class MobileAppService : Service() {
     val prefs = getSharedPreferences("mobile_app", Context.MODE_PRIVATE)
     if (baseUrl.isEmpty()) baseUrl = prefs.getString("baseUrl", "") ?: ""
     if (webhookId.isEmpty()) webhookId = prefs.getString("webhookId", "") ?: ""
+    loadBeaconConfig()
     reportLocation = true
     useLocation = hasLocationPermission()
     startAsForeground()
+    applyBeaconConfig()
     registerSensors()
     startLocationUpdates()
     startActivityUpdates()
@@ -482,6 +506,10 @@ class MobileAppService : Service() {
     registerSensor("next_alarm", "Next Alarm", nextAlarmUtc(), "timestamp", null, "mdi:alarm")
     registerSensor("mobile_data", "Mobile Data", if (mobileDataEnabled()) "on" else "off", null, null, "mdi:signal", type = "binary_sensor", entityCategory = "diagnostic")
     registerSensor("sim_1_signal_strength", "SIM 1 Signal Strength", simSignalDbm().toString(), "signal_strength", "dBm", "mdi:signal-cellular-3", stateClass = "measurement")
+    // البيكونات (اختيارية، بمفتاح في الإعدادات): رصد بيكونات iBeacon للحضور على
+    // مستوى الغرفة، وبث الموبايل نفسه كبيكون عشان ESPHome يرصده.
+    registerSensor("beacon_monitor", "Beacon Monitor", BleBeacons.monitorState(this), null, null, "mdi:bluetooth", entityCategory = "diagnostic")
+    registerSensor("ble_emitter", "BLE Transmitter", BleBeacons.transmitState(this), null, null, "mdi:bluetooth-audio", entityCategory = "diagnostic")
   }
 
   private fun registerSensor(
@@ -543,6 +571,8 @@ class MobileAppService : Service() {
       .put(nextAlarmState())
       .put(sensorState("mobile_data", if (mobileDataEnabled()) "on" else "off", "mdi:signal"))
       .put(sensorState("sim_1_signal_strength", simSignalDbm(), "mdi:signal-cellular-3"))
+      .put(beaconMonitorState())
+      .put(bleEmitterState())
     post(JSONObject().put("type", "update_sensor_states").put("data", states))
     // الموقع الجغرافي (reverse geocoding) بيحتاج شبكة — بنعمله في ثريد منفصل
     // عشان مانعملش network على الـ main thread، وبنبعته لوحده لما يجهز.
@@ -715,6 +745,65 @@ class MobileAppService : Service() {
     return sensorState("bluetooth_connection", connected, "mdi:bluetooth-connect", attrs)
   }
 
+  // اسم كل بيكون → مسافته المقدّرة، بنفس شكل التطبيق الرسمي عشان أتوميشن
+  // "في أي غرفة" تشتغل زي ما هي.
+  private fun beaconMonitorState(): JSONObject {
+    val state = BleBeacons.monitorState(this)
+    val attrs = JSONObject()
+    if (state == "Monitoring") {
+      for (b in BleBeacons.nearbyBeacons()) attrs.put(b.name, b.distance)
+    }
+    val icon = if (BleBeacons.isScanning()) "mdi:bluetooth" else "mdi:bluetooth-off"
+    return sensorState("beacon_monitor", state, icon, attrs)
+  }
+
+  private fun bleEmitterState(): JSONObject {
+    val attrs = JSONObject()
+      .put("id", if (beaconUuid.isEmpty()) "" else "${beaconUuid}_${beaconMajor}_$beaconMinor")
+      .put("Supports transmitter", BluetoothHelper.supportsTransmitter(this))
+    val icon = if (BleBeacons.isTransmitting()) "mdi:bluetooth-audio" else "mdi:bluetooth-off"
+    return sensorState("ble_emitter", BleBeacons.transmitState(this), icon, attrs)
+  }
+
+  // بيطبّق إعدادات البيكونات الجاية من التطبيق. المسح والبث **مقفولين افتراضيًا**
+  // لأن الاتنين بياكلوا بطارية، فمابنشغّلهمش غير لما المستخدم يطلب.
+  private fun applyBeaconConfig() {
+    BleBeacons.onStateChanged = { updateSensors() }
+    if (beaconMonitorEnabled) {
+      BleBeacons.startMonitoring(this)
+    } else {
+      BleBeacons.stopMonitoring(this)
+    }
+    if (beaconTransmitEnabled && beaconUuid.isNotEmpty()) {
+      BleBeacons.startTransmitting(this, beaconUuid, beaconMajor, beaconMinor)
+    } else {
+      BleBeacons.stopTransmitting()
+    }
+  }
+
+  private fun beaconPrefs() = getSharedPreferences("mobile_app", Context.MODE_PRIVATE)
+
+  private fun saveBeaconConfig() {
+    beaconPrefs().edit()
+      .putBoolean("beaconMonitor", beaconMonitorEnabled)
+      .putBoolean("beaconTransmit", beaconTransmitEnabled)
+      .putString("beaconUuid", beaconUuid)
+      .putString("beaconMajor", beaconMajor)
+      .putString("beaconMinor", beaconMinor)
+      .apply()
+  }
+
+  // بعد إعادة تشغيل الموبايل الخدمة بترجع من غير التطبيق، فبنقرأ الإعدادات
+  // من التخزين عشان الرصد/البث يكمّلوا زي ما المستخدم ساببهم.
+  private fun loadBeaconConfig() {
+    val prefs = beaconPrefs()
+    beaconMonitorEnabled = prefs.getBoolean("beaconMonitor", false)
+    beaconTransmitEnabled = prefs.getBoolean("beaconTransmit", false)
+    beaconUuid = prefs.getString("beaconUuid", "") ?: ""
+    beaconMajor = prefs.getString("beaconMajor", BleBeacons.DEFAULT_MAJOR) ?: BleBeacons.DEFAULT_MAJOR
+    beaconMinor = prefs.getString("beaconMinor", BleBeacons.DEFAULT_MINOR) ?: BleBeacons.DEFAULT_MINOR
+  }
+
   private fun deviceLocked(): Boolean {
     return try {
       val km = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
@@ -803,6 +892,9 @@ class MobileAppService : Service() {
     }
     val receiver = object : BroadcastReceiver() {
       override fun onReceive(context: Context?, intent: Intent?) {
+        // البلوتوث اتفتح/اتقفل: لازم نعيد تشغيل الرصد والبث (البث بيتوقف لما
+        // البلوتوث يتقفل ومابيرجعش لوحده).
+        if (intent?.action == BluetoothAdapter.ACTION_STATE_CHANGED) applyBeaconConfig()
         if (intent?.action == TelephonyManager.ACTION_PHONE_STATE_CHANGED) {
           phoneState = when (intent.getStringExtra(TelephonyManager.EXTRA_STATE)) {
             TelephonyManager.EXTRA_STATE_RINGING -> "ringing"
@@ -818,7 +910,7 @@ class MobileAppService : Service() {
     }
     try {
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        registerReceiver(receiver, filter, RECEIVER_NOT_EXPORTED)
+        registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
       } else {
         registerReceiver(receiver, filter)
       }
@@ -860,6 +952,11 @@ class MobileAppService : Service() {
       }
     }
     stateReceiver = null
+    // بنفصل الـ callback الأول عشان مانبعتش تحديث والخدمة بتموت، وكمان عشان
+    // مانسيبش مرجع للخدمة في الـ object الساكن.
+    BleBeacons.onStateChanged = null
+    BleBeacons.stopMonitoring(this)
+    BleBeacons.stopTransmitting()
     try {
       fusedClient.removeLocationUpdates(locationCallback)
     } catch (e: Exception) {
@@ -874,9 +971,15 @@ class MobileAppService : Service() {
     const val ACTION_SET_MODE = "com.mkdd.familyha.action.SET_LOCATION_MODE"
     const val ACTION_SET_ZONES = "com.mkdd.familyha.action.SET_ZONES"
     const val ACTION_REQUEST_ACCURATE = "com.mkdd.familyha.action.REQUEST_ACCURATE"
+    const val ACTION_SET_BEACONS = "com.mkdd.familyha.action.SET_BEACONS"
     const val EXTRA_LIVE = "live"
     const val EXTRA_TTL_MS = "ttlMs"
     const val EXTRA_ZONES = "zones"
+    const val EXTRA_BEACON_MONITOR = "beaconMonitor"
+    const val EXTRA_BEACON_TRANSMIT = "beaconTransmit"
+    const val EXTRA_BEACON_UUID = "beaconUuid"
+    const val EXTRA_BEACON_MAJOR = "beaconMajor"
+    const val EXTRA_BEACON_MINOR = "beaconMinor"
     // تأخير الاستقرار جوه المنطقة قبل حدث DWELL (تهدئة زي التطبيق الرسمي).
     private const val GEOFENCE_LOITER_MS = 30000
     private const val CHANNEL = "mobile_app_report"

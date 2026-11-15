@@ -37,6 +37,9 @@ export interface ConnectionSettings {
   mobileAppDeviceId?: string;
   deviceFriendlyName?: string;
   mapEngine?: 'web' | 'native';
+  beaconMonitor?: boolean;
+  bleEmitter?: boolean;
+  bleUuid?: string;
 }
 export interface AlarmoEvent {
   eventType: 'alarmo_failed_to_arm' | 'alarmo_command_success' | 'alarmo_ready_to_arm_modes_updated';

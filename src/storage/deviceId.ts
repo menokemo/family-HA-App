@@ -6,8 +6,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // mkdd — Secure Family
 const KEY = 'mkdd_physical_device_id';
 
-function uuidV4(): string {
-  // UUID v4 كافٍ كمعرّف جهاز (المهم التفرّد مش التشفير).
+// UUID v4 كافٍ كمعرّف جهاز أو كمعرّف بيكون (المهم التفرّد مش التشفير).
+export function uuidV4(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, ch => {
     const r = (Math.random() * 16) | 0;
     const v = ch === 'x' ? r : (r & 0x3) | 0x8;

@@ -102,6 +102,19 @@ export function setMobileAppZones(zones: MobileAppZone[]): Promise<boolean> {
   return n?.setMobileAppZones?.(JSON.stringify(zones)) ?? Promise.resolve(false);
 }
 
+export const BLE_MAJOR = '100';
+export const BLE_MINOR = '40004';
+
+// البيكونات: رصد iBeacon حوالين الموبايل (حضور على مستوى الغرفة) وبث الموبايل
+// نفسه كبيكون عشان ESPHome أو أي راصد تاني يشوفه. الاتنين مقفولين افتراضيًا
+// لأن مسح/بث BLE بياكل بطارية — بيتشغّلوا بمفتاح من إعدادات الخريطة بس.
+export function setBeaconConfig(monitor: boolean, transmit: boolean, uuid: string): Promise<boolean> {
+  const n = NativeModules.AlarmMonitor as
+    | (AlarmMonitorNative & { setBeaconConfig?: (m: boolean, t: boolean, u: string, maj: string, min: string) => Promise<boolean> })
+    | undefined;
+  return n?.setBeaconConfig?.(monitor, transmit, uuid, BLE_MAJOR, BLE_MINOR) ?? Promise.resolve(false);
+}
+
 // الوضع اللايف: لما فرد تاني بيتفرّج على موقعي، نخلّي الخدمة النيتف تبعت موقعي
 // بسرعة (كل ~10 ثواني) لمدة ttlMs ثم ترجع عادي تلقائيًا. كل نبضة بتجدّد المدة.
 export function setLocationMode(fast: boolean, ttlMs: number): Promise<boolean> {
