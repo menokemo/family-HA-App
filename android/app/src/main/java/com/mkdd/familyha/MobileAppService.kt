@@ -398,26 +398,6 @@ class MobileAppService : Service() {
     handler.postDelayed(revert, MOVING_REVERT_MS)
   }
 
-  // بيحسب اسم المنطقة الحالية من الموقع + المناطق المخزّنة، مع hysteresis زي منطق
-  // HA نفسه (تفضل في المنطقة لحد ما تبعد أكتر من نصف القطر + الدقة) عشان الحالة
-  // تكون ثابتة بدون تذبذب. بيحدّث current_zone. بيرجّع null لو مفيش مناطق متزامنة.
-  private fun computeZoneName(loc: Location): String? {
-    val prefs = getSharedPreferences("mobile_app", Context.MODE_PRIVATE)
-    val zones = GeoZones.parse(prefs.getString("zones", "") ?: "")
-    if (zones.isEmpty()) return null
-    val acc = if (loc.hasAccuracy()) loc.accuracy else 0f
-    // لو لسه ضمن منطقته الحالية (+ هامش الدقة) نفضل فيها (hysteresis للخروج).
-    val current = prefs.getString("current_zone", "") ?: ""
-    if (current.isNotEmpty()) {
-      val z = zones.firstOrNull { it.name == current }
-      if (z != null && GeoZones.distanceTo(z, loc.latitude, loc.longitude) <= z.radius + acc) return current
-    }
-    // مش في منطقته الحالية — ندخل منطقة بس لو واضح إننا جواها (ضمن نصف القطر).
-    val entered = GeoZones.smallestContaining(zones, loc.latitude, loc.longitude)?.name ?: NOT_HOME
-    prefs.edit().putString("current_zone", if (entered == NOT_HOME) "" else entered).apply()
-    return entered
-  }
-
   private fun sendLocation(location: Location) {
     lastLocation = location
     lastSentTime = location.time
@@ -429,35 +409,12 @@ class MobileAppService : Service() {
     // بدل ما تحسبها محليًا (حساب غلط). HA بيستقبلها كعدد صحيح موجب.
     if (location.hasSpeed() && location.speed >= 0f) data.put("speed", location.speed.toInt())
     if (location.hasBearing()) data.put("course", location.bearing.toInt())
-    // نرفق location_name عشان HA ياخد الحالة منّنا مش من حساب GPS الخام (= صفر
-    // تذبذب)، مع الإبقاء على الإحداثيات (الشخص يفضل ظاهر على الخريطة).
-    effectiveZoneName(location)?.let { data.put("location_name", it) }
+    // ملحوظة مهمة: مابنبعتش `location_name` خالص — بنبعت الإحداثيات الخام بس زي
+    // التطبيق الرسمي بالظبط، ونسيب **HA هو اللي يحسب المنطقة/الحضور** (HA بيحسبها
+    // بذكاء مع مراعاة دقة الـ GPS، فبيعتبرك "home" لو دايرة دقتك بتلمس البيت). كنا
+    // بنحسبها محليًا ونبعتها بـ location_name — حساب أصرم بيتجاهل الدقة فكان بيفرض
+    // not_home غلط وانت في البيت (على عكس التطبيق الرسمي).
     post(JSONObject().put("type", "update_location").put("data", data))
-  }
-
-  // اسم المنطقة الفعلي = قفل البيت بالـ WiFi فوق حساب GPS. المجتمع والتطبيق الرسمي
-  // بينصحوا باستخدام شبكة WiFi كإشارة "في البيت" لأنها مستقلة عن تذبذب GPS:
-  // - بنتعلّم SSID البيت تلقائيًا وإحنا مؤكّدين في البيت بالـ GPS.
-  // - بعدها لو متّصلين بنفس الشبكة → الحالة "home" ثابتة مهما اتذبذب الـ GPS.
-  private fun effectiveZoneName(loc: Location): String? {
-    val prefs = getSharedPreferences("mobile_app", Context.MODE_PRIVATE)
-    val zones = GeoZones.parse(prefs.getString("zones", "") ?: "")
-    if (zones.isEmpty()) return null
-    // تعلّم واي فاي البيت: وانت مؤكّد في البيت بالـ GPS، خزّن SSID الحالي.
-    val gpsHome = GeoZones.smallestContaining(zones, loc.latitude, loc.longitude)?.name == "home"
-    if (gpsHome) {
-      val ssid = wifiSsid()
-      if (ssid.isNotEmpty() && ssid != "Not connected" && ssid != "unknown") {
-        prefs.edit().putString("home_wifi_ssid", ssid).apply()
-      }
-    }
-    // قفل البيت بالواي فاي: متّصل بشبكة البيت المتعلَّمة → "home" ثابتة.
-    val homeSsid = prefs.getString("home_wifi_ssid", "") ?: ""
-    if (homeSsid.isNotEmpty() && wifiSsid() == homeSsid) {
-      prefs.edit().putString("current_zone", "home").apply()
-      return "home"
-    }
-    return computeZoneName(loc)
   }
 
   private fun registerSensors() {
@@ -730,7 +687,6 @@ class MobileAppService : Service() {
     const val EXTRA_ZONES = "zones"
     // تأخير الاستقرار جوه المنطقة قبل حدث DWELL (تهدئة زي التطبيق الرسمي).
     private const val GEOFENCE_LOITER_MS = 30000
-    private const val NOT_HOME = "not_home"
     private const val CHANNEL = "mobile_app_report"
     private const val NOTIF_ID = 7731
     private const val LOCATION_INTERVAL_MS = 120000L

@@ -6,7 +6,12 @@
 
 ## العربية
 
-### [2.18.2] — 2026-11-15  (تعديل JS — بييجي من metro) — **الحل الحقيقي لـ"بعيد عن البيت"**
+### [2.18.5] — 2026-11-15  (إصلاح NATIVE — محتاج بناء APK) — **الحل الحاسم للحضور**
+- **الأفراد كانوا بيطلعوا `not_home` وهم في البيت — تطبيقنا كان بيفرض الحضور غلط.**
+  - **السبب (بالقياس):** تطبيقنا كان بيحسب المنطقة **محليًا** ويبعتها لـ HA عبر `location_name`. الحساب المحلي كان **أصرم من HA** (بيتجاهل دقة الـ GPS)، فعلى زون صغيرة بيفرض `not_home` وانت في البيت. **التطبيق الرسمي مابيبعتش `location_name` — بيبعت الإحداثيات الخام ويسيب HA يحسب** (وHA بيراعي الدقة)، علشان كده عمره ما بيغلط.
+  - **الحل:** تطبيقنا بقى زي الرسمي بالظبط: يبعت **الإحداثيات الخام بس** من غير `location_name`، ويسيب HA يحسب الحضور. اتشال الحساب المحلي (`computeZoneName`/`effectiveZoneName`/قفل WiFi) ومن الجيوفنس كمان. versionCode 110.
+
+### [2.18.2] — 2026-11-15  (تعديل JS — بييجي من metro) — **إصلاح علامة "أنا"**
 - **علامة "أنا" كانت بتبان بعيد عن البيت بالرغم إن HA عنده موقعي صح.** الفحص أثبت إن `device_tracker` و`person` الاتنين عندهم الإحداثيات **صح** و`in_zones: home` — يعني المشكلة في **عرض خريطتنا مش في GPS/native**.
   - **السبب:** علامة "أنا" كانت بتاخد الموقع من **GPS منفصل في التليفون** (مكتبة JS) وبيتغلّب على إحداثيات HA الصحيحة؛ والمكتبة دي بتبوظ جوّه المباني وترجع موقع بعيد.
   - **الحل:** "أنا" بقت تستخدم **إحداثيات HA** (نفس مصدر الحضور)، والـ GPS المنفصل بس كحل أخير. في النيتف والويب. **JS — من metro، من غير APK.**
@@ -860,7 +865,12 @@
 
 ## English
 
-### [2.18.2] — 2026-11-15  (JS change — ships via metro) — **the real fix for "far from home"**
+### [2.18.5] — 2026-11-15  (NATIVE fix — requires APK build) — **the decisive presence fix**
+- **Members showed `not_home` while actually home — our app was forcing presence wrongly.**
+  - **Cause (measured):** our app computed the zone **locally** and sent it to HA via `location_name`. The local computation was **stricter than HA** (it ignored GPS accuracy), so on a small zone it forced `not_home` while home. **The official app sends no `location_name` — it sends raw coordinates and lets HA compute** (HA accounts for accuracy), which is why it never gets it wrong.
+  - **Fix:** our app now behaves exactly like the official app: send **raw coordinates only**, no `location_name`, let HA compute presence. Removed the local computation (`computeZoneName`/`effectiveZoneName`/WiFi lock) and from the geofence receiver too. versionCode 110.
+
+### [2.18.2] — 2026-11-15  (JS change — ships via metro) — **"me" marker fix**
 - **The "me" marker showed far from home even though HA had my correct location.** Checking HA showed both `device_tracker` and `person` had **correct** coordinates and `in_zones: home` — so the bug was in **our map display, not GPS/native**.
   - **Cause:** the "me" marker took its position from a **separate phone GPS** (a JS library) that overrode HA's correct coordinates; that library breaks indoors and returns a far location.
   - **Fix:** "me" now uses **HA's coordinates** (the same source as presence), with the separate GPS only as a last resort. Native and web. **JS — ships via metro, no APK.**

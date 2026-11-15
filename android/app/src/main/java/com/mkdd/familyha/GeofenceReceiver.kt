@@ -3,7 +3,6 @@ package com.mkdd.familyha
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingEvent
 import okhttp3.Call
 import okhttp3.Callback
@@ -32,34 +31,23 @@ class GeofenceReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
     val event = GeofencingEvent.fromIntent(intent) ?: return
     if (event.hasError()) return
-    val transition = event.geofenceTransition
 
     val prefs = context.getSharedPreferences("mobile_app", Context.MODE_PRIVATE)
     val baseUrl = prefs.getString("baseUrl", "") ?: ""
     val webhookId = prefs.getString("webhookId", "") ?: ""
     if (baseUrl.isEmpty() || webhookId.isEmpty()) return
 
-    val zones = GeoZones.parse(prefs.getString("zones", "") ?: "")
-    val loc = event.triggeringLocation
+    // الجيوفنس بيوقّظنا عند عبور حدود المنطقة عشان نبعت **موقع طازة فورًا** (زي
+    // التطبيق الرسمي) — بس بنبعت الإحداثيات الخام بس، ونسيب HA يحسب الحضور. مابنحسبش
+    // اسم المنطقة محليًا ولا نبعت location_name (الحساب المحلي كان أصرم من HA فكان
+    // بيفرض not_home غلط وانت في البيت).
+    val loc = event.triggeringLocation ?: return
 
-    // الاسم: أصغر منطقة بتحتوي موقع الحدث (للتعامل مع التداخل والخروج لمنطقة تانية
-    // صح)، وإلا not_home.
-    val name: String = when {
-      loc != null -> GeoZones.smallestContaining(zones, loc.latitude, loc.longitude)?.name ?: NOT_HOME
-      transition == Geofence.GEOFENCE_TRANSITION_EXIT -> NOT_HOME
-      else -> event.triggeringGeofences?.firstOrNull()?.requestId ?: return
-    }
-
-    prefs.edit().putString("current_zone", if (name == NOT_HOME) "" else name).apply()
-
-    // نبعت إحداثيات مع الاسم عشان مانفقدش موقع الشخص على الخريطة. من غير موقع،
-    // نكتفي بتحديث current_zone وسيبنا للخدمة تبعت بموقع صح.
-    if (loc != null) post(baseUrl, webhookId, name, loc.latitude, loc.longitude, if (loc.hasAccuracy()) loc.accuracy.toInt() else null)
+    post(baseUrl, webhookId, loc.latitude, loc.longitude, if (loc.hasAccuracy()) loc.accuracy.toInt() else null)
   }
 
-  private fun post(baseUrl: String, webhookId: String, locationName: String, lat: Double, lng: Double, acc: Int?) {
+  private fun post(baseUrl: String, webhookId: String, lat: Double, lng: Double, acc: Int?) {
     val data = JSONObject()
-      .put("location_name", locationName)
       .put("gps", JSONArray().put(lat).put(lng))
     if (acc != null) data.put("gps_accuracy", acc)
     val body = JSONObject().put("type", "update_location").put("data", data)
@@ -73,9 +61,5 @@ class GeofenceReceiver : BroadcastReceiver() {
         response.close()
       }
     })
-  }
-
-  companion object {
-    private const val NOT_HOME = "not_home"
   }
 }
