@@ -8,7 +8,7 @@ import { absoluteHaUrl, authHeaders } from '../../api/homeAssistant';
 import { useTheme, type Palette } from '../../theme';
 import { i18n } from '../../i18n';
 import { PressableScale } from '../../components/PressableScale';
-import { batteryIcon, batteryPct, batteryText, distance, etaText, haversine, placeLabel, timeAgo, PERSON_RING, type Motion, type RouteMode, type RouteResult } from './mapShared';
+import { batteryIcon, batteryPct, batteryText, distance, etaText, haversine, placeLabel, timeAgo, PERSON_RING, type Motion, type RouteMode, type RouteResult, type Trip } from './mapShared';
 
 const TRAIL_RANGES: { h: number; key: 'today' | 'days3' | 'week' }[] = [
   { h: 24, key: 'today' },
@@ -47,6 +47,8 @@ export type PeopleListProps = {
   onChangeRange?: (hours: number) => void;
   onPlayTrail?: () => void;
   playing?: boolean;
+  trips?: Trip[];
+  onPickTrip?: (trip: Trip) => void;
 };
 
 export function PeopleList({
@@ -74,9 +76,15 @@ export function PeopleList({
   onChangeRange,
   onPlayTrail,
   playing,
+  trips,
+  onPickTrip,
 }: PeopleListProps) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
+  const clock = (iso: string) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '—' : d.toLocaleTimeString(i18n.locale || 'en', { hour: '2-digit', minute: '2-digit' });
+  };
 
   const uriFor = (p: HaEntity): string | undefined => {
     const pic = p.attributes.entity_picture as string | undefined;
@@ -202,6 +210,26 @@ export function PeopleList({
                         </PressableScale>
                       </View>
                     ) : null}
+
+                    {trailActive && !trailLoading ? (
+                      <View style={s.trips}>
+                        <Text style={s.tripsTitle}>{i18n.t('trips')}{trips && trips.length ? ` · ${trips.length}` : ''}</Text>
+                        {!trips || trips.length === 0 ? (
+                          <Text style={s.tripsEmpty}>{i18n.t('noTrips')}</Text>
+                        ) : (
+                          trips.map(t => (
+                            <PressableScale key={t.id} style={s.tripRow} onPress={() => onPickTrip?.(t)}>
+                              <Ionicons name="car-outline" size={16} color={colors.primary} />
+                              <View style={{ flex: 1 }}>
+                                <Text style={s.tripTime} numberOfLines={1}>{clock(t.startAt)} → {clock(t.endAt)} · {etaText(t.durationSec)}</Text>
+                                <Text style={s.tripMeta} numberOfLines={1}>{distance(t.distanceM)} · {Math.round(t.avgKmh)} km/h</Text>
+                              </View>
+                              <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+                            </PressableScale>
+                          ))
+                        )}
+                      </View>
+                    ) : null}
                   </>
                 ) : null}
               </>
@@ -259,4 +287,10 @@ const makeStyles = (c: Palette) =>
     toolText: { color: c.text, fontWeight: '700', fontSize: 13 },
     toolTextActive: { color: c.black },
     playBtn: { width: 46, backgroundColor: c.surface, borderRadius: 12, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' },
+    trips: { paddingHorizontal: 10, paddingBottom: 12, gap: 6 },
+    tripsTitle: { color: c.muted, fontSize: 11.5, fontWeight: '800', marginBottom: 2 },
+    tripsEmpty: { color: c.muted, fontSize: 12.5, paddingVertical: 6 },
+    tripRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.surface, borderRadius: 12, borderWidth: 1, borderColor: c.border, paddingVertical: 9, paddingHorizontal: 11 },
+    tripTime: { color: c.text, fontSize: 13, fontWeight: '700' },
+    tripMeta: { color: c.muted, fontSize: 11.5, fontWeight: '600', marginTop: 2 },
   });

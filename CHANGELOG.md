@@ -6,6 +6,10 @@
 
 ## العربية
 
+### [2.17.5] — 2026-11-15  (تعديل JS — بييجي من metro)
+- **تفاصيل الرحلات في التايملاين (المجموعة ٢).** لما تشغّل تايملاين فرد، بيظهر تحت تحديد الفترة **قايمة رحلاته**: كل رحلة بوقت البداية→النهاية، المدة، المسافة، ومتوسط السرعة. الضغط على رحلة بيركّز الخريطة عليها.
+  - التقطيع بيفصل رحلة عن اللي بعدها عند **وقفة** = فجوة زمنية ≥ 10 دقايق في نفس المكان (HA بيسجّل نقطة لما الموقع يتغيّر، فالوقوف بيبان كفجوة). التجميعات اللي حركتها < 200م بتتجاهل. دالة `segmentTrips` مع ٤ اختبارات.
+
 ### [2.17.4] — 2026-11-15  (تعديل JS — بييجي من metro)
 - **تشخيص + إصلاح جزئي لأخطاء "Unauthorized" (unhandled promise rejections) اللي بتطلع كـ red boxes.**
   - رسالة أي خطأ من HA REST بقت تتضمّن **الـ method + الـ endpoint** (مثال: `Unauthorized · GET /api/...`) عشان يبان النداء المصدر بالظبط بدل "Unauthorized" مجرّدة.
@@ -820,6 +824,10 @@
 ---
 
 ## English
+
+### [2.17.5] — 2026-11-15  (JS change — ships via metro)
+- **Trip details in the timeline (Group 2).** When you play a member's timeline, a **list of their trips** appears under the range selector: each trip shows start→end time, duration, distance, and average speed. Tapping a trip focuses the map on it.
+  - Segmentation splits one trip from the next at a **stop** = a time gap ≥ 10 min at the same place (HA records a point when location changes, so stops show up as gaps). Clusters that move < 200 m are dropped. `segmentTrips` with 4 tests.
 
 ### [2.17.4] — 2026-11-15  (JS change — ships via metro)
 - **Diagnosis + partial fix for the "Unauthorized" unhandled-promise-rejection red boxes.**

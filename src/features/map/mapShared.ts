@@ -6,6 +6,9 @@ import { i18n } from '../../i18n';
 
 export type Motion = { speed: number; heading: number; moving: boolean };
 export type RouteMode = 'driving' | 'walking' | 'cycling';
+// نقطة في تاريخ الحركة (متوافقة مع HistoryPoint). رحلة = حركة بين وقفتين.
+export type TrackPoint = { lat: number; lng: number; at: string };
+export type Trip = { id: string; startAt: string; endAt: string; durationSec: number; distanceM: number; avgKmh: number; points: [number, number][] };
 export type LineStringGeo = { type: 'LineString'; coordinates: [number, number][] };
 export type RouteResult = { geometry: LineStringGeo; distanceMeters: number; durationSeconds: number };
 
@@ -162,4 +165,49 @@ export function placeLabel(p: HaEntity, addrMap: Record<string, string>, motion?
   if (st === 'home') return i18n.t('placeHome');
   if (st && !['not_home', 'unknown', 'unavailable', ''].includes(st)) return st;
   return addrMap[p.entity_id] || i18n.t('placeAway');
+}
+
+// --- تقطيع تاريخ الحركة لرحلات ---
+// HA بيسجّل نقطة جديدة أساسًا لما الموقع يتغيّر، فالوقوف بيطلع كـ "فجوة زمنية
+// كبيرة ونفس المكان". فبنفصل رحلة عن اللي بعدها عند وقفة = نقطتين متتاليتين
+// بينهم فجوة زمنية كبيرة والمسافة بينهم صغيرة. أي تجميعة حركتها الكلية صغيرة
+// (مجرد تشويش في مكان واحد) بتتجاهل.
+const TRIP_STOP_GAP_MS = 10 * 60 * 1000; // فجوة ≥ 10 دقايق في نفس المكان = وقفة
+const TRIP_STILL_M = 120; // نصف قطر "نفس المكان"
+const TRIP_MIN_DIST_M = 200; // أقل مسافة كلية تُعتبر رحلة حقيقية
+
+function tripFrom(run: TrackPoint[]): Trip | null {
+  if (run.length < 2) return null;
+  let dist = 0;
+  for (let i = 1; i < run.length; i++) {
+    dist += haversine({ latitude: run[i - 1].lat, longitude: run[i - 1].lng }, { latitude: run[i].lat, longitude: run[i].lng });
+  }
+  if (dist < TRIP_MIN_DIST_M) return null;
+  const startAt = run[0].at;
+  const endAt = run[run.length - 1].at;
+  const durationSec = Math.max(1, (new Date(endAt).getTime() - new Date(startAt).getTime()) / 1000);
+  const avgKmh = dist / 1000 / (durationSec / 3600);
+  return { id: `${startAt}-${endAt}`, startAt, endAt, durationSec, distanceM: dist, avgKmh, points: run.map(p => [p.lng, p.lat] as [number, number]) };
+}
+
+export function segmentTrips(points: TrackPoint[]): Trip[] {
+  if (points.length < 2) return [];
+  const trips: Trip[] = [];
+  let run: TrackPoint[] = [points[0]];
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1];
+    const cur = points[i];
+    const dt = new Date(cur.at).getTime() - new Date(prev.at).getTime();
+    const dm = haversine({ latitude: prev.lat, longitude: prev.lng }, { latitude: cur.lat, longitude: cur.lng });
+    if (dt >= TRIP_STOP_GAP_MS && dm < TRIP_STILL_M) {
+      const t = tripFrom(run);
+      if (t) trips.push(t);
+      run = [cur];
+    } else {
+      run.push(cur);
+    }
+  }
+  const last = tripFrom(run);
+  if (last) trips.push(last);
+  return trips.reverse(); // الأحدث الأول
 }

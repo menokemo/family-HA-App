@@ -29,10 +29,12 @@ import {
   placeLabel,
   timeAgo,
   distance,
+  segmentTrips,
   LOW_BATTERY,
   type RouteMode,
   type RouteResult,
   type Motion,
+  type Trip,
 } from './mapShared';
 import { MapSheet, MAP_SHEET_PEEK } from './MapSheet';
 import { PersonMarker } from './PersonMarker';
@@ -464,6 +466,20 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
   );
   const playhead = playIdx !== null && trail[playIdx] ? ([trail[playIdx].lng, trail[playIdx].lat] as [number, number]) : undefined;
 
+  // تقطيع تاريخ الحركة لرحلات (وقوف→حركة→وقوف) + تركيز الكاميرا على رحلة مختارة.
+  const trips = useMemo<Trip[]>(() => segmentTrips(trail), [trail]);
+  const focusTrip = (t: Trip) => {
+    if (t.points.length === 0) return;
+    const lngs = t.points.map(p => p[0]);
+    const lats = t.points.map(p => p[1]);
+    const w = Math.min(...lngs);
+    const e = Math.max(...lngs);
+    const sLat = Math.min(...lats);
+    const nLat = Math.max(...lats);
+    if (w === e && sLat === nLat) cameraRef.current?.flyTo({ center: [w, sLat], zoom: 15, duration: 500 });
+    else cameraRef.current?.fitBounds([w, sLat, e, nLat], { padding: { top: 90, bottom: MAP_SHEET_PEEK + 40, left: 50, right: 50 }, duration: 500 });
+  };
+
   const fitAll = () => {
     const all: [number, number][] = otherPoints.map(p => [p.lng, p.lat]);
     if (myCoord) all.push(myCoord);
@@ -652,6 +668,8 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
           onChangeRange: changeRange,
           onPlayTrail: playTrail,
           playing: playIdx !== null,
+          trips,
+          onPickTrip: focusTrip,
         }}
         devices={deviceItems}
         zones={zoneItems}
