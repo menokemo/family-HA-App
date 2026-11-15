@@ -35,6 +35,7 @@ import {
   type Motion,
 } from './mapShared';
 import { MapSheet, MAP_SHEET_PEEK } from './MapSheet';
+import { PersonMarker } from './PersonMarker';
 import type { SimpleItem } from './SimpleList';
 
 // بنجيب مكوّنات الخريطة عبر require (CommonJS) مش import: الـ import كان بيتحل
@@ -48,6 +49,7 @@ type Props = { people: HaEntity[]; home?: HaEntity; states: HaEntity[]; selected
 type Point = { id: string; name: string; lat: number; lng: number; uri?: string; color: string };
 type Zone = { id: string; name: string; lat: number; lng: number; radius: number };
 type Hazard = { id: string; name: string; lat: number; lng: number; source: string };
+type PresenceEvt = { id: string; person: string; kind: 'arrive' | 'leave'; place: string; ts: number };
 
 const num = (v: unknown) => Number(v);
 
@@ -84,6 +86,9 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
   const [routeMode, setRouteMode] = useState<RouteMode>('driving');
   const [routeInfo, setRouteInfo] = useState<RouteResult | null>(null);
   const [batteryAlert, setBatteryAlert] = useState<string | null>(null);
+  const [presence, setPresence] = useState<PresenceEvt[]>([]);
+  const prevStateRef = useRef<Record<string, string>>({});
+  const presenceInitRef = useRef(false);
   const [follow, setFollow] = useState(false);
   const [trail, setTrail] = useState<HistoryPoint[]>([]);
   const [trailRange, setTrailRange] = useState(24);
@@ -162,6 +167,13 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
     return m;
   }, [people, states]);
 
+  // اسم المكان لكل فرد (بيت/شغل/عنوان) — بيتعرض كبابل جنب صورته على الخريطة.
+  const placeFor = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const p of people) m[p.entity_id] = placeLabel(p, addrMap, motion[p.entity_id]);
+    return m;
+  }, [people, addrMap, motion]);
+
   // تنبيه البطارية المنخفضة (مرة لكل فرد لحد ما يشحن فوق الحد+5).
   useEffect(() => {
     for (const p of people) {
@@ -176,6 +188,33 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pointsKey]);
+
+  // كشف وصول/مغادرة كل فرد: نقارن حالته (اسم المنطقة) بآخر حالة متخزّنة؛ لو
+  // اتغيّرت نضيف حدث لتبويب التنبيهات. أول تحميل بنسجّل الحالات من غير أحداث
+  // (عشان مايطلعش سيل أحداث وهمية وقت فتح التطبيق).
+  useEffect(() => {
+    const isZone = (s: string) => !!s && !['not_home', 'unknown', 'unavailable', ''].includes(s);
+    const prev = prevStateRef.current;
+    const next: Record<string, string> = {};
+    const fresh: PresenceEvt[] = [];
+    for (const p of people) {
+      const st = String(p.state ?? '');
+      next[p.entity_id] = st;
+      const was = prev[p.entity_id];
+      if (!presenceInitRef.current || was === undefined || was === st) continue;
+      const name = String(p.attributes.friendly_name ?? p.entity_id);
+      const ts = Date.now();
+      if (isZone(st)) {
+        fresh.push({ id: `${p.entity_id}-${ts}`, person: name, kind: 'arrive', place: st === 'home' ? i18n.t('placeHome') : st, ts });
+      } else if (st === 'not_home' && isZone(was)) {
+        fresh.push({ id: `${p.entity_id}-${ts}`, person: name, kind: 'leave', place: was === 'home' ? i18n.t('placeHome') : was, ts });
+      }
+    }
+    prevStateRef.current = next;
+    presenceInitRef.current = true;
+    if (fresh.length) setPresence(prevList => [...fresh, ...prevList].slice(0, 20));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [people.map(p => `${p.entity_id}=${p.state}`).join('|')]);
 
   const zones = useMemo<Zone[]>(
     () =>
@@ -309,9 +348,39 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
       })),
     [zones, colors.primary],
   );
+  // تنبيهات الأفراد: أحداث وصول/مغادرة (آخر ٦ ساعات) + بطارية ضعيفة + مش بيبعت
+  // موقع (آخر تحديث أقدم من نص ساعة). بتظهر فوق المخاطر في تبويب التنبيهات.
+  const memberAlerts = useMemo<SimpleItem[]>(() => {
+    const out: SimpleItem[] = [];
+    const now = Date.now();
+    for (const e of presence) {
+      if (now - e.ts > 6 * 3600 * 1000) continue;
+      out.push({
+        id: `evt-${e.id}`,
+        title: `${e.person} ${e.kind === 'arrive' ? i18n.t('arrived') : i18n.t('left')} ${e.place}`,
+        subtitle: timeAgo(new Date(e.ts).toISOString()),
+        icon: e.kind === 'arrive' ? 'enter-outline' : 'exit-outline',
+        tint: e.kind === 'arrive' ? colors.safe : colors.muted,
+      });
+    }
+    for (const p of people) {
+      const name = String(p.attributes.friendly_name ?? p.entity_id);
+      const pct = batteryPct(p, states);
+      if (Number.isFinite(pct) && pct <= LOW_BATTERY) {
+        out.push({ id: `bat-${p.entity_id}`, title: `${name} · ${i18n.t('lowBattery')}`, subtitle: `${Math.round(pct)}%`, icon: 'battery-dead', tint: colors.warning });
+      }
+      const last = p.last_updated ?? p.last_changed;
+      if (last && now - new Date(last).getTime() > 30 * 60 * 1000) {
+        out.push({ id: `off-${p.entity_id}`, title: `${name} · ${i18n.t('offline')}`, subtitle: timeAgo(last), icon: 'cloud-offline-outline', tint: colors.muted });
+      }
+    }
+    return out;
+  }, [presence, people, states, colors.safe, colors.muted, colors.warning]);
+
   const alertItems = useMemo<SimpleItem[]>(
-    () =>
-      hazards.map(h => ({
+    () => [
+      ...memberAlerts,
+      ...hazards.map(h => ({
         id: h.id,
         title: h.name,
         subtitle: h.source || i18n.t('hazards'),
@@ -319,8 +388,9 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
         icon: 'warning',
         tint: colors.danger,
       })),
+    ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hazards, myCoordKey, colors.danger],
+    [memberAlerts, hazards, myCoordKey, colors.danger],
   );
 
   // وضع المتابعة: الكاميرا تلاحق الفرد المختار وهو بيتحرك.
@@ -486,24 +556,21 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
             ))
           : null}
 
-        {otherPoints.map(p => {
-          const mo = motion[p.id];
-          return (
-            <Marker key={p.id} id={p.id} lngLat={[p.lng, p.lat]} anchor="bottom">
-              <View style={styles.markerWrap}>
-                {mo?.moving ? (
-                  <View style={[styles.heading, { transform: [{ rotate: `${Math.round(mo.heading)}deg` }] }]}>
-                    <Ionicons name="navigate" size={14} color={p.color} />
-                  </View>
-                ) : null}
-                <View style={[styles.avatar, { borderColor: p.color, backgroundColor: colors.surface }]}>
-                  {p.uri ? <Image source={{ uri: p.uri, headers: authHeaders(settings) }} style={styles.avatarImg} /> : <Ionicons name="person" size={22} color={colors.text} />}
-                </View>
-                <View style={[styles.pin, { backgroundColor: p.color }]} />
-              </View>
-            </Marker>
-          );
-        })}
+        {otherPoints.map(p => (
+          <PersonMarker
+            key={p.id}
+            id={p.id}
+            name={p.name}
+            lat={p.lat}
+            lng={p.lng}
+            color={p.color}
+            place={placeFor[p.id] ?? ''}
+            uri={p.uri}
+            motion={motion[p.id]}
+            selected={picked === p.id}
+            settings={settings}
+          />
+        ))}
 
         {/* الأجهزة (device_tracker مش مربوط بشخص): علامة مربّعة بأيقونة جهاز. */}
         {deviceEntities.map(d => (
@@ -616,7 +683,6 @@ const styles = StyleSheet.create({
   hazard: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#E53935', borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   deviceMarker: { width: 32, height: 32, borderRadius: 9, borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   playhead: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#FF9F0A', borderWidth: 3, borderColor: '#fff', elevation: 4 },
-  heading: { marginBottom: 2 },
   bannerLow: { top: 54 },
   banner: { position: 'absolute', top: 14, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18 },
   bannerText: { color: '#fff', fontWeight: '700', fontSize: 13 },

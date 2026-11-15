@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.17.2] — 2026-11-15  (تعديل JS — بييجي من metro)
+- **خطوة أولى في تقريب الخريطة من Life360 (المجموعة ١ — الجزء الـ JS).**
+  - **بابل الاسم/المكان جنب صورة كل فرد** على الخريطة (اسمه + مكانه الحالي: بيت/شغل/عنوان أو "بيسوق · X km/h")، إطار البابل بيتلوّن بلون الفرد لما يتختار. مكوّن جديد `PersonMarker`.
+  - **تحريك علامة الفرد بسلاسة** بين تحديثات الموقع بدل القفز (easeInOut ~650ms؛ القفزات الأبعد من ~5 كم بتتعمل فورًا).
+  - **تبويب التنبيهات بقى يعرض تنبيهات الأفراد** فوق المخاطر: **وصول/مغادرة** كل فرد باسم المكان (آخر ٦ ساعات)، **بطارية ضعيفة** (≤15%)، و**مش بيبعت موقع** (آخر تحديث أقدم من نص ساعة). كشف الوصول/المغادرة بمقارنة حالة المنطقة بين التحديثات (من غير أحداث وهمية وقت فتح التطبيق).
+  > باقي المجموعة ١ (إشعارات نظام Android الحقيقية + زرار Ping) محتاج شغل native فمؤجّل لدفعة APK لاحقة — مفصّل في `PROJECT_SUMMARY.md`.
+
 ### [2.17.1] — 2026-11-15  (تعديل JS — بييجي من metro)
 - **تحسين كارت الخريطة السفلي (Bottom sheet).**
   - وهو **مقفول** بيظهر **الأربع تبويبات بس** (المقبض + التبويبات) من غير أي محتوى تحتهم — `PEEK` نزل من 184 لـ 76، فبان جزء أكبر من الخريطة.
@@ -802,6 +809,13 @@
 ---
 
 ## English
+
+### [2.17.2] — 2026-11-15  (JS change — ships via metro)
+- **First step toward Life360 parity on the map (Group 1 — the JS parts).**
+  - **Name/place bubble next to each member's photo** on the map (their name + current place: Home/Work/address, or "Driving · X km/h"); the bubble border takes the member's color when selected. New `PersonMarker` component.
+  - **Smooth marker movement** between location updates instead of jumping (easeInOut ~650ms; jumps over ~5 km snap instantly).
+  - **Alerts tab now shows member alerts** above hazards: each member's **arrival/departure** with the place name (last 6h), **low battery** (≤15%), and **not reporting** (last update older than 30 min). Arrival/departure detected by comparing zone state across updates (no spurious events on app open).
+  > The rest of Group 1 (real Android system notifications + a Ping button) needs native work, deferred to a later APK batch — detailed in `PROJECT_SUMMARY.md`.
 
 ### [2.17.1] — 2026-11-15  (JS change — ships via metro)
 - **Map bottom sheet UX.**
