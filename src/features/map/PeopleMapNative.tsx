@@ -38,6 +38,7 @@ import {
 } from './mapShared';
 import { MapSheet, MAP_SHEET_PEEK } from './MapSheet';
 import { PersonMarker } from './PersonMarker';
+import { ZoneBubble, type BubbleMember } from './ZoneBubble';
 import type { SimpleItem } from './SimpleList';
 
 // بنجيب مكوّنات الخريطة عبر require (CommonJS) مش import: الـ import كان بيتحل
@@ -46,6 +47,9 @@ import type { SimpleItem } from './SimpleList';
 const { Camera, GeoJSONSource, Layer, Map: MapView, Marker, UserLocation, VectorSource } = require('@maplibre/maplibre-react-native') as typeof import('@maplibre/maplibre-react-native');
 
 const ME_COLOR = '#2a7bff';
+// فوق الزوم ده بنفك تجميع سكان الزون ونعرض كل واحد على إحداثيه (زي الرسمي:
+// "everyone in a zone shares its bubble until zooming spreads them").
+const ZONE_SPREAD_ZOOM = 17;
 
 type Props = { people: HaEntity[]; home?: HaEntity; states: HaEntity[]; selectedPersonId?: string; settings: ConnectionSettings };
 type Point = { id: string; name: string; lat: number; lng: number; uri?: string; color: string };
@@ -83,6 +87,7 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
   const [satelliteOn, setSatelliteOn] = useState(false);
   const [buildings3D, setBuildings3D] = useState(false);
   const [liveLocation, setLiveLocation] = useState<LiveLocation | null>(null);
+  const [zoom, setZoom] = useState(15);
   const [picked, setPicked] = useState<string | undefined>(undefined);
   const [addrMap, setAddrMap] = useState<Record<string, string>>({});
   const [routeMode, setRouteMode] = useState<RouteMode>('driving');
@@ -310,6 +315,59 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
     [routeInfo],
   );
 
+  // ====== تجميع سكان الزون في فقاعة واحدة (زي خريطة HA الرسمية) ======
+  // نفس منطق ha-map.ts: لو الكيان عنده `in_zones` بناخد أول زون فعّال منها،
+  // وإلا (ومادام مش not_home) نحسب أصغر زون محتوياه مع مراعاة دقة الـ GPS —
+  // نفس شرط HA: distance - accuracy < radius.
+  const zoneIdOf = (p: HaEntity): string | undefined => {
+    const inZones = p.attributes.in_zones as string[] | undefined;
+    if (Array.isArray(inZones) && inZones.length > 0) {
+      const active = inZones.find(id => {
+        const z = states.find(s => s.entity_id === id);
+        return !!z && z.attributes.passive !== true;
+      });
+      if (active && zones.some(z => z.id === active)) return active;
+      return undefined;
+    }
+    const st = String(p.state ?? '');
+    if (['not_home', 'unknown', 'unavailable', ''].includes(st)) return undefined;
+    const lat = num(p.attributes.latitude);
+    const lng = num(p.attributes.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
+    const acc = Number.isFinite(num(p.attributes.gps_accuracy)) ? num(p.attributes.gps_accuracy) : 0;
+    let found: string | undefined;
+    let foundRadius = Infinity;
+    for (const z of zones) {
+      const d = haversine({ latitude: lat, longitude: lng }, { latitude: z.lat, longitude: z.lng });
+      if (d - acc < z.radius && z.radius < foundRadius) {
+        found = z.id;
+        foundRadius = z.radius;
+      }
+    }
+    return found;
+  };
+
+  // تحت زوم معيّن بنجمّع، وفوقه بنفك التجميع ونعرض كل واحد على إحداثيه الحقيقي.
+  const grouped = useMemo(() => {
+    const byZone: Record<string, BubbleMember[]> = {};
+    const loose = new Set<string>();
+    if (zoom >= ZONE_SPREAD_ZOOM) {
+      people.forEach(p => loose.add(p.entity_id));
+      return { byZone, loose };
+    }
+    for (const p of people) {
+      const zid = zoneIdOf(p);
+      const pt = points.find(x => x.id === p.entity_id);
+      if (!zid || !pt) {
+        loose.add(p.entity_id);
+        continue;
+      }
+      (byZone[zid] ??= []).push({ id: pt.id, name: pt.name, uri: pt.uri, color: pt.color });
+    }
+    return { byZone, loose };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [people, points, zones, states, zoom]);
+
   const homeZone = zones.find(z => z.id === 'zone.home') ?? zones[0];
   const center: [number, number] = myCoord ?? (homeZone ? [homeZone.lng, homeZone.lat] : points[0] ? [points[0].lng, points[0].lat] : [0, 0]);
 
@@ -513,7 +571,14 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
 
   return (
     <View style={{ flex: 1 }}>
-      <MapView mapStyle={mapStyle} style={{ flex: 1 }}>
+      <MapView
+        mapStyle={mapStyle}
+        style={{ flex: 1 }}
+        onRegionDidChange={e => {
+          const z = e?.nativeEvent?.zoom;
+          if (typeof z === 'number' && Number.isFinite(z)) setZoom(z);
+        }}
+      >
         <Camera ref={cameraRef} center={center} zoom={15} pitch={pitch} />
 
         {/* أرقام المباني: طبقة صريحة من مصدر OpenFreeMap المتجه — ظاهرة دايمًا
@@ -577,21 +642,41 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
             ))
           : null}
 
-        {otherPoints.map(p => (
-          <PersonMarker
-            key={p.id}
-            id={p.id}
-            name={p.name}
-            lat={p.lat}
-            lng={p.lng}
-            color={p.color}
-            place={placeFor[p.id] ?? ''}
-            uri={p.uri}
-            motion={motion[p.id]}
-            selected={picked === p.id}
-            settings={settings}
-          />
-        ))}
+        {/* فقاعة واحدة لكل زون فيها سكانه (زي الخريطة الرسمية) — الضغط بيقرّب
+            عشان تتفك لأفراد. */}
+        {Object.entries(grouped.byZone).map(([zid, members]) => {
+          const z = zones.find(x => x.id === zid);
+          if (!z || members.length === 0) return null;
+          return (
+            <ZoneBubble
+              key={`zb-${zid}`}
+              id={`zb-${zid}`}
+              lat={z.lat}
+              lng={z.lng}
+              members={members}
+              settings={settings}
+              onPress={() => cameraRef.current?.flyTo({ center: [z.lng, z.lat], zoom: ZONE_SPREAD_ZOOM + 1, duration: 600 })}
+            />
+          );
+        })}
+
+        {otherPoints
+          .filter(p => grouped.loose.has(p.id))
+          .map(p => (
+            <PersonMarker
+              key={p.id}
+              id={p.id}
+              name={p.name}
+              lat={p.lat}
+              lng={p.lng}
+              color={p.color}
+              place={placeFor[p.id] ?? ''}
+              uri={p.uri}
+              motion={motion[p.id]}
+              selected={picked === p.id}
+              settings={settings}
+            />
+          ))}
 
         {/* الأجهزة (device_tracker مش مربوط بشخص): علامة مربّعة بأيقونة جهاز. */}
         {deviceEntities.map(d => (
@@ -607,7 +692,7 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
 
         {/* علامة "أنا" الموحّدة: الأفاتار عند الموقع الحي (مكان النقطة الزرقاء) -
             بحلقة زرقا تميّزها إنها موقعك الحي. */}
-        {mePerson && myCoord ? (
+        {mePerson && myCoord && grouped.loose.has(mePerson.entity_id) ? (
           <Marker id="me" lngLat={myCoord} anchor="bottom">
             <View style={styles.markerWrap}>
               <View style={[styles.avatar, styles.avatarMe, { backgroundColor: colors.surface }]}>

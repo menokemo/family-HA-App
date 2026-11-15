@@ -6,6 +6,18 @@
 
 ## العربية
 
+### [2.19.0] — 2026-11-15  (NATIVE + JS — محتاج بناء APK) — **مطابقة التطبيق الرسمي**
+بعد فحص كود `home-assistant/android` و`home-assistant/core` و`home-assistant/frontend`،
+اتعدّلت الخدمة والخريطة تطابق الرسمي بدل اجتهادات محلية كانت بتجمّد الموقع.
+- **الخدمة (نفس `LocationSensorManager.kt`):**
+  - أسوأ دقة مقبولة بقت **200م** بدل 65م (جوّه البيت الدقة بتبقى 67–100م وكنا بنرفضها).
+  - **اتشال شرط "اتحرك 30 متر"** وشرط مسافة الـ 40م في الطلب — دول كانوا بيمنعوا التصحيحات الصغيرة فيفضل آخر موقع متجمّد في HA وانت في البيت.
+  - الطلب بقى **متوازن (BALANCED) كل 60 ثانية / أسرع 30 ثانية / انتظار أقصى 200 ثانية**.
+  - شروط الإرسال نفسها: رفض المستقبل، رفض الأقدم من آخر إرسال، رفض الأقدم من 5 دقايق، نفس الإحداثي كل 15 دقيقة، وفاصل 5 ثواني بين إرسالين مختلفين.
+  - **قراية دقيقة بمحاولات** (5 محاولات GPS عالي) لما الجيوفنس يشتغل بقراية ضعيفة.
+- **الخريطة (نفس `ha-map.ts`):** أي فرد HA حاسبه جوّه زون بيترسم في **فقاعة واحدة عند مركز الزون** (بصور الأفراد و"+N") بدل إحداثيه الخام، وبتتفك لأفراد لما تقرّب فوق زوم 17. تحديد الزون بـ `in_zones` من HA، وإلا بنفس شرط HA: `المسافة − الدقة < نصف القطر`.
+- **ملاحظة:** الزون 7م **مش محتاجة تتغيّر** — HA بيحسب الحضور بمراعاة الدقة، فـ 8م بدقة 16م = home. versionCode 111.
+
 ### [2.18.5] — 2026-11-15  (إصلاح NATIVE — محتاج بناء APK) — **الحل الحاسم للحضور**
 - **الأفراد كانوا بيطلعوا `not_home` وهم في البيت — تطبيقنا كان بيفرض الحضور غلط.**
   - **السبب (بالقياس):** تطبيقنا كان بيحسب المنطقة **محليًا** ويبعتها لـ HA عبر `location_name`. الحساب المحلي كان **أصرم من HA** (بيتجاهل دقة الـ GPS)، فعلى زون صغيرة بيفرض `not_home` وانت في البيت. **التطبيق الرسمي مابيبعتش `location_name` — بيبعت الإحداثيات الخام ويسيب HA يحسب** (وHA بيراعي الدقة)، علشان كده عمره ما بيغلط.
@@ -864,6 +876,12 @@
 ---
 
 ## English
+
+### [2.19.0] — 2026-11-15  (NATIVE + JS — requires APK build) — **parity with the official app**
+After reading `home-assistant/android`, `home-assistant/core` and `home-assistant/frontend`, the service and the map now match the official app instead of local heuristics that froze the location.
+- **Service (mirrors `LocationSensorManager.kt`):** worst accepted accuracy is now **200 m** (was 65 m — indoors it's 67–100 m and we were rejecting it); **removed the "moved 30 m" gate** and the 40 m request distance (they blocked small corrections so HA kept the last stale fix); request is now **BALANCED, 60 s / fastest 30 s / max wait 200 s**; same send rules (reject future, older-than-last-send, older than 5 min; same coordinate every 15 min; 5 s debounce); **retrying accurate fix** (5 high-accuracy tries) when a geofence fires with a poor reading.
+- **Map (mirrors `ha-map.ts`):** anyone HA places inside a zone is drawn as **one bubble at the zone centre** (avatars + "+N") instead of their raw coordinate, spreading into individuals above zoom 17. Zone chosen from HA's `in_zones`, else by HA's own rule: `distance − accuracy < radius`.
+- **Note:** the 7 m zone does **not** need changing — HA accounts for accuracy, so 8 m with 16 m accuracy is home. versionCode 111.
 
 ### [2.18.5] — 2026-11-15  (NATIVE fix — requires APK build) — **the decisive presence fix**
 - **Members showed `not_home` while actually home — our app was forcing presence wrongly.**

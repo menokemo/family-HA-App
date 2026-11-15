@@ -72,9 +72,10 @@ class MobileAppService : Service() {
   private var fastMode = false
   private var liveRevert: Runnable? = null
   private var lastLocation: Location? = null
-  private var lastSentTime = 0L // وقت (location.time) آخر موقع اتبعت — لفلتر الترتيب/القِدم
-  private var movingMode = false // تحديث سريع تلقائي طول ما الجهاز بيتحرك
-  private var movingRevert: Runnable? = null
+  // نفس حالة التطبيق الرسمي: وقت آخر إرسال + نص آخر إحداثي اتبعت (لمنع التكرار).
+  private var lastLocationSendMs = 0L
+  private var lastUpdateLocationStr: String? = null
+  private var accurateInFlight = false
 
   private fun hasLocationPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -110,6 +111,13 @@ class MobileAppService : Service() {
       val fast = intent.getBooleanExtra(EXTRA_LIVE, false)
       val ttl = intent.getLongExtra(EXTRA_TTL_MS, LIVE_TTL_MS)
       applyLocationMode(fast, ttl)
+      return START_STICKY
+    }
+    // طلب قراية دقيقة (من الجيوفنس لما قراية الحدث تبقى ضعيفة الدقة).
+    if (intent?.action == ACTION_REQUEST_ACCURATE) {
+      ensureStarted()
+      startAsForeground()
+      requestSingleAccurateLocation()
       return START_STICKY
     }
     // مزامنة مناطق HA: نخزّنها ونسجّلها كـ geofences عشان نبلّغ الحضور بدقة.
@@ -217,18 +225,22 @@ class MobileAppService : Service() {
       // (بيدمج GPS + واي‑فاي + شبكة)، مش زي GPS_PROVIDER الخام اللي بيبوظ داخل
       // المباني أو بيرجّع آخر موقع قديم. نفس اللي بتستخدمه جوجل مابس والتطبيق
       // الرسمي، فبيدي موقع مظبوط وإحنا في البيت.
-      // الوضع اللايف (fastMode): تحديث كل ~10 ثواني لما فرد بيتفرّج على موقعي؛
-      // الوضع العادي: كل دقيقتين لتوفير البطارية.
-      // سريع لو فرد بيتفرّج (fastMode) أو الجهاز نفسه بيتحرك (movingMode) — عشان
-      // مايبقاش فيه تأخير بعد ما أتحرك. عادي (كل دقيقتين) وهو ثابت لتوفير البطارية.
-      val useFast = fastMode || movingMode
-      val interval = if (useFast) FAST_INTERVAL_MS else LOCATION_INTERVAL_MS
-      val fastest = if (useFast) FAST_FASTEST_MS else NORMAL_FASTEST_MS
-      val distance = if (useFast) 0f else LOCATION_DISTANCE_M
-      val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, interval)
-        .setMinUpdateDistanceMeters(distance)
-        .setMinUpdateIntervalMillis(fastest)
-        .build()
+      // نفس إعدادات التطبيق الرسمي بالظبط (createLocationRequest):
+      // أولوية متوازنة + كل 60 ثانية + أسرع 30 ثانية + انتظار أقصى ~200 ثانية،
+      // و**من غير أي شرط مسافة** (setMinUpdateDistanceMeters) — الشرط ده كان بيمنع
+      // التصحيحات الصغيرة فيفضل الموقع القديم متجمّد في HA.
+      // الوضع اللايف (fastMode) بس هو اللي بيسرّع، لما فرد بيتفرّج على موقعي.
+      val request = if (fastMode) {
+        LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, FAST_INTERVAL_MS)
+          .setMinUpdateIntervalMillis(FAST_FASTEST_MS)
+          .build()
+      } else {
+        LocationRequest.Builder(LOCATION_INTERVAL_MS)
+          .setPriority(Priority.PRIORITY_BALANCED_POWER_ACCURACY)
+          .setMinUpdateIntervalMillis(NORMAL_FASTEST_MS)
+          .setMaxUpdateDelayMillis(LOCATION_MAX_WAIT_MS)
+          .build()
+      }
       fusedClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper())
       requestFreshLocation()
     } catch (e: SecurityException) {
@@ -350,57 +362,68 @@ class MobileAppService : Service() {
         .build()
     }
 
-  private fun handleLocation(loc: Location) {
-    val now = System.currentTimeMillis()
-
-    // (أ) فلتر الدقة: ارفض أي قراية دقتها أسوأ من الحد (دايرة واسعة = غير موثوقة).
+  // شروط قبول القراية — منقولة حرفيًا من منطق التطبيق الرسمي
+  // (handleLocationUpdate + sendLocationUpdate في LocationSensorManager.kt):
+  //  1) الدقة أسوأ من الحد (200م) → ارفض.
+  //  2) وقت القراية من المستقبل → ارفض.
+  //  3) وقتها أقدم من آخر إرسال → ارفض (ترتيب غلط).
+  //  4) أقدم من 5 دقايق → ارفض (fix مخبّأ).
+  //  5) نفس الإحداثي بالظبط → ارفض إلا لو عدّت 15 دقيقة (منع تكرار).
+  //  6) إحداثي مختلف → ارفض لو لسه أقل من 5 ثواني على آخر إرسال (debounce).
+  // مفيش أي شرط "اتحرك 30 متر" — ده كان اختراعنا وهو سبب تجمّد الموقع في البيت.
+  private fun handleLocation(loc: Location, force: Boolean = false) {
     if (loc.hasAccuracy() && loc.accuracy > MAX_ACCURACY_M) return
-
-    // (ب) فلتر الوقت — نفس منطق التطبيق الرسمي، وده **الأهم** لمنع الموقع
-    // المخبّأ القديم البعيد (الـ fused بيرجّع آخر fix مخزّن أحيانًا = الشخص بيبان
-    // بعيد عن البيت):
-    //   - من المستقبل؟ ارفض.
+    val now = System.currentTimeMillis()
     if (loc.time > now + FUTURE_SKEW_MS) return
-    //   - وقته أقدم من آخر موقع بعتناه (ترتيب غلط)؟ ارفض.
-    if (loc.time <= lastSentTime) return
-    //   - أقدم من 5 دقايق (fix مخبّأ قديم)؟ ارفض.
+    if (loc.time < lastLocationSendMs) return
     if (now - loc.time > STALE_LOCATION_MS) return
 
-    // حركة حقيقية بتتحدّد من سرعة الـ GPS (دوبلر) — موثوقة أكتر من فرق الموقع.
-    val movingBySpeed = loc.hasSpeed() && loc.speed >= MOVING_SPEED_MS
-    if (movingBySpeed) onMovementDetected() // سرّع التحديث طول ما بيتحرك
-
-    // (ج) ثابت وضمن العتبة (تشتت صغير) → تجاهل = صفر تنطّط وأنا واقف. وهو بيتحرك
-    // فعلًا (سرعة) → ابعت فورًا من غير عتبة (مفيش lag).
-    val last = lastLocation
-    if (last != null && !movingBySpeed) {
-      val moved = last.distanceTo(loc)
-      val noise = maxOf(loc.accuracy, if (last.hasAccuracy()) last.accuracy else 0f)
-      if (moved < maxOf(noise, MIN_REPORT_MOVE_M)) return
+    val key = "${loc.latitude},${loc.longitude}"
+    if (key == lastUpdateLocationStr) {
+      if (now < lastLocationSendMs + DUPLICATE_WINDOW_MS) return
+    } else if (!force && now < lastLocationSendMs + DEBOUNCE_MS) {
+      return
     }
-    sendLocation(loc)
+    sendLocation(loc, now, key)
   }
 
-  // اتكشفت حركة (سرعة) → شغّل الوضع السريع وأعد ضبط مؤقّت الرجوع. بعد فترة سكون
-  // (من غير حركة) بيرجع للوضع العادي تلقائيًا لتوفير البطارية.
-  private fun onMovementDetected() {
-    movingRevert?.let { handler.removeCallbacks(it) }
-    if (!movingMode) {
-      movingMode = true
-      if (!fastMode) restartLocationUpdates()
+  // طلب قراية دقيقة بمحاولات متكررة — نفس requestSingleAccurateLocation الرسمي:
+  // GPS عالي الدقة، لحد 5 محاولات كل 5 ثواني. بيقبل أول قراية دقتها ضمن الحد،
+  // وفي آخر محاولة بيقبل لحد ضعف الحد. بنستخدمه عند حدود الزون لما القراية ضعيفة.
+  private fun requestSingleAccurateLocation() {
+    if (accurateInFlight || !useLocation) return
+    accurateInFlight = true
+    val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, ACCURATE_INTERVAL_MS)
+      .setMinUpdateIntervalMillis(ACCURATE_FASTEST_MS)
+      .setMaxUpdates(ACCURATE_RETRIES)
+      .build()
+    val cb = object : LocationCallback() {
+      private var calls = 0
+      override fun onLocationResult(result: LocationResult) {
+        calls++
+        val loc = result.lastLocation ?: return
+        val done = when {
+          loc.accuracy <= MAX_ACCURACY_M -> { handleLocation(loc, force = true); true }
+          calls >= ACCURATE_RETRIES -> { if (loc.accuracy <= MAX_ACCURACY_M * 2) handleLocation(loc, force = true); true }
+          else -> false
+        }
+        if (done) {
+          accurateInFlight = false
+          try { fusedClient.removeLocationUpdates(this) } catch (e: Exception) { /* ignore */ }
+        }
+      }
     }
-    val revert = Runnable {
-      movingMode = false
-      movingRevert = null
-      if (!fastMode) restartLocationUpdates()
+    try {
+      fusedClient.requestLocationUpdates(request, cb, Looper.getMainLooper())
+    } catch (e: SecurityException) {
+      accurateInFlight = false
     }
-    movingRevert = revert
-    handler.postDelayed(revert, MOVING_REVERT_MS)
   }
 
-  private fun sendLocation(location: Location) {
+  private fun sendLocation(location: Location, now: Long, key: String) {
     lastLocation = location
-    lastSentTime = location.time
+    lastLocationSendMs = now
+    lastUpdateLocationStr = key
     val data = JSONObject()
       .put("gps", JSONArray().put(location.latitude).put(location.longitude))
       .put("gps_accuracy", location.accuracy.toInt())
@@ -668,7 +691,6 @@ class MobileAppService : Service() {
     super.onDestroy()
     ticker?.let { handler.removeCallbacks(it) }
     liveRevert?.let { handler.removeCallbacks(it) }
-    movingRevert?.let { handler.removeCallbacks(it) }
     try {
       fusedClient.removeLocationUpdates(locationCallback)
     } catch (e: Exception) {
@@ -682,6 +704,7 @@ class MobileAppService : Service() {
   companion object {
     const val ACTION_SET_MODE = "com.mkdd.familyha.action.SET_LOCATION_MODE"
     const val ACTION_SET_ZONES = "com.mkdd.familyha.action.SET_ZONES"
+    const val ACTION_REQUEST_ACCURATE = "com.mkdd.familyha.action.REQUEST_ACCURATE"
     const val EXTRA_LIVE = "live"
     const val EXTRA_TTL_MS = "ttlMs"
     const val EXTRA_ZONES = "zones"
@@ -689,18 +712,22 @@ class MobileAppService : Service() {
     private const val GEOFENCE_LOITER_MS = 30000
     private const val CHANNEL = "mobile_app_report"
     private const val NOTIF_ID = 7731
-    private const val LOCATION_INTERVAL_MS = 120000L
-    private const val NORMAL_FASTEST_MS = 60000L
+    // كل القيم دي مطابقة للتطبيق الرسمي (LocationSensorManager.kt).
+    private const val LOCATION_INTERVAL_MS = 60000L // DEFAULT_LOCATION_INTERVAL
+    private const val NORMAL_FASTEST_MS = 30000L // DEFAULT_LOCATION_FAST_INTERVAL
+    private const val LOCATION_MAX_WAIT_MS = 200000L // DEFAULT_LOCATION_MAX_WAIT_TIME
+    private const val MAX_ACCURACY_M = 200f // DEFAULT_MINIMUM_ACCURACY
+    private const val STALE_LOCATION_MS = 300000L // أقدم من 5 دقايق = fix مخبّأ، يترفض
+    private const val FUTURE_SKEW_MS = 5000L // سماح 5ث قبل اعتباره "من المستقبل"
+    private const val DUPLICATE_WINDOW_MS = 900000L // نفس الإحداثي يتبعت كل 15 دقيقة
+    private const val DEBOUNCE_MS = 5000L // أقل فاصل بين إرسالين لإحداثي مختلف
+    private const val ACCURATE_RETRIES = 5 // محاولات القراية الدقيقة
+    private const val ACCURATE_INTERVAL_MS = 10000L
+    private const val ACCURATE_FASTEST_MS = 5000L
+    // الوضع اللايف (ميزة عندنا): لما فرد بيتفرّج على موقعي.
     private const val FAST_INTERVAL_MS = 10000L
     private const val FAST_FASTEST_MS = 5000L
     private const val LIVE_TTL_MS = 120000L
-    private const val LOCATION_DISTANCE_M = 40f
-    private const val MAX_ACCURACY_M = 65f
-    private const val MIN_REPORT_MOVE_M = 30f
-    private const val MOVING_SPEED_MS = 1.4f // ≥ ~5 km/h = بيتحرك فعلًا (سرعة دوبلر)
-    private const val MOVING_REVERT_MS = 180000L // 3 دقايق سكون → رجوع للوضع العادي
-    private const val STALE_LOCATION_MS = 300000L // أقدم من 5 دقايق = fix مخبّأ، يترفض (زي الرسمي)
-    private const val FUTURE_SKEW_MS = 5000L // سماح 5ث لفرق الساعة قبل اعتباره "من المستقبل"
     private const val SENSOR_INTERVAL_MS = 900000L
     private const val ACTIVITY_INTERVAL_MS = 120000L
   }

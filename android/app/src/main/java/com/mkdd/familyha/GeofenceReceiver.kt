@@ -3,6 +3,7 @@ package com.mkdd.familyha
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import com.google.android.gms.location.GeofencingEvent
 import okhttp3.Call
 import okhttp3.Callback
@@ -37,11 +38,16 @@ class GeofenceReceiver : BroadcastReceiver() {
     val webhookId = prefs.getString("webhookId", "") ?: ""
     if (baseUrl.isEmpty() || webhookId.isEmpty()) return
 
-    // الجيوفنس بيوقّظنا عند عبور حدود المنطقة عشان نبعت **موقع طازة فورًا** (زي
-    // التطبيق الرسمي) — بس بنبعت الإحداثيات الخام بس، ونسيب HA يحسب الحضور. مابنحسبش
-    // اسم المنطقة محليًا ولا نبعت location_name (الحساب المحلي كان أصرم من HA فكان
-    // بيفرض not_home غلط وانت في البيت).
+    // الجيوفنس بيوقّظنا عند عبور حدود المنطقة عشان نبعت موقع طازة فورًا. بنبعت
+    // الإحداثيات الخام بس ونسيب HA يحسب الحضور (مفيش location_name).
+    // ولو دقة قراية الحدث ضعيفة، بنطلب من الخدمة **قراية دقيقة بمحاولات** بدل ما
+    // نبعت قراية رديئة — نفس تصرّف التطبيق الرسمي عند حدود الزون.
     val loc = event.triggeringLocation ?: return
+    if (loc.hasAccuracy() && loc.accuracy > MAX_ACCURACY_M) {
+      val intent2 = Intent(context, MobileAppService::class.java).apply { action = MobileAppService.ACTION_REQUEST_ACCURATE }
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent2) else context.startService(intent2)
+      return
+    }
 
     post(baseUrl, webhookId, loc.latitude, loc.longitude, if (loc.hasAccuracy()) loc.accuracy.toInt() else null)
   }
@@ -61,5 +67,9 @@ class GeofenceReceiver : BroadcastReceiver() {
         response.close()
       }
     })
+  }
+
+  companion object {
+    private const val MAX_ACCURACY_M = 200f // نفس حد التطبيق الرسمي
   }
 }
