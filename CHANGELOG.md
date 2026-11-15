@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.18.1] — 2026-11-15  (إصلاح NATIVE — محتاج بناء APK)
+- **السبب الجذري الحقيقي لـ"الشخص بعيد عن البيت": فلتر وقت الموقع (من قراءة كود التطبيق الرسمي).** كنا بناخد `result.lastLocation` من fused **من غير فحص وقت**، والـ fused بيرجّع أحيانًا **fix مخبّأ قديم** من ساعة ما الجهاز كان مكان تاني بعيد → الشخص بيبان بعيد. دلوقتي بنطبّق نفس فلاتر التطبيق الرسمي:
+  - ارفض الموقع **من المستقبل** (`time > now + 5s`).
+  - ارفض الموقع **الأقدم من آخر موقع اتبعت** (ترتيب غلط).
+  - ارفض الموقع **الأقدم من 5 دقايق** (مخبّأ).
+- اتشالت حيلة "التأكيد بقرايتين" (كانت ممكن تأكّد fix قديم مكرّر). فلتر الوقت + الدقة + deadband الثبات + قفل WiFi + التسريع مع الحركة. versionCode 109.
+
 ### [2.18.0] — 2026-11-15  (إصلاح NATIVE — محتاج بناء APK)
 - **الحل الجذري لدقة الموقع (مبني على بحث، مش ترقيع عرض).** كله في الخدمة النيتف:
   - **مرجع الحركة = سرعة الـ GPS (دوبلر):** بيتحرك فعلًا (≥1.4م/ث) → ابعت فورًا (مفيش تأخير). ثابت → فلترة.
@@ -847,6 +854,13 @@
 ---
 
 ## English
+
+### [2.18.1] — 2026-11-15  (NATIVE fix — requires APK build)
+- **The real root cause of "member far from home": location time filtering (from reading the official app's code).** We took `result.lastLocation` from fused **with no time check**, and fused sometimes returns a **stale cached fix** from when the device was elsewhere → member shown far away. Now we apply the same filters the official app uses:
+  - Reject a **future** location (`time > now + 5s`).
+  - Reject a location **older than the last one we sent** (out of order).
+  - Reject a location **older than 5 minutes** (cached).
+- Removed the "two-reading confirmation" heuristic (it could confirm a repeated stale fix). Time + accuracy filter + stationary deadband + WiFi home lock + move-based speed-up. versionCode 109.
 
 ### [2.18.0] — 2026-11-15  (NATIVE fix — requires APK build)
 - **Root fix for location accuracy (research-based, not a display patch).** All in the native service:

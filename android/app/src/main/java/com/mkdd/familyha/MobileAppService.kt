@@ -72,7 +72,7 @@ class MobileAppService : Service() {
   private var fastMode = false
   private var liveRevert: Runnable? = null
   private var lastLocation: Location? = null
-  private var pendingLocation: Location? = null // مرشّح قفزة مستنّي تأكيد بتحديث تاني
+  private var lastSentTime = 0L // وقت (location.time) آخر موقع اتبعت — لفلتر الترتيب/القِدم
   private var movingMode = false // تحديث سريع تلقائي طول ما الجهاز بيتحرك
   private var movingRevert: Runnable? = null
 
@@ -351,44 +351,34 @@ class MobileAppService : Service() {
     }
 
   private fun handleLocation(loc: Location) {
+    val now = System.currentTimeMillis()
+
     // (أ) فلتر الدقة: ارفض أي قراية دقتها أسوأ من الحد (دايرة واسعة = غير موثوقة).
     if (loc.hasAccuracy() && loc.accuracy > MAX_ACCURACY_M) return
+
+    // (ب) فلتر الوقت — نفس منطق التطبيق الرسمي، وده **الأهم** لمنع الموقع
+    // المخبّأ القديم البعيد (الـ fused بيرجّع آخر fix مخزّن أحيانًا = الشخص بيبان
+    // بعيد عن البيت):
+    //   - من المستقبل؟ ارفض.
+    if (loc.time > now + FUTURE_SKEW_MS) return
+    //   - وقته أقدم من آخر موقع بعتناه (ترتيب غلط)؟ ارفض.
+    if (loc.time <= lastSentTime) return
+    //   - أقدم من 5 دقايق (fix مخبّأ قديم)؟ ارفض.
+    if (now - loc.time > STALE_LOCATION_MS) return
 
     // حركة حقيقية بتتحدّد من سرعة الـ GPS (دوبلر) — موثوقة أكتر من فرق الموقع.
     val movingBySpeed = loc.hasSpeed() && loc.speed >= MOVING_SPEED_MS
     if (movingBySpeed) onMovementDetected() // سرّع التحديث طول ما بيتحرك
 
+    // (ج) ثابت وضمن العتبة (تشتت صغير) → تجاهل = صفر تنطّط وأنا واقف. وهو بيتحرك
+    // فعلًا (سرعة) → ابعت فورًا من غير عتبة (مفيش lag).
     val last = lastLocation
-    if (last == null) {
-      sendLocation(loc)
-      return
+    if (last != null && !movingBySpeed) {
+      val moved = last.distanceTo(loc)
+      val noise = maxOf(loc.accuracy, if (last.hasAccuracy()) last.accuracy else 0f)
+      if (moved < maxOf(noise, MIN_REPORT_MOVE_M)) return
     }
-
-    // (ج) وهو بيتحرك فعلًا → ابعت فورًا من غير عتبة ولا تأخير (مفيش lag).
-    if (movingBySpeed) {
-      pendingLocation = null
-      sendLocation(loc)
-      return
-    }
-
-    // (ب) ثابت/تشتت ضمن العتبة → تجاهل تمامًا (= صفر تنطّط وأنا واقف).
-    val moved = last.distanceTo(loc)
-    val noise = maxOf(loc.accuracy, if (last.hasAccuracy()) last.accuracy else 0f)
-    if (moved < maxOf(noise, MIN_REPORT_MOVE_M)) {
-      pendingLocation = null
-      return
-    }
-
-    // قفزة وإحنا "ثابتين" (سرعة ~0): ممكن تكون قفزة شاذة (WiFi/برج). مانقبلهاش إلا
-    // لما ييجي تحديث تاني قريب من نفس المكان الجديد (تأكيد بقرايتين) — فالقفزة
-    // الفردية بترجع لمكانها بتتجاهل.
-    val pending = pendingLocation
-    if (pending != null && pending.distanceTo(loc) < CONFIRM_RADIUS_M) {
-      pendingLocation = null
-      sendLocation(loc)
-    } else {
-      pendingLocation = loc
-    }
+    sendLocation(loc)
   }
 
   // اتكشفت حركة (سرعة) → شغّل الوضع السريع وأعد ضبط مؤقّت الرجوع. بعد فترة سكون
@@ -430,6 +420,7 @@ class MobileAppService : Service() {
 
   private fun sendLocation(location: Location) {
     lastLocation = location
+    lastSentTime = location.time
     val data = JSONObject()
       .put("gps", JSONArray().put(location.latitude).put(location.longitude))
       .put("gps_accuracy", location.accuracy.toInt())
@@ -751,8 +742,9 @@ class MobileAppService : Service() {
     private const val MAX_ACCURACY_M = 65f
     private const val MIN_REPORT_MOVE_M = 30f
     private const val MOVING_SPEED_MS = 1.4f // ≥ ~5 km/h = بيتحرك فعلًا (سرعة دوبلر)
-    private const val CONFIRM_RADIUS_M = 50f // تحديثين ضمنها = تأكيد نفس المكان الجديد
     private const val MOVING_REVERT_MS = 180000L // 3 دقايق سكون → رجوع للوضع العادي
+    private const val STALE_LOCATION_MS = 300000L // أقدم من 5 دقايق = fix مخبّأ، يترفض (زي الرسمي)
+    private const val FUTURE_SKEW_MS = 5000L // سماح 5ث لفرق الساعة قبل اعتباره "من المستقبل"
     private const val SENSOR_INTERVAL_MS = 900000L
     private const val ACTIVITY_INTERVAL_MS = 120000L
   }
