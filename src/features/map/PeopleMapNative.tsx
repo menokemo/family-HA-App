@@ -22,6 +22,7 @@ import {
   PERSON_RING,
   reverseGeocode,
   fetchRoute,
+  filterNearbyHazards,
   haversine,
   readMotion,
   batteryPct,
@@ -231,13 +232,28 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
     [states],
   );
 
-  const hazards = useMemo<Hazard[]>(
+  const allHazards = useMemo<Hazard[]>(
     () =>
       states
         .filter(e => e.entity_id.startsWith('geo_location.') && Number.isFinite(num(e.attributes.latitude)) && Number.isFinite(num(e.attributes.longitude)))
         .map(h => ({ id: h.entity_id, name: String(h.attributes.friendly_name ?? h.attributes.title ?? h.entity_id.replace('geo_location.', '')), lat: num(h.attributes.latitude), lng: num(h.attributes.longitude), source: String(h.attributes.source ?? '') })),
     [states],
   );
+  // HA بيجيب كل مخاطر البلد (عشرات الحوادث البعيدة). بنفلترها على 10كم من البيت
+  // أو من أي فرد — وبنفلترها **من المصدر** عشان الخريطة والبانر واللستة كلهم
+  // يتكلموا بنفس الرقم، مش لستة نضيفة وخريطة مليانة علامات بعيدة.
+  const hazardAnchors = useMemo(() => {
+    const out: { lat: number; lng: number }[] = [];
+    const home = zones.find(z => z.id === 'zone.home');
+    if (home) out.push({ lat: home.lat, lng: home.lng });
+    for (const p of people) {
+      const lat = num(p.attributes.latitude);
+      const lng = num(p.attributes.longitude);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) out.push({ lat, lng });
+    }
+    return out;
+  }, [zones, people]);
+  const hazards = useMemo(() => filterNearbyHazards(allHazards, hazardAnchors), [allHazards, hazardAnchors]);
 
   // الأجهزة = device_tracker مش مربوط بأي شخص (تاجات/عربيات/تراكرات مستقلة).
   const personTrackers = useMemo(() => {
@@ -442,9 +458,10 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
     return out;
   }, [presence, people, states, colors.safe, colors.muted, colors.warning]);
 
+  // تنبيهات العيلة والمخاطر العامة **مفصولين** بعنوان لكل مجموعة — مش مخلوطين.
   const alertItems = useMemo<SimpleItem[]>(
     () => [
-      ...memberAlerts,
+      ...memberAlerts.map(a => ({ ...a, section: i18n.t('familyAlerts') })),
       ...hazards.map(h => ({
         id: h.id,
         title: h.name,
@@ -452,6 +469,7 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
         meta: fromMeText(h.lat, h.lng),
         icon: 'warning',
         tint: colors.danger,
+        section: i18n.t('nearbyHazards'),
       })),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.21.1] — 2026-11-15  (تعديل JS — بييجي من metro) — **فصل التنبيهات وفلترة المخاطر**
+- **تنبيهات العيلة اتفصلت عن المخاطر العامة.** تبويب التنبيهات بقى بعنوانين: «العيلة» (وصول/مغادرة، بطارية ضعيفة، مش بيبعت موقع) و«مخاطر قريبة». كانوا مخلوطين في لستة واحدة فالتنبيه المهم بتاع العيلة بيضيع وسط عشرات الحوادث.
+- **المخاطر بقت متفلترة على 10كم** من البيت أو من أي فرد من العيلة. HA بيجيب كل كيانات `geo_location.*` في البلد (كانت 52 حادثة أغلبها على بعد عشرات الكيلومترات ومالهاش أي علاقة بالعيلة).
+- **الفلترة بتتعمل من المصدر** — يعني الخريطة والبانر واللستة كلهم بيتكلموا بنفس الرقم. قبل كده البانر كان بيعد القريب بس والخريطة بترسم الكل، فالعلامات البعيدة كانت بتزحم الخريطة.
+- **دالة واحدة مشتركة** `filterNearbyHazards` في `mapShared.ts` بتخدم الخريطة النيتف والويب. الويب كان عنده نسخة خاصة بنطاق **20كم** وبتقيس على الأفراد بس (من غير البيت) — اتشالت واتوحّدت. +5 تستات.
+- **JS — من metro، من غير APK.**
+
 ### [2.21.0] — 2026-11-15  (NATIVE + JS — محتاج بناء APK) — **استخدام البلوتوث فعليًا في دقة الموقع والحضور**
 المستشعرات في 2.20.0 كانت **بيانات بتتبعت لـHA وخلاص** — مش داخلة في حساب الموقع ولا الحضور. الإصدار ده بيوصّلها بالموقع فعلًا، بعد قراية `person/entity.py` و`device_tracker/entity.py` في HA.
 
@@ -917,6 +924,13 @@
 ---
 
 ## English
+
+### [2.21.1] — 2026-11-15  (JS change — ships via metro) — **alerts split, hazards filtered**
+- **Family alerts are now separated from public hazards.** The Alerts tab has two headed sections: "Family" (arrivals/departures, low battery, not reporting) and "Nearby hazards". They were one mixed list, so a real family alert was lost among dozens of incidents.
+- **Hazards are filtered to 10 km** from home or from any family member. HA supplies every `geo_location.*` entity in the country (52 incidents, most of them tens of kilometres away and unrelated to the family).
+- **Filtered at the source**, so the map, the banner and the list all report the same number. Previously the banner counted only nearby ones while the map drew them all, cluttering it with distant markers.
+- **One shared `filterNearbyHazards`** in `mapShared.ts` serves both the native and the web map. The web map had its own copy using **20 km** and measuring only against people (not home); that copy is gone. +5 tests.
+- **JS — ships via metro, no APK needed.**
 
 ### [2.21.0] — 2026-11-15  (NATIVE + JS — requires APK build) — **actually using Bluetooth for location accuracy and presence**
 The sensors in 2.20.0 were **data sent to HA and nothing more** — they played no part in computing location or presence. This release wires them into location, after reading `person/entity.py` and `device_tracker/entity.py` in HA.

@@ -18,6 +18,23 @@ export const PERSON_RING = ['#4F8BFF', '#34C759', '#FF9F0A', '#FF375F', '#AF52DE
 // بطارية أقل من كده = تنبيه.
 export const LOW_BATTERY = 15;
 
+// المخاطر (geo_location من HA) بتغطي البلد كلها — عشرات الحوادث البعيدة اللي
+// مالهاش أي علاقة بالعيلة. بنعرض بس اللي في نطاق 10كم من البيت أو من أي فرد.
+export const HAZARD_NEAR_M = 10000;
+
+/** يرجّع المخاطر القريبة من أي "مرساة" (البيت أو أي فرد). من غير مراسي = مفيش
+ *  حاجة نقيس عليها، فبنرجّع فاضي بدل ما نغرق اللستة بمخاطر بعيدة. */
+export function filterNearbyHazards<T extends { lat: number; lng: number }>(
+  hazards: T[],
+  anchors: { lat: number; lng: number }[],
+  withinM: number = HAZARD_NEAR_M,
+): T[] {
+  if (anchors.length === 0) return [];
+  return hazards.filter(h =>
+    anchors.some(a => haversine({ latitude: h.lat, longitude: h.lng }, { latitude: a.lat, longitude: a.lng }) <= withinM),
+  );
+}
+
 // --- ثوابت استقرار الموقع (مقاومة تشويش GPS) ---
 export const MIN_MOVE_M = 50; // أقل إزاحة تُعتبر حركة حقيقية (متر)؛ أقل من كده = تشويش
 export const MOVING_KMH = 6; // أقل سرعة تُعتبر "بيتحرك"

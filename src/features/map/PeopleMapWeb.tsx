@@ -9,6 +9,7 @@ import { useTheme, type Palette } from '../../theme';
 import { i18n } from '../../i18n';
 import { requestLocationPermission, watchLiveLocation, type LiveLocation } from '../../native/liveLocation';
 import { PressableScale } from '../../components/PressableScale';
+import { filterNearbyHazards } from './mapShared';
 
 type Props = { people: HaEntity[]; home?: HaEntity; states: HaEntity[]; selectedPersonId?: string; settings: ConnectionSettings };
 type Motion = { speed: number; heading: number; moving: boolean };
@@ -32,8 +33,6 @@ const COLLAPSED = SHEET_H - PEEK;
 // النافجيشن بار تحت بيطلّع دايرة التاب المتفعّل 26px فوق حافته،
 // فبنرفع الـ sheet فوقها عشان ما يحصلش تداخل.
 const SHEET_BOTTOM = 32;
-// مخاطر على بُعد أقل من كده من أي فرد = "قريبة" (متر).
-const HAZARD_NEAR_M = 20000;
 // بطارية أقل من كده = تنبيه.
 const LOW_BATTERY = 15;
 // --- استقرار الموقع (مقاومة تشويش GPS) ---
@@ -398,7 +397,7 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
     .filter(e => e.entity_id.startsWith('geo_location.'))
     .map(h => `${h.entity_id}:${h.state}:${h.attributes.latitude},${h.attributes.longitude}`)
     .join('|');
-  const hazards: Hazard[] = useMemo(
+  const allHazards: Hazard[] = useMemo(
     () =>
       states
         .filter(e => e.entity_id.startsWith('geo_location.') && Number.isFinite(Number(e.attributes.latitude)) && Number.isFinite(Number(e.attributes.longitude)))
@@ -413,18 +412,22 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [hazardsKey],
   );
-  const nearbyHazards = useMemo(
-    () =>
-      hazards.filter(h =>
-        people.some(p => {
-          const lat = Number(p.attributes.latitude);
-          const lng = Number(p.attributes.longitude);
-          return Number.isFinite(lat) && Number.isFinite(lng) && haversine({ latitude: lat, longitude: lng }, { latitude: h.lat, longitude: h.lng }) < HAZARD_NEAR_M;
-        }),
-      ),
+  // نفس قاعدة الخريطة النيتف بالظبط (دالة مشتركة، مش نسخة تانية): 10كم من
+  // البيت أو من أي فرد. وبنفلتر **من المصدر** فالخريطة والبانر يتفقوا.
+  const hazardAnchors = useMemo(() => {
+    const out: { lat: number; lng: number }[] = [];
+    const home = zones.find(z => z.id === 'zone.home');
+    if (home) out.push({ lat: home.lat, lng: home.lng });
+    for (const p of people) {
+      const lat = Number(p.attributes.latitude);
+      const lng = Number(p.attributes.longitude);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) out.push({ lat, lng });
+    }
+    return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hazardsKey, pointsKey],
-  );
+  }, [zonesKey, pointsKey]);
+  const hazards = useMemo(() => filterNearbyHazards(allHazards, hazardAnchors), [allHazards, hazardAnchors]);
+  const nearbyHazards = hazards;
   useEffect(() => {
     webRef.current?.injectJavaScript(`window.setHazards && window.setHazards(${JSON.stringify(JSON.stringify(hazards))}, ${showHazards}); true;`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
