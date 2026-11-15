@@ -32,7 +32,7 @@ export type PeopleListProps = {
   meId?: string;
   selectedId?: string;
   onSelect: (id: string) => void;
-  onExpand?: () => void;
+  onScroll?: (y: number) => void;
   routeMode?: RouteMode;
   onRouteMode?: (m: RouteMode) => void;
   routeInfo?: RouteResult | null;
@@ -59,7 +59,7 @@ export function PeopleList({
   meId,
   selectedId,
   onSelect,
-  onExpand,
+  onScroll,
   routeMode,
   onRouteMode,
   routeInfo,
@@ -92,7 +92,7 @@ export function PeopleList({
   };
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.listContent} onScrollBeginDrag={() => onExpand?.()}>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.listContent} scrollEventThrottle={16} onScroll={e => onScroll?.(e.nativeEvent.contentOffset.y)}>
       {people.length === 0 ? <Text style={s.empty}>{i18n.t('noPeople')}</Text> : null}
       {people.map(p => {
         const isSel = selectedId === p.entity_id;

@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.17.1] — 2026-11-15  (تعديل JS — بييجي من metro)
+- **تحسين كارت الخريطة السفلي (Bottom sheet).**
+  - وهو **مقفول** بيظهر **الأربع تبويبات بس** (المقبض + التبويبات) من غير أي محتوى تحتهم — `PEEK` نزل من 184 لـ 76، فبان جزء أكبر من الخريطة.
+  - **السحب بقى من أي مكان في الكارت** مش بس من المقبض فوق: لو الكارت مقفول أي سحب بيفتحه؛ ولو مفتوح والليستة فوق خالص وبتسحب لتحت بيقفل — غير كده الليستة بتتمرر عادي (عن طريق `onMoveShouldSetPanResponderCapture` مع تتبّع موضع التمرير `scrollY` + منطقة المقبض `HANDLE_ZONE`).
+  - **الإغلاق بقى أنعم** — سبرنج `friction: 11 / tension: 60` بدل `bounciness/speed` (من غير نطّة في الآخر).
+
 ### [2.17.0] — 2026-11-15  (تعديل JS — بييجي من metro)
 - **أرقام المباني بقت تبان على زوم أعمق (17)** بدل 15 — عشان ماتعملش زحمة؛ تظهر لما تقرّب لمستوى الشارع.
 
@@ -796,6 +802,12 @@
 ---
 
 ## English
+
+### [2.17.1] — 2026-11-15  (JS change — ships via metro)
+- **Map bottom sheet UX.**
+  - When **collapsed** it now shows **only the four tabs** (handle + tab bar) with no content beneath — `PEEK` dropped from 184 to 76, so more of the map is visible.
+  - **Drag works from anywhere on the sheet**, not just the top handle: collapsed, any drag opens it; expanded, dragging down while the list is at the top closes it — otherwise the list scrolls normally (via `onMoveShouldSetPanResponderCapture` with `scrollY` tracking + a `HANDLE_ZONE` grip region).
+  - **Smoother close** — `friction: 11 / tension: 60` spring instead of `bounciness/speed` (no bounce at the end).
 
 ### [2.17.0] — 2026-11-15  (JS change — ships via metro)
 - **Building numbers now appear at a deeper zoom (17)** instead of 15 — to avoid clutter; they show once you zoom to street level.

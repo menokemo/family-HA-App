@@ -20,14 +20,14 @@ type Props = {
   emptyText: string;
   selectedId?: string;
   onPick: (id: string) => void;
-  onExpand?: () => void;
+  onScroll?: (y: number) => void;
 };
 
-export function SimpleList({ items, emptyText, selectedId, onPick, onExpand }: Props) {
+export function SimpleList({ items, emptyText, selectedId, onPick, onScroll }: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.listContent} onScrollBeginDrag={() => onExpand?.()}>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.listContent} scrollEventThrottle={16} onScroll={e => onScroll?.(e.nativeEvent.contentOffset.y)}>
       {items.length === 0 ? <Text style={s.empty}>{emptyText}</Text> : null}
       {items.map(it => {
         const tint = it.tint ?? colors.primary;

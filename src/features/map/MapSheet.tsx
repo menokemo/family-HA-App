@@ -13,9 +13,12 @@ import { SimpleList, type SimpleItem } from './SimpleList';
 
 const WIN_H = Dimensions.get('window').height;
 const SHEET_H = Math.min(560, Math.round(WIN_H * 0.72));
-const PEEK = 184;
+// الجزء الظاهر وهو مقفول = المقبض + شريط التبويبات بس (من غير أي محتوى تحتهم).
+const PEEK = 76;
 const COLLAPSED = SHEET_H - PEEK;
 const SHEET_BOTTOM = 24;
+// أي لمسة فوق هذا الحد (المقبض/التبويبات) بتسحب الكارت دايمًا؛ تحتها = منطقة المحتوى.
+const HANDLE_ZONE = PEEK;
 
 // ارتفاع الجزء الظاهر من الكارت وهو مقفول - الأب بيستخدمه عشان يرفع أزرار التحكم.
 export const MAP_SHEET_PEEK = SHEET_BOTTOM + PEEK;
@@ -29,7 +32,7 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
 ];
 
 type Props = {
-  people: Omit<PeopleListProps, 'onExpand'>;
+  people: Omit<PeopleListProps, 'onScroll'>;
   devices: SimpleItem[];
   zones: SimpleItem[];
   alerts: SimpleItem[];
@@ -46,8 +49,10 @@ export function MapSheet({ people, devices, zones, alerts, onPickDevice, onPickZ
   // ====== السحب (Animated + PanResponder، بدون أي مكتبة) ======
   const sheetY = useRef(new Animated.Value(COLLAPSED)).current;
   const expandedRef = useRef(false);
+  const scrollYRef = useRef(0); // موضع تمرير المحتوى الحالي عشان نفرّق بين السحب والتمرير
   const snapTo = (to: number) => {
-    Animated.spring(sheetY, { toValue: to, useNativeDriver: true, bounciness: 2, speed: 14 }).start();
+    // سبرنج ناعم (فريكشن عالي/تنشن متوسط) = إغلاق سلس من غير نطّ.
+    Animated.spring(sheetY, { toValue: to, useNativeDriver: true, friction: 11, tension: 60 }).start();
     expandedRef.current = to === 0;
   };
   const expand = () => {
@@ -55,7 +60,15 @@ export function MapSheet({ people, devices, zones, alerts, onPickDevice, onPickZ
   };
   const pan = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dy) > 6 && Math.abs(g.dy) > Math.abs(g.dx),
+      // Capture: بنسحب الكارت نفسه بدل ما نسيب الليستة تتمرر فقط في الحالات دي:
+      // (١) اللمسة على المقبض/التبويبات → دايمًا. (٢) الكارت مقفول → أي سحب بيفتحه.
+      // (٣) الكارت مفتوح والليستة فوق خالص وبنسحب لتحت → بيقفله. غير كده = تمرير عادي.
+      onMoveShouldSetPanResponderCapture: (e, g) => {
+        if (Math.abs(g.dy) <= 6 || Math.abs(g.dy) <= Math.abs(g.dx)) return false;
+        if (e.nativeEvent.locationY < HANDLE_ZONE) return true;
+        if (!expandedRef.current) return true;
+        return g.dy > 0 && scrollYRef.current <= 0;
+      },
       onPanResponderMove: (_e, g) => {
         const base = expandedRef.current ? 0 : COLLAPSED;
         let ny = base + g.dy;
@@ -74,13 +87,14 @@ export function MapSheet({ people, devices, zones, alerts, onPickDevice, onPickZ
   const counts: Record<Tab, number> = { people: people.people.length, devices: devices.length, zones: zones.length, alerts: alerts.length };
 
   const chooseTab = (t: Tab) => {
+    scrollYRef.current = 0;
     setTab(t);
     expand();
   };
 
   return (
-    <Animated.View style={[s.sheet, { transform: [{ translateY: sheetY }] }]}>
-      <View {...pan.panHandlers} style={s.handleArea}>
+    <Animated.View style={[s.sheet, { transform: [{ translateY: sheetY }] }]} {...pan.panHandlers}>
+      <View style={s.handleArea}>
         <View style={s.handle} />
         <View style={s.tabBar}>
           {TABS.map(t => {
@@ -102,13 +116,13 @@ export function MapSheet({ people, devices, zones, alerts, onPickDevice, onPickZ
       </View>
 
       {tab === 'people' ? (
-        <PeopleList {...people} onExpand={expand} />
+        <PeopleList {...people} onScroll={y => (scrollYRef.current = y)} />
       ) : tab === 'devices' ? (
-        <SimpleList items={devices} emptyText={i18n.t('noDevices')} onPick={onPickDevice} onExpand={expand} />
+        <SimpleList items={devices} emptyText={i18n.t('noDevices')} onPick={onPickDevice} onScroll={y => (scrollYRef.current = y)} />
       ) : tab === 'zones' ? (
-        <SimpleList items={zones} emptyText={i18n.t('noZones')} onPick={onPickZone} onExpand={expand} />
+        <SimpleList items={zones} emptyText={i18n.t('noZones')} onPick={onPickZone} onScroll={y => (scrollYRef.current = y)} />
       ) : (
-        <SimpleList items={alerts} emptyText={i18n.t('noAlerts')} onPick={onPickAlert} onExpand={expand} />
+        <SimpleList items={alerts} emptyText={i18n.t('noAlerts')} onPick={onPickAlert} onScroll={y => (scrollYRef.current = y)} />
       )}
     </Animated.View>
   );
