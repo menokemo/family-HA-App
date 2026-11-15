@@ -6,6 +6,9 @@
 
 ## العربية
 
+### [2.17.7] — 2026-11-15  (تعديل JS — بييجي من metro)
+- **إصلاح: بعد تثبيت الأفراد على مركز المنطقة (2.17.6) بقوا فوق بعض ومش كلهم باينين.** دلوقتي الأفراد المتكدّسين على نفس مركز منطقة بيتوزّعوا في **حلقة صغيرة ثابتة** حوالين المركز (بالترتيب، مش عشوائي) فكلهم يبانوا من غير ما يرجع التشتت. نصف القطر بيكبر شوية مع عددهم. (حل كامل بعدد وتوسيع جاي مع ميزة التجميع clustering.)
+
 ### [2.17.6] — 2026-11-15  (تعديل JS — بييجي من metro)
 - **دقة الموقع — المرحلة أ: تثبيت الفرد على مركز منطقته (= صفر تشتت في البيت).**
   - وهو جوه منطقة (بيت/شغل/أي zone) العلامة بتتعرض على **مركز المنطقة** بدل GPS الخام المتذبذب — فمفيش تنطّط وأنت واقف، زي Life360 والتطبيق الرسمي. بره المناطق (بيتنقّل فعلًا) بيتعرض الموقع الحي الخام.
@@ -830,6 +833,9 @@
 ---
 
 ## English
+
+### [2.17.7] — 2026-11-15  (JS change — ships via metro)
+- **Fix: after snapping members to the zone center (2.17.6) they stacked on top of each other and weren't all visible.** Members co-located at the same zone center now fan out on a **small fixed ring** around it (deterministic, not random), so all are visible without the scatter returning. The radius grows slightly with the count. (A full count-bubble solution comes with clustering.)
 
 ### [2.17.6] — 2026-11-15  (JS change — ships via metro)
 - **Location accuracy — Phase A: snap a member to their zone center (= zero scatter at home).**

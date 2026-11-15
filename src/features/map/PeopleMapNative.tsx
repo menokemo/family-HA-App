@@ -142,23 +142,45 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
     return () => stop?.();
   }, []);
 
-  const points = useMemo<Point[]>(
-    () =>
-      people
-        .map((p, i): Point | null => {
-          // وهو جوه منطقة: ثبّته على مركزها (موقع مستقر). بره: GPS الخام.
-          const snap = zoneCenterOf(String(p.state ?? ''));
-          const lat = snap ? snap[1] : num(p.attributes.latitude);
-          const lng = snap ? snap[0] : num(p.attributes.longitude);
-          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-          const pic = p.attributes.entity_picture as string | undefined;
-          const uri = pic ? (pic.startsWith('http') ? pic : absoluteHaUrl(settings, pic)) : undefined;
-          return { id: p.entity_id, name: String(p.attributes.friendly_name ?? p.entity_id), lat, lng, uri, color: colorFor[p.entity_id] ?? PERSON_RING[i % PERSON_RING.length] };
-        })
-        .filter((p): p is Point => p !== null),
+  const points = useMemo<Point[]>(() => {
+    // تمريرة ١: الموقع الأساسي — مركز المنطقة لو جواها (ثابت)، وإلا GPS الخام.
+    // snapKey = مفتاح تجميع للمتكدّسين على نفس مركز منطقة.
+    type Base = Point & { snapKey?: string };
+    const bases: Base[] = [];
+    people.forEach((p, i) => {
+      const snap = zoneCenterOf(String(p.state ?? ''));
+      const lat = snap ? snap[1] : num(p.attributes.latitude);
+      const lng = snap ? snap[0] : num(p.attributes.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      const pic = p.attributes.entity_picture as string | undefined;
+      const uri = pic ? (pic.startsWith('http') ? pic : absoluteHaUrl(settings, pic)) : undefined;
+      bases.push({
+        id: p.entity_id,
+        name: String(p.attributes.friendly_name ?? p.entity_id),
+        lat,
+        lng,
+        uri,
+        color: colorFor[p.entity_id] ?? PERSON_RING[i % PERSON_RING.length],
+        snapKey: snap ? `${snap[0].toFixed(5)},${snap[1].toFixed(5)}` : undefined,
+      });
+    });
+    // تمريرة ٢: الأفراد المتكدّسين على نفس مركز منطقة → نوزّعهم في حلقة صغيرة ثابتة
+    // (بالترتيب، مش عشوائي) عشان كلهم يبانوا من غير ما يرجع التشتت.
+    const groups: Record<string, Base[]> = {};
+    for (const b of bases) if (b.snapKey) (groups[b.snapKey] ??= []).push(b);
+    return bases.map((b): Point => {
+      const g = b.snapKey ? groups[b.snapKey] : undefined;
+      if (!g || g.length < 2) return { id: b.id, name: b.name, lat: b.lat, lng: b.lng, uri: b.uri, color: b.color };
+      const k = g.indexOf(b);
+      const n = g.length;
+      const radiusM = 22 + 7 * (n - 1); // بيكبر مع العدد عشان مايتداخلوش
+      const ang = (k / n) * 2 * Math.PI;
+      const lat = b.lat + (radiusM / 111320) * Math.sin(ang);
+      const lng = b.lng + (radiusM / (111320 * Math.cos((b.lat * Math.PI) / 180))) * Math.cos(ang);
+      return { id: b.id, name: b.name, lat, lng, uri: b.uri, color: b.color };
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [people, settings, colorFor, zoneCenterByState],
-  );
+  }, [people, settings, colorFor, zoneCenterByState]);
 
   // العناوين الحقيقية للأفراد اللي بره المناطق (not_home) - BigDataCloud مع كاش.
   useEffect(() => {
