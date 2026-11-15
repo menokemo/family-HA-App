@@ -30,7 +30,11 @@ import java.util.concurrent.TimeUnit
  */
 class AlarmMonitorService : Service() {
   private var client: OkHttpClient? = null
-  private var webSocket: WebSocket? = null
+  @Volatile private var activeSocket: WebSocket? = null
+  @Volatile private var connecting = false
+  // رقم جيل الاتصال: كل محاولة اتصال بتاخد رقم، وبس كولباكات أحدث جيل هي اللي
+  // بتشتغل. ده بيلغي أي سوكت قديم اتقفل (منع إعادة اتصال/تنظيف متأخر يضرب الجديد).
+  private var generation = 0
   private var wakeLock: PowerManager.WakeLock? = null
   private val reconnectHandler = Handler(Looper.getMainLooper())
   private var msgId = 1
@@ -56,36 +60,72 @@ class AlarmMonitorService : Service() {
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     stopped = false
     startForeground(NOTIF_ID_MONITOR, buildMonitorNotification())
-    val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-    wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FamilyHA:AlarmMonitor")
-    try { wakeLock?.acquire(12 * 60 * 60 * 1000L) } catch (e: Exception) { /* ignore */ }
-    connect()
+    // wakelock مرة واحدة بس — قبل كده كنا بناخد واحد جديد كل onStartCommand (تسريب).
+    if (wakeLock == null) {
+      val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+      wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FamilyHA:AlarmMonitor")
+    }
+    try { if (wakeLock?.isHeld != true) wakeLock?.acquire(12 * 60 * 60 * 1000L) } catch (e: Exception) { /* ignore */ }
+    // مهم جدًا: onStartCommand بيتنده كل مرة JS يبعت تحديث إعدادات (start /
+    // setWatchedPersons)، وSTART_STICKY بيعيد الاستدعاء. من غير الحارس ده كان كل
+    // استدعاء بيفتح WebSocket جديد بيشترك في state_changed من غير ما يقفل القديم،
+    // فالاشتراكات بتتراكم وكل تغيير منطقة بيتعالج مرّات بعدد الاتصالات المتراكمة →
+    // سيل إشعارات مكرّرة. دلوقتي اتصال واحد بس في أي وقت.
+    ensureConnected()
     return START_STICKY
   }
 
   override fun onDestroy() {
     stopped = true
     reconnectHandler.removeCallbacksAndMessages(null)
-    webSocket?.close(1000, "service stopped")
+    teardownSocket()
     try { wakeLock?.let { if (it.isHeld) it.release() } } catch (e: Exception) { /* ignore */ }
     super.onDestroy()
   }
 
   private fun prefs() = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
+  // بيفتح اتصال واحد بس: لو فيه سوكت شغّال أو محاولة اتصال جارية مابيعملش تاني.
+  private fun ensureConnected() {
+    if (activeSocket != null || connecting) return
+    connect()
+  }
+
+  // بيقفل السوكت الحالي (لو موجود). كولباكاته هتبقى من جيل قديم فتتجاهل تلقائيًا.
+  private fun teardownSocket() {
+    val s = activeSocket ?: return
+    activeSocket = null
+    try { s.close(1000, "replacing") } catch (e: Exception) { /* ignore */ }
+  }
+
   private fun connect() {
+    if (connecting) return
     val baseUrl = prefs().getString("baseUrl", null) ?: return
     val token = prefs().getString("token", null) ?: return
+    teardownSocket()
+    connecting = true
+    val myGen = ++generation
     val wsUrl = baseUrl.trim().trimEnd('/')
       .replaceFirst(Regex("^http:"), "ws:")
       .replaceFirst(Regex("^https:"), "wss:") + "/api/websocket"
 
-    client = OkHttpClient.Builder().pingInterval(30, TimeUnit.SECONDS).build()
+    if (client == null) client = OkHttpClient.Builder().pingInterval(30, TimeUnit.SECONDS).build()
     val request = Request.Builder().url(wsUrl).build()
-    webSocket = client?.newWebSocket(
+    client?.newWebSocket(
       request,
       object : WebSocketListener() {
+        override fun onOpen(webSocket: WebSocket, response: Response) {
+          // لو جيل أحدث بدأ في الوقت ده، اقفل ده وسيبه.
+          if (myGen != generation) {
+            try { webSocket.close(1000, "superseded") } catch (e: Exception) { /* ignore */ }
+            return
+          }
+          activeSocket = webSocket
+          connecting = false
+        }
+
         override fun onMessage(webSocket: WebSocket, text: String) {
+          if (myGen != generation) return // سوكت من جيل قديم، تجاهله
           try {
             val json = JSONObject(text)
             when (json.optString("type")) {
@@ -119,10 +159,16 @@ class AlarmMonitorService : Service() {
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+          if (myGen != generation) return
+          activeSocket = null
+          connecting = false
           scheduleReconnect()
         }
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+          if (myGen != generation) return
+          activeSocket = null
+          connecting = false
           scheduleReconnect()
         }
       },
@@ -130,8 +176,11 @@ class AlarmMonitorService : Service() {
   }
 
   private fun scheduleReconnect() {
-    if (stopped || !prefs().getBoolean("enabled", false)) return
-    reconnectHandler.postDelayed({ if (!stopped) connect() }, 8000)
+    // الخدمة بتفضل شغّالة لو مراقبة الإنذار أو مراقبة مناطق العائلة مفعّلة.
+    val keepAlive = prefs().getBoolean("enabled", false) || prefs().getBoolean("zoneWatchEnabled", false)
+    if (stopped || !keepAlive) return
+    if (activeSocket != null || connecting) return
+    reconnectHandler.postDelayed({ if (!stopped) ensureConnected() }, 8000)
   }
 
   private fun createChannels() {

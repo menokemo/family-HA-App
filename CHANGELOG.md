@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.17.3] — 2026-11-15  (إصلاح NATIVE — محتاج بناء APK)
+- **الحل الجذري لسيل الإشعارات المكرّرة "mena left Home" (٣٠ إشعار في نفس الثانية) وانت في البيت.**
+  - **السبب:** `AlarmMonitorService` كان بيفتح WebSocket جديد لـ HA (مشترك في `state_changed`) **من غير ما يقفل القديم** في كل `onStartCommand` (اللي بيتنده كل تحديث إعدادات + `START_STICKY`). فالاشتراكات بتتراكم، وتغيير منطقة **واحد** بيتعالج مرّة لكل اتصال متراكم → سيل إشعارات متطابقة. (مش GPS ولا HA — HA بياناته صح والموقع ثابت.)
+  - **الحل:** اتصال واحد بس في أي وقت — `ensureConnected` (مابيفتحش تاني لو فيه اتصال)، `teardownSocket` (يقفل القديم قبل الجديد)، ورقم **جيل** للاتصال عشان كولباكات أي سوكت قديم تتجاهل. + إصلاح تسريب wakelock + إعادة الاتصال بتشتغل لمراقبة المناطق كمان. versionCode 107.
+
 ### [2.17.2] — 2026-11-15  (تعديل JS — بييجي من metro)
 - **خطوة أولى في تقريب الخريطة من Life360 (المجموعة ١ — الجزء الـ JS).**
   - **بابل الاسم/المكان جنب صورة كل فرد** على الخريطة (اسمه + مكانه الحالي: بيت/شغل/عنوان أو "بيسوق · X km/h")، إطار البابل بيتلوّن بلون الفرد لما يتختار. مكوّن جديد `PersonMarker`.
@@ -809,6 +814,11 @@
 ---
 
 ## English
+
+### [2.17.3] — 2026-11-15  (NATIVE fix — requires APK build)
+- **Root fix for the flood of duplicate "mena left Home" notifications (30 at the same second) while at home.**
+  - **Cause:** `AlarmMonitorService` opened a new HA WebSocket (subscribed to `state_changed`) **without closing the old one** on every `onStartCommand` (fired on each settings update + `START_STICKY`). Subscriptions accumulated, so a **single** zone change was processed once per accumulated connection → a flood of identical notifications. (Not GPS, not HA — HA's data was correct and the location stable.)
+  - **Fix:** exactly one connection at a time — `ensureConnected` (won't open a second), `teardownSocket` (closes the old before opening a new), and a connection **generation** number so any old socket's callbacks are ignored. Plus a wakelock-leak fix and reconnect that also keeps running for zone watching. versionCode 107.
 
 ### [2.17.2] — 2026-11-15  (JS change — ships via metro)
 - **First step toward Life360 parity on the map (Group 1 — the JS parts).**
