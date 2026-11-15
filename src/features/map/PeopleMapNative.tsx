@@ -619,21 +619,20 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
         ) : null}
       </MapView>
 
-      {/* لوحة تشخيص مؤقتة — بتعرض الإحداثيات اللي التطبيق قاريها فعلًا لكل شخص/
-          جهاز، عشان نحدّد مصدر "البعيد عن البيت". تتشال بعد ما نعرف السبب. */}
+      {/* لوحة تشخيص مؤقتة — المسافة من مركز البيت بالمتر (من غير كشف إحداثيات)
+          عشان نقيس إزاحة كل جهاز عن البيت. تتشال بعد ما نعرف السبب. */}
       <View style={styles.debug} pointerEvents="none">
-        <Text style={styles.debugText}>me={selectedPersonId ?? '—'} live={liveLocation ? `${liveLocation.latitude.toFixed(4)},${liveLocation.longitude.toFixed(4)}` : 'none'}</Text>
-        <Text style={styles.debugText}>myCoord={myCoord ? `${myCoord[1].toFixed(4)},${myCoord[0].toFixed(4)}` : 'none'}</Text>
-        {people.map(p => (
-          <Text key={p.entity_id} style={styles.debugText} numberOfLines={1}>
-            P {p.entity_id.replace('person.', '')}: {num(p.attributes.latitude).toFixed(4)},{num(p.attributes.longitude).toFixed(4)} [{String(p.state)}]
-          </Text>
-        ))}
-        {deviceEntities.map(d => (
-          <Text key={d.entity_id} style={styles.debugText} numberOfLines={1}>
-            D {d.entity_id.replace('device_tracker.', '')}: {num(d.attributes.latitude).toFixed(4)},{num(d.attributes.longitude).toFixed(4)} [{String(d.state)}]
-          </Text>
-        ))}
+        <Text style={styles.debugText}>
+          home r={homeZone ? Math.round(homeZone.radius) : '?'}m · myLive={liveLocation && homeZone ? `${Math.round(haversine({ latitude: liveLocation.latitude, longitude: liveLocation.longitude }, { latitude: homeZone.lat, longitude: homeZone.lng }))}m` : '—'}
+        </Text>
+        {people.map(p => {
+          const d = homeZone && Number.isFinite(num(p.attributes.latitude)) ? Math.round(haversine({ latitude: num(p.attributes.latitude), longitude: num(p.attributes.longitude) }, { latitude: homeZone.lat, longitude: homeZone.lng })) : null;
+          return (
+            <Text key={p.entity_id} style={styles.debugText} numberOfLines={1}>
+              {p.entity_id.replace('person.', '')}: {d !== null ? `${d}m from home` : 'no coord'} · acc={Math.round(num(p.attributes.gps_accuracy))} [{String(p.state)}]
+            </Text>
+          );
+        })}
       </View>
 
       {showHazards && hazards.length ? (
