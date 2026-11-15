@@ -619,6 +619,23 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
         ) : null}
       </MapView>
 
+      {/* لوحة تشخيص مؤقتة — بتعرض الإحداثيات اللي التطبيق قاريها فعلًا لكل شخص/
+          جهاز، عشان نحدّد مصدر "البعيد عن البيت". تتشال بعد ما نعرف السبب. */}
+      <View style={styles.debug} pointerEvents="none">
+        <Text style={styles.debugText}>me={selectedPersonId ?? '—'} live={liveLocation ? `${liveLocation.latitude.toFixed(4)},${liveLocation.longitude.toFixed(4)}` : 'none'}</Text>
+        <Text style={styles.debugText}>myCoord={myCoord ? `${myCoord[1].toFixed(4)},${myCoord[0].toFixed(4)}` : 'none'}</Text>
+        {people.map(p => (
+          <Text key={p.entity_id} style={styles.debugText} numberOfLines={1}>
+            P {p.entity_id.replace('person.', '')}: {num(p.attributes.latitude).toFixed(4)},{num(p.attributes.longitude).toFixed(4)} [{String(p.state)}]
+          </Text>
+        ))}
+        {deviceEntities.map(d => (
+          <Text key={d.entity_id} style={styles.debugText} numberOfLines={1}>
+            D {d.entity_id.replace('device_tracker.', '')}: {num(d.attributes.latitude).toFixed(4)},{num(d.attributes.longitude).toFixed(4)} [{String(d.state)}]
+          </Text>
+        ))}
+      </View>
+
       {showHazards && hazards.length ? (
         <PressableScale style={[styles.banner, { backgroundColor: colors.danger }]} onPress={() => hazards[0] && cameraRef.current?.flyTo({ center: [hazards[0].lng, hazards[0].lat], zoom: 14, duration: 600 })}>
           <Ionicons name="warning" size={16} color="#fff" />
@@ -710,5 +727,7 @@ const styles = StyleSheet.create({
   banner: { position: 'absolute', top: 14, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18 },
   bannerText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   controls: { position: 'absolute', right: 16, bottom: MAP_SHEET_PEEK + 12, gap: 10 },
+  debug: { position: 'absolute', top: 44, left: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.72)', borderRadius: 8, padding: 6 },
+  debugText: { color: '#8affc1', fontSize: 10, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
   ctrl: { width: 48, height: 48, borderRadius: 24, borderWidth: 1, alignItems: 'center', justifyContent: 'center', elevation: 4 },
 });
