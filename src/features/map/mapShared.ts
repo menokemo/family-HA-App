@@ -64,6 +64,16 @@ export function bearing(lat1: number, lng1: number, lat2: number, lng2: number):
 }
 
 // مسافة مقروءة (متر/كيلومتر).
+/** الاتجاه الأصلي من زاوية (0 = شمال، بالساعة). 8 اتجاهات: الأربعة الأصلية
+ *  والأربعة الفرعية — ده اللي بيدي وصف مفهوم من غير ما يبقى دقيق أوي. */
+export const COMPASS_KEYS = ['dirN', 'dirNE', 'dirE', 'dirSE', 'dirS', 'dirSW', 'dirW', 'dirNW'] as const;
+
+export function compassKey(deg: number): (typeof COMPASS_KEYS)[number] {
+  const norm = ((deg % 360) + 360) % 360;
+  // كل قطاع 45°، والشمال بيبدأ من -22.5° عشان يتوسّط قطاعه.
+  return COMPASS_KEYS[Math.round(norm / 45) % 8];
+}
+
 export const distance = (m?: number): string => (m === undefined ? '—' : m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`);
 
 // وقت وصول مقروء من ثواني.

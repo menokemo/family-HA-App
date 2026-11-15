@@ -47,6 +47,8 @@ export type PeopleListProps = {
   onChangeRange?: (hours: number) => void;
   onPlayTrail?: () => void;
   playing?: boolean;
+  /** اتجاه ومسافة كل فرد بالنسبة للبيت ("2.3 km شمال شرق") — مش موجود للي في البيت. */
+  homeDir?: Record<string, string>;
   trips?: Trip[];
   onPickTrip?: (trip: Trip) => void;
 };
@@ -76,6 +78,7 @@ export function PeopleList({
   onChangeRange,
   onPlayTrail,
   playing,
+  homeDir,
   trips,
   onPickTrip,
 }: PeopleListProps) {
@@ -145,6 +148,7 @@ export function PeopleList({
               <>
                 <View style={s.details}>
                   <Box s={s} label={i18n.t('battery')} value={batteryText(p, states)} />
+                  {homeDir?.[p.entity_id] ? <Box s={s} label={i18n.t('ofHome')} value={homeDir[p.entity_id]} /> : null}
                   {isMe ? (
                     <Box
                       s={s}

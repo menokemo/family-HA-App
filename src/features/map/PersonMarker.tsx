@@ -7,7 +7,8 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import type { ConnectionSettings } from '../../types/homeAssistant';
 import { authHeaders } from '../../api/homeAssistant';
 import { useTheme } from '../../theme';
-import type { Motion } from './mapShared';
+import { compassKey, type Motion } from './mapShared';
+import { i18n } from '../../i18n';
 
 const { Marker } = require('@maplibre/maplibre-react-native') as typeof import('@maplibre/maplibre-react-native');
 
@@ -77,9 +78,14 @@ export function PersonMarker({ id, name, lat, lng, color, place, uri, motion, se
             {place}
           </Text>
         </View>
+        {/* سهم اتجاه الحركة + اسم الاتجاه جنبه — السهم لوحده بيقول "ناحية فين"
+            بس من غير ما تعرف فين دي، فالحرف بيكمّله. */}
         {motion?.moving ? (
-          <View style={[styles.heading, { transform: [{ rotate: `${Math.round(motion.heading)}deg` }] }]}>
-            <Ionicons name="navigate" size={14} color={color} />
+          <View style={styles.headingRow}>
+            <View style={{ transform: [{ rotate: `${Math.round(motion.heading)}deg` }] }}>
+              <Ionicons name="navigate" size={14} color={color} />
+            </View>
+            <Text style={[styles.headingText, { color, backgroundColor: colors.surface }]}>{i18n.t(compassKey(motion.heading))}</Text>
           </View>
         ) : null}
         <View style={[styles.avatar, { borderColor: color, backgroundColor: colors.surface }]}>
@@ -109,7 +115,8 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 12, fontWeight: '800' },
   place: { fontSize: 10, fontWeight: '600', marginTop: 1 },
-  heading: { marginBottom: 2 },
+  headingRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 2 },
+  headingText: { fontSize: 9.5, fontWeight: '800', paddingHorizontal: 4, paddingVertical: 1, borderRadius: 6, overflow: 'hidden' },
   avatar: { width: 44, height: 44, borderRadius: 22, borderWidth: 3, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   avatarImg: { width: '100%', height: '100%' },
   pin: { width: 10, height: 10, borderRadius: 5, marginTop: -3, transform: [{ rotate: '45deg' }] },

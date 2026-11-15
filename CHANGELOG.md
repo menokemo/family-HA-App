@@ -6,6 +6,14 @@
 
 ## العربية
 
+### [2.22.0] — 2026-11-15  (تعديل JS — بييجي من metro) — **الاتجاهات الأربعة في الخريطة**
+تلات حاجات، كلها JS:
+- **الخريطة بتلف مع اتجاه الموبايل** (وضع ملاحة). زرار بوصلة جديد في عمود التحكّم: لما تشغّله الخريطة بتدور حسب اتجاه مواجهة الموبايل بدل ما الشمال ثابت لفوق. **من غير أي مكتبة ولا كود نيتف** — MapLibre عنده الوضع ده جاهز (`trackUserLocation="heading"`) وبيقرا بوصلة الجهاز نيتف. ولو المستخدم حرّك الخريطة بإيده MapLibre بيوقف التتبّع، فبنطفّي الزرار كمان (`onTrackUserLocationChange`) عشان الواجهة تقول الحقيقة مش تفضل مولّعة وهي مش شغّالة.
+- **اتجاه الفرد بالنسبة للبيت** في كارت الفرد: «2.3 km شمال شرق». مش بيظهر للي جوّه منطقة البيت أصلاً («0 متر شمال البيت» كلام مالوش معنى).
+- **اسم الاتجاه جنب سهم الحركة** على علامة الفرد. السهم لوحده بيقول «ناحية فين» بس من غير ما تعرف فين دي — الحرف بيكمّله.
+- **دالة واحدة `compassKey`** في `mapShared.ts` بتحوّل أي زاوية لواحد من 8 اتجاهات (الأربعة الأصلية والأربعة الفرعية)، بتخدم الاتنين. الحدود مظبوطة عشان الشمال يتوسّط قطاعه (±22.5°) مش يبدأ منه. مترجمة بالثلاث لغات (عربي بالكلمات الكاملة، N/NE/E… بالإنجليزي، N/NO/O… بالهولندي). +5 تستات (المجموع 44).
+- **JS — من metro، من غير APK.**
+
 ### [2.21.2] — 2026-11-15  (NATIVE + JS — محتاج بناء APK) — **شيل إذن الهاتف**
 - **اتشال إذن `READ_PHONE_STATE` نهائيًا.** أندرويد بيحطه في مجموعة «الهاتف» وبيعرضه للمستخدم بنص: **«هل تسمح لـSecure Family بإجراء المكالمات وإدارتها؟»** — نص مرعب لتطبيق أمان عيلي، والعيلة هتشك في باقي الأذونات كمان واللي منها أذونات فعلًا مهمة للأمان (الموقع في الخلفية، التنبيه فوق شاشة القفل). النص بتاع النظام ومافيش طريقة نغيّره.
 - **المقابل كان مايستاهلش:** الإذن كان بس عشان 3 مستشعرات — `phone_state` و`sim_1_signal_strength` و`mobile_data`. ولا واحد فيهم بيحسّن الموقع ولا الحضور ولا التنبيهات. اتشالوا التلاتة.
@@ -931,6 +939,14 @@
 ---
 
 ## English
+
+### [2.22.0] — 2026-11-15  (JS change — ships via metro) — **the four directions on the map**
+Three things, all JS:
+- **The map rotates with the phone** (navigation mode). A new compass button in the control column: switch it on and the map turns to match the direction the phone is facing instead of keeping north up. **No library and no native code** — MapLibre already has this (`trackUserLocation="heading"`) and reads the device compass natively. If the user pans the map MapLibre stops tracking, so the button switches off too (`onTrackUserLocationChange`) rather than staying lit while doing nothing.
+- **Direction from home** in the person card: "2.3 km NE". Hidden for anyone inside the home zone ("0 m north of home" says nothing).
+- **The direction name beside the movement arrow** on the person marker. The arrow alone says "that way" without saying which way; the label completes it.
+- **One `compassKey` helper** in `mapShared.ts` turns any angle into one of 8 points (the four cardinals plus the four intercardinals) and serves both. The boundaries are set so north is centred in its sector (±22.5°) rather than starting at it. Translated in all three languages. +5 tests (44 total).
+- **JS — ships via metro, no APK needed.**
 
 ### [2.21.2] — 2026-11-15  (NATIVE + JS — requires APK build) — **phone permission removed**
 - **`READ_PHONE_STATE` is gone for good.** Android files it under the Phone group and shows the user: **"Allow Secure Family to make and manage phone calls?"** — an alarming prompt for a family safety app. Family members who see it will distrust the rest of the permission wizard, including the ones that genuinely matter for safety (background location, alert over the lock screen). The wording is the system's and cannot be changed.

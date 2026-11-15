@@ -23,6 +23,8 @@ import {
   reverseGeocode,
   fetchRoute,
   filterNearbyHazards,
+  compassKey,
+  bearing,
   haversine,
   readMotion,
   batteryPct,
@@ -98,6 +100,10 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
   const prevStateRef = useRef<Record<string, string>>({});
   const presenceInitRef = useRef(false);
   const [follow, setFollow] = useState(false);
+  // وضع الملاحة: الخريطة بتلف مع اتجاه مواجهة الموبايل بدل ما الشمال ثابت
+  // لفوق. MapLibre عنده الوضع ده جاهز (trackUserLocation="heading") وبيقرا
+  // بوصلة الجهاز نيتف — من غير مكتبة زيادة ولا كود نيتف عندنا.
+  const [headingUp, setHeadingUp] = useState(false);
   const [trail, setTrail] = useState<HistoryPoint[]>([]);
   const [trailRange, setTrailRange] = useState(24);
   const [trailLoading, setTrailLoading] = useState(false);
@@ -400,6 +406,23 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
   };
 
   const focusAt = (lng: number, lat: number, zoom = 15) => cameraRef.current?.flyTo({ center: [lng, lat], zoom, duration: 600 });
+  // اتجاه ومسافة كل فرد بالنسبة للبيت — بيظهر في كارت الفرد. مش بنعرضه للي
+  // جوّه البيت أصلاً ("0 متر شمال البيت" كلام مالوش معنى).
+  const homeDirFor = useMemo(() => {
+    const m: Record<string, string> = {};
+    const home = zones.find(z => z.id === 'zone.home');
+    if (!home) return m;
+    for (const p of people) {
+      const lat = num(p.attributes.latitude);
+      const lng = num(p.attributes.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      const d = haversine({ latitude: lat, longitude: lng }, { latitude: home.lat, longitude: home.lng });
+      if (d <= home.radius) continue;
+      m[p.entity_id] = `${distance(d)} ${i18n.t(compassKey(bearing(home.lat, home.lng, lat, lng)))}`;
+    }
+    return m;
+  }, [people, zones]);
+
   const fromMeText = (lat: number, lng: number) => (myCoord ? distance(haversine({ latitude: myCoord[1], longitude: myCoord[0] }, { latitude: lat, longitude: lng })) : undefined);
 
   // عناصر التبويبات البسيطة (أجهزة / مناطق / تنبيهات).
@@ -597,7 +620,18 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
           if (typeof z === 'number' && Number.isFinite(z)) setZoom(z);
         }}
       >
-        <Camera ref={cameraRef} center={center} zoom={15} pitch={pitch} />
+        <Camera
+          ref={cameraRef}
+          center={center}
+          zoom={15}
+          pitch={pitch}
+          trackUserLocation={headingUp ? 'heading' : undefined}
+          // لو المستخدم حرّك الخريطة بإيده، MapLibre بيوقف التتبّع — بنطفّي
+          // الزرار كمان عشان الواجهة تقول الحقيقة.
+          onTrackUserLocationChange={e => {
+            if (headingUp && !e?.nativeEvent?.trackUserLocation) setHeadingUp(false);
+          }}
+        />
 
         {/* أرقام المباني: طبقة صريحة من مصدر OpenFreeMap المتجه — ظاهرة دايمًا
             (مش مربوطة بوضع 3D) من زوم 17 (مستوى الشارع) عشان ماتعملش زحمة. */}
@@ -746,6 +780,14 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
         <PressableScale style={[styles.ctrl, { backgroundColor: buildings3D ? colors.primary : colors.surfaceElevated, borderColor: colors.border }]} onPress={() => setBuildings3D(v => !v)} hitSlop={6}>
           <Ionicons name="business-outline" size={19} color={buildings3D ? colors.black : colors.text} />
         </PressableScale>
+        <PressableScale
+          style={[styles.ctrl, { backgroundColor: headingUp ? colors.primary : colors.surfaceElevated, borderColor: colors.border }]}
+          onPress={() => setHeadingUp(v => !v)}
+          hitSlop={6}
+          accessibilityLabel={i18n.t('headingUp')}
+        >
+          <Ionicons name="compass-outline" size={19} color={headingUp ? colors.black : colors.text} />
+        </PressableScale>
         <PressableScale style={[styles.ctrl, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} onPress={fitAll} hitSlop={6}>
           <Ionicons name="locate" size={19} color={colors.primary} />
         </PressableScale>
@@ -777,6 +819,7 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
           onPlayTrail: playTrail,
           playing: playIdx !== null,
           trips,
+          homeDir: homeDirFor,
           onPickTrip: focusTrip,
         }}
         devices={deviceItems}
