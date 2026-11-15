@@ -40,6 +40,10 @@ export interface ConnectionSettings {
   beaconMonitor?: boolean;
   bleEmitter?: boolean;
   bleUuid?: string;
+  highAccuracyMode?: boolean;
+  highAccuracyNearZones?: boolean;
+  highAccuracyBtDevices?: string[];
+  homeBtDevices?: string[];
 }
 export interface AlarmoEvent {
   eventType: 'alarmo_failed_to_arm' | 'alarmo_command_success' | 'alarmo_ready_to_arm_modes_updated';

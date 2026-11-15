@@ -91,6 +91,12 @@ class MobileAppService : Service() {
   private var beaconUuid = ""
   private var beaconMajor = BleBeacons.DEFAULT_MAJOR
   private var beaconMinor = BleBeacons.DEFAULT_MINOR
+  // وضع الدقة العالية + مرساة البيت بالبلوتوث.
+  private var highAccuracyEnabled = false
+  private var highAccuracyUseZones = false
+  private var highAccuracyBtDevices = emptySet<String>()
+  private var highAccuracyActive = false
+  private var homeBtDevices = emptySet<String>()
 
   private fun hasLocationPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -149,6 +155,18 @@ class MobileAppService : Service() {
       updateSensors()
       return START_STICKY
     }
+    // إعدادات الدقة العالية + مرساة البيت بالبلوتوث.
+    if (intent?.action == ACTION_SET_ACCURACY) {
+      ensureStarted()
+      startAsForeground()
+      highAccuracyEnabled = intent.getBooleanExtra(EXTRA_HA_ENABLED, false)
+      highAccuracyUseZones = intent.getBooleanExtra(EXTRA_HA_ZONES, false)
+      highAccuracyBtDevices = splitAddresses(intent.getStringExtra(EXTRA_HA_BT_DEVICES))
+      homeBtDevices = splitAddresses(intent.getStringExtra(EXTRA_HOME_BT_DEVICES))
+      saveAccuracyConfig()
+      evaluateHighAccuracy()
+      return START_STICKY
+    }
     // مزامنة مناطق HA: نخزّنها ونسجّلها كـ geofences عشان نبلّغ الحضور بدقة.
     if (intent?.action == ACTION_SET_ZONES) {
       ensureStarted()
@@ -178,11 +196,13 @@ class MobileAppService : Service() {
       .apply()
     startAsForeground()
     loadBeaconConfig()
+    loadAccuracyConfig()
     applyBeaconConfig()
     registerSensors()
     startLocationUpdates()
     startActivityUpdates()
     startTicker()
+    evaluateHighAccuracy()
     started = true
     return START_STICKY
   }
@@ -195,6 +215,7 @@ class MobileAppService : Service() {
     if (baseUrl.isEmpty()) baseUrl = prefs.getString("baseUrl", "") ?: ""
     if (webhookId.isEmpty()) webhookId = prefs.getString("webhookId", "") ?: ""
     loadBeaconConfig()
+    loadAccuracyConfig()
     reportLocation = true
     useLocation = hasLocationPermission()
     startAsForeground()
@@ -203,6 +224,7 @@ class MobileAppService : Service() {
     startLocationUpdates()
     startActivityUpdates()
     startTicker()
+    evaluateHighAccuracy()
     started = true
   }
 
@@ -262,10 +284,14 @@ class MobileAppService : Service() {
       // أولوية متوازنة + كل 60 ثانية + أسرع 30 ثانية + انتظار أقصى ~200 ثانية،
       // و**من غير أي شرط مسافة** (setMinUpdateDistanceMeters) — الشرط ده كان بيمنع
       // التصحيحات الصغيرة فيفضل الموقع القديم متجمّد في HA.
-      // الوضع اللايف (fastMode) بس هو اللي بيسرّع، لما فرد بيتفرّج على موقعي.
-      val request = if (fastMode) {
-        LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, FAST_INTERVAL_MS)
-          .setMinUpdateIntervalMillis(FAST_FASTEST_MS)
+      // حاجتين بس بيسرّعوا: الوضع اللايف (فرد بيتفرّج على موقعي)، ووضع الدقة
+      // العالية (جهاز بلوتوث محدد متصل أو قريب من منطقة). الاتنين بيستخدموا
+      // **نفس** الطلب — HIGH_ACCURACY بيشغّل الـGPS **مع** الواي‑فاي والشبكة
+      // في نفس الوقت (على عكس BALANCED اللي بيعتمد على الشبكة وبيستخدم الـGPS
+      // بالعند). قيمنا هي قيم الرسمي في وضع الدقة العالية (5 ثواني / نصها).
+      val request = if (fastMode || highAccuracyActive) {
+        LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, HIGH_ACCURACY_INTERVAL_MS)
+          .setMinUpdateIntervalMillis(HIGH_ACCURACY_FASTEST_MS)
           .build()
       } else {
         LocationRequest.Builder(LOCATION_INTERVAL_MS)
@@ -470,8 +496,24 @@ class MobileAppService : Service() {
     // التطبيق الرسمي بالظبط، ونسيب **HA هو اللي يحسب المنطقة/الحضور** (HA بيحسبها
     // بذكاء مع مراعاة دقة الـ GPS، فبيعتبرك "home" لو دايرة دقتك بتلمس البيت). كنا
     // بنحسبها محليًا ونبعتها بـ location_name — حساب أصرم بيتجاهل الدقة فكان بيفرض
-    // not_home غلط وانت في البيت (على عكس التطبيق الرسمي).
+    // not_home غلط وانت في البيت (على عكس التطبيق الرسمي). وكمان `location_name`
+    // بقت deprecated في HA ومش هتتدعم من 2027.7.
+    //
+    // الاستثناء الوحيد: **مرساة البيت بالبلوتوث**. لما جهاز ثابت في البيت
+    // (المستخدم بنفسه بيحدده) يكون متصل، ده دليل **مستقل** إننا في البيت — مش
+    // إعادة حساب لنفس الـGPS (اللي كانت غلطة 2.18.5). ساعتها بنبعت
+    // `in_zones` ومعاها **الإحداثيات الحقيقية زي ما هي**: HA بيتخطّى حساب
+    // المنطقة من الإحداثيات ويستخدم in_zones (شوف TrackerEntity في
+    // device_tracker/entity.py)، فالحضور يبقى يقيني والخريطة تفضل مظبوطة.
+    // مابنغيّرش إحداثي واحد — ده الفرق الجوهري عن 2.18.5.
+    if (homeBtDevices.isNotEmpty() && connectedBtAddresses().any { homeBtDevices.contains(it) }) {
+      data.put("in_zones", JSONArray().put(HOME_ZONE_ENTITY))
+    }
     post(JSONObject().put("type", "update_location").put("data", data))
+    // كل قراية جديدة ممكن تدخّلنا/تخرّجنا من نطاق المنطقة، فبنعيد تقييم مُشغّل
+    // الدقة العالية. آمنة من التكرار اللانهائي: التقييم بيرجع على طول لو الحالة
+    // ماتغيّرتش.
+    evaluateHighAccuracy()
   }
 
   private fun registerSensors() {
@@ -510,6 +552,7 @@ class MobileAppService : Service() {
     // مستوى الغرفة، وبث الموبايل نفسه كبيكون عشان ESPHome يرصده.
     registerSensor("beacon_monitor", "Beacon Monitor", BleBeacons.monitorState(this), null, null, "mdi:bluetooth", entityCategory = "diagnostic")
     registerSensor("ble_emitter", "BLE Transmitter", BleBeacons.transmitState(this), null, null, "mdi:bluetooth-audio", entityCategory = "diagnostic")
+    registerSensor("high_accuracy_mode", "High Accuracy Mode", if (highAccuracyActive) "on" else "off", null, null, "mdi:crosshairs-gps", type = "binary_sensor", entityCategory = "diagnostic")
   }
 
   private fun registerSensor(
@@ -573,6 +616,7 @@ class MobileAppService : Service() {
       .put(sensorState("sim_1_signal_strength", simSignalDbm(), "mdi:signal-cellular-3"))
       .put(beaconMonitorState())
       .put(bleEmitterState())
+      .put(sensorState("high_accuracy_mode", if (highAccuracyActive) "on" else "off", "mdi:crosshairs-gps"))
     post(JSONObject().put("type", "update_sensor_states").put("data", states))
     // الموقع الجغرافي (reverse geocoding) بيحتاج شبكة — بنعمله في ثريد منفصل
     // عشان مانعملش network على الـ main thread، وبنبعته لوحده لما يجهز.
@@ -781,6 +825,59 @@ class MobileAppService : Service() {
     }
   }
 
+  // ===================== وضع الدقة العالية =====================
+  // BALANCED (الوضع العادي) بيعتمد على الواي‑فاي والشبكة أكتر وبيستخدم الـGPS
+  // بالعند. HIGH_ACCURACY بيشغّل **الـGPS مع الواي‑فاي والشبكة في نفس الوقت**.
+  //
+  // مهم عشان محدش يتوقّع غلط: الفرق كبير **بره** المباني (أمتار قليلة بدل
+  // عشرات)، لكن **جوّه البيت بيفرق أقل بكتير** — الـGPS مابيخشّ المباني،
+  // فالدقة بتفضل 10–30م في الحالتين (قياس فعلي على أجهزتنا: 16م بـHIGH_ACCURACY
+  // جوّه البيت، والتطبيق الرسمي بـBALANCED كان 100م). وكمان دايرة الدقة الواسعة
+  // **مابتضرّش الحضور** لأن شرط HA هو `المسافة − نصف القطر < الدقة` — يعني دقة
+  // أوسع = احتمال أكبر إنك تتحسب في المنطقة. فالحضور اليقيني جوّه البيت حله
+  // مرساة البلوتوث (in_zones) مش رفع الأولوية.
+  //
+  // علشان كده مابنشغّلهوش على طول: بنشغّله بمُشغّل زي الرسمي (location_ham) —
+  // جهاز بلوتوث محدد متصل، أو قريب من منطقة. من غير أي مُشغّل محدد = شغّال دايمًا.
+  // ملحوظة: ده **مش** رجوع عن 2.19.0 — سقف الدقة 200م وإلغاء شروط المسافة
+  // (اللي كانوا السبب الحقيقي للتجمّد) باقيين زي ما هم، والافتراضي لسه BALANCED.
+  private fun connectedBtAddresses(): Set<String> =
+    BluetoothHelper.devices(this).filter { it.connected }.map { it.address }.toSet()
+
+  private fun nearAnyZone(): Boolean {
+    val loc = lastLocation ?: return false
+    val zones = GeoZones.parse(beaconPrefs().getString("zones", "") ?: "")
+    if (zones.isEmpty()) return false
+    return GeoZones.smallestContaining(zones, loc.latitude, loc.longitude, HIGH_ACCURACY_ZONE_RANGE_M) != null
+  }
+
+  private fun shouldUseHighAccuracy(): Boolean {
+    if (!highAccuracyEnabled) return false
+    var constrained = false
+    var satisfied = false
+    if (highAccuracyBtDevices.isNotEmpty()) {
+      constrained = true
+      if (connectedBtAddresses().any { highAccuracyBtDevices.contains(it) }) satisfied = true
+    }
+    if (highAccuracyUseZones) {
+      constrained = true
+      if (nearAnyZone()) satisfied = true
+    }
+    // نفس منطق الرسمي: مُشغّل واحد على الأقل محدد → لازم يتحقّق. مفيش مُشغّلات
+    // → الوضع شغّال طول الوقت (المستخدم طلبه صريح).
+    return if (constrained) satisfied else true
+  }
+
+  private fun evaluateHighAccuracy() {
+    val want = shouldUseHighAccuracy()
+    if (want == highAccuracyActive) return
+    highAccuracyActive = want
+    restartLocationUpdates()
+    // دخلنا الوضع الدقيق = هات قراية جديدة فورًا بدل ما ننتظر الدورة.
+    if (want) requestFreshLocation()
+    updateSensors()
+  }
+
   private fun beaconPrefs() = getSharedPreferences("mobile_app", Context.MODE_PRIVATE)
 
   private fun saveBeaconConfig() {
@@ -791,6 +888,26 @@ class MobileAppService : Service() {
       .putString("beaconMajor", beaconMajor)
       .putString("beaconMinor", beaconMinor)
       .apply()
+  }
+
+  private fun splitAddresses(raw: String?): Set<String> =
+    raw?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }?.toSet() ?: emptySet()
+
+  private fun saveAccuracyConfig() {
+    beaconPrefs().edit()
+      .putBoolean("haEnabled", highAccuracyEnabled)
+      .putBoolean("haZones", highAccuracyUseZones)
+      .putString("haBtDevices", highAccuracyBtDevices.joinToString(","))
+      .putString("homeBtDevices", homeBtDevices.joinToString(","))
+      .apply()
+  }
+
+  private fun loadAccuracyConfig() {
+    val prefs = beaconPrefs()
+    highAccuracyEnabled = prefs.getBoolean("haEnabled", false)
+    highAccuracyUseZones = prefs.getBoolean("haZones", false)
+    highAccuracyBtDevices = splitAddresses(prefs.getString("haBtDevices", ""))
+    homeBtDevices = splitAddresses(prefs.getString("homeBtDevices", ""))
   }
 
   // بعد إعادة تشغيل الموبايل الخدمة بترجع من غير التطبيق، فبنقرأ الإعدادات
@@ -895,6 +1012,9 @@ class MobileAppService : Service() {
         // البلوتوث اتفتح/اتقفل: لازم نعيد تشغيل الرصد والبث (البث بيتوقف لما
         // البلوتوث يتقفل ومابيرجعش لوحده).
         if (intent?.action == BluetoothAdapter.ACTION_STATE_CHANGED) applyBeaconConfig()
+        // جهاز بلوتوث اتصل/اتفصل = مُشغّل الدقة العالية ومرساة البيت ممكن
+        // يتغيّروا، فبنعيد التقييم فورًا.
+        evaluateHighAccuracy()
         if (intent?.action == TelephonyManager.ACTION_PHONE_STATE_CHANGED) {
           phoneState = when (intent.getStringExtra(TelephonyManager.EXTRA_STATE)) {
             TelephonyManager.EXTRA_STATE_RINGING -> "ringing"
@@ -972,6 +1092,7 @@ class MobileAppService : Service() {
     const val ACTION_SET_ZONES = "com.mkdd.familyha.action.SET_ZONES"
     const val ACTION_REQUEST_ACCURATE = "com.mkdd.familyha.action.REQUEST_ACCURATE"
     const val ACTION_SET_BEACONS = "com.mkdd.familyha.action.SET_BEACONS"
+    const val ACTION_SET_ACCURACY = "com.mkdd.familyha.action.SET_ACCURACY"
     const val EXTRA_LIVE = "live"
     const val EXTRA_TTL_MS = "ttlMs"
     const val EXTRA_ZONES = "zones"
@@ -980,6 +1101,12 @@ class MobileAppService : Service() {
     const val EXTRA_BEACON_UUID = "beaconUuid"
     const val EXTRA_BEACON_MAJOR = "beaconMajor"
     const val EXTRA_BEACON_MINOR = "beaconMinor"
+    const val EXTRA_HA_ENABLED = "haEnabled"
+    const val EXTRA_HA_ZONES = "haZones"
+    const val EXTRA_HA_BT_DEVICES = "haBtDevices"
+    const val EXTRA_HOME_BT_DEVICES = "homeBtDevices"
+    // كيان منطقة البيت في HA — ثابت في HA نفسه.
+    private const val HOME_ZONE_ENTITY = "zone.home"
     // تأخير الاستقرار جوه المنطقة قبل حدث DWELL (تهدئة زي التطبيق الرسمي).
     private const val GEOFENCE_LOITER_MS = 30000
     private const val CHANNEL = "mobile_app_report"
@@ -996,9 +1123,12 @@ class MobileAppService : Service() {
     private const val ACCURATE_RETRIES = 5 // محاولات القراية الدقيقة
     private const val ACCURATE_INTERVAL_MS = 10000L
     private const val ACCURATE_FASTEST_MS = 5000L
-    // الوضع اللايف (ميزة عندنا): لما فرد بيتفرّج على موقعي.
-    private const val FAST_INTERVAL_MS = 10000L
-    private const val FAST_FASTEST_MS = 5000L
+    // وضع الدقة العالية + الوضع اللايف: نفس قيم الرسمي في
+    // HighAccuracyLocationService (5 ثواني، وأسرع = نصها).
+    private const val HIGH_ACCURACY_INTERVAL_MS = 5000L
+    private const val HIGH_ACCURACY_FASTEST_MS = 2500L
+    // نطاق التشغيل حوالين المنطقة — نفس DEFAULT_TRIGGER_RANGE_METERS الرسمي.
+    private const val HIGH_ACCURACY_ZONE_RANGE_M = 300f
     private const val LIVE_TTL_MS = 120000L
     private const val SENSOR_INTERVAL_MS = 900000L
     private const val ACTIVITY_INTERVAL_MS = 120000L

@@ -115,6 +115,26 @@ export function setBeaconConfig(monitor: boolean, transmit: boolean, uuid: strin
   return n?.setBeaconConfig?.(monitor, transmit, uuid, BLE_MAJOR, BLE_MINOR) ?? Promise.resolve(false);
 }
 
+export type PairedBtDevice = { address: string; name: string; connected: boolean };
+
+export function getPairedBluetoothDevices(): Promise<PairedBtDevice[]> {
+  const n = NativeModules.AlarmMonitor as (AlarmMonitorNative & { getPairedBluetoothDevices?: () => Promise<PairedBtDevice[]> }) | undefined;
+  return n?.getPairedBluetoothDevices?.() ?? Promise.resolve([]);
+}
+
+// وضع الدقة العالية: HIGH_ACCURACY بيشغّل الـGPS **مع** الواي‑فاي والشبكة في
+// نفس الوقت. الفرق كبير بره المباني، وأقل بكتير جوّه البيت (الـGPS مابيخشّ
+// المباني). بياكل بطارية، علشان كده بمُشغّل: جهاز بلوتوث متصل أو قريب من منطقة.
+// مفيش مُشغّل محدد = شغّال طول الوقت.
+// homeBtDevices = أجهزة ثابتة في البيت؛ لما واحد منها يكون متصل نبعت
+// in_zones:["zone.home"] مع الإحداثيات الحقيقية فالحضور يبقى يقيني.
+export function setAccuracyConfig(highAccuracy: boolean, useZones: boolean, haBtDevices: string[], homeBtDevices: string[]): Promise<boolean> {
+  const n = NativeModules.AlarmMonitor as
+    | (AlarmMonitorNative & { setAccuracyConfig?: (h: boolean, z: boolean, ha: string, home: string) => Promise<boolean> })
+    | undefined;
+  return n?.setAccuracyConfig?.(highAccuracy, useZones, haBtDevices.join(','), homeBtDevices.join(',')) ?? Promise.resolve(false);
+}
+
 // الوضع اللايف: لما فرد تاني بيتفرّج على موقعي، نخلّي الخدمة النيتف تبعت موقعي
 // بسرعة (كل ~10 ثواني) لمدة ttlMs ثم ترجع عادي تلقائيًا. كل نبضة بتجدّد المدة.
 export function setLocationMode(fast: boolean, ttlMs: number): Promise<boolean> {

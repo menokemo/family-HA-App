@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
@@ -129,6 +130,46 @@ class AlarmMonitorModule(private val reactContext: ReactApplicationContext) :
       promise.resolve(true)
     } catch (e: Exception) {
       promise.reject("mobileapp_failed", e.message, e)
+    }
+  }
+
+  // وضع الدقة العالية (GPS + واي‑فاي + شبكة مع بعض) ومرساة البيت بالبلوتوث.
+  // haBtDevices/homeBtDevices = عناوين MAC مفصولة بفاصلة.
+  @ReactMethod
+  fun setAccuracyConfig(highAccuracy: Boolean, useZones: Boolean, haBtDevices: String, homeBtDevices: String, promise: Promise) {
+    try {
+      val intent = Intent(reactContext, MobileAppService::class.java)
+      intent.action = MobileAppService.ACTION_SET_ACCURACY
+      intent.putExtra(MobileAppService.EXTRA_HA_ENABLED, highAccuracy)
+      intent.putExtra(MobileAppService.EXTRA_HA_ZONES, useZones)
+      intent.putExtra(MobileAppService.EXTRA_HA_BT_DEVICES, haBtDevices)
+      intent.putExtra(MobileAppService.EXTRA_HOME_BT_DEVICES, homeBtDevices)
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        reactContext.startForegroundService(intent)
+      } else {
+        reactContext.startService(intent)
+      }
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("mobileapp_failed", e.message, e)
+    }
+  }
+
+  // أجهزة البلوتوث المقترنة عشان المستخدم يختار منها في الإعدادات.
+  @ReactMethod
+  fun getPairedBluetoothDevices(promise: Promise) {
+    try {
+      val out = Arguments.createArray()
+      for (d in BluetoothHelper.devices(reactContext)) {
+        val map = Arguments.createMap()
+        map.putString("address", d.address)
+        map.putString("name", d.name)
+        map.putBoolean("connected", d.connected)
+        out.pushMap(map)
+      }
+      promise.resolve(out)
+    } catch (e: Exception) {
+      promise.reject("bluetooth_failed", e.message, e)
     }
   }
 

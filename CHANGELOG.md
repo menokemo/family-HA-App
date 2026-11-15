@@ -6,6 +6,25 @@
 
 ## العربية
 
+### [2.21.0] — 2026-11-15  (NATIVE + JS — محتاج بناء APK) — **استخدام البلوتوث فعليًا في دقة الموقع والحضور**
+المستشعرات في 2.20.0 كانت **بيانات بتتبعت لـHA وخلاص** — مش داخلة في حساب الموقع ولا الحضور. الإصدار ده بيوصّلها بالموقع فعلًا، بعد قراية `person/entity.py` و`device_tracker/entity.py` في HA.
+
+**١. وضع الدقة العالية (`high_accuracy_mode`) — مُشغّل بالبلوتوث أو المنطقة، مقفول افتراضيًا.**
+- `PRIORITY_HIGH_ACCURACY` كل 5 ثواني (نفس قيم `HighAccuracyLocationService` الرسمي) بدل `BALANCED` كل 60 ثانية — يعني الـGPS بيشتغل **مع** الواي‑فاي والشبكة بدل الاعتماد على الشبكة أكتر.
+- **مُشغّلات زي `location_ham` الرسمي:** جهاز بلوتوث محدد متصل (مثلاً راديو العربية = بيسوق فعايزين دقة)، و/أو قريب من منطقة بنطاق **300م** (نفس `DEFAULT_TRIGGER_RANGE_METERS`). **مفيش مُشغّل محدد = شغّال طول الوقت** (نفس منطق الرسمي بالظبط) مع تحذير بالبطارية في الإعدادات.
+- مستشعر `high_accuracy_mode` (binary_sensor) بيبلّغ HA إمتى الوضع شغّال.
+- **ده مش رجوع عن 2.19.0:** سقف الدقة 200م وإلغاء شروط المسافة 30م/40م (اللي كانوا **السبب الحقيقي** لتجمّد الموقع) باقيين زي ما هم، والافتراضي لسه BALANCED. اللي بقى اختياري هو الأولوية بس.
+
+**٢. مرساة البيت بالبلوتوث (`in_zones`) — الحضور اليقيني جوّه البيت.**
+- المستخدم بيحدد أجهزة **ثابتة في البيت** (مكبر صوت، تلفزيون، كمبيوتر). طول ما واحد منهم متصل، بنبعت `in_zones:["zone.home"]` **مع الإحداثيات الحقيقية زي ما هي**.
+- HA لما بيستقبل `in_zones` **بيتخطّى حساب المنطقة من الإحداثيات بالكامل** ويستخدمها مباشرة (`TrackerEntity` في `device_tracker/entity.py`) — فالحضور يبقى يقيني والخريطة تفضل مظبوطة.
+- **الفرق الجوهري عن غلطة 2.18.5:** هناك كنا بنعيد حساب نفس الـGPS محليًا بقاعدة أصرم من HA ونفرض النتيجة بـ`location_name`. هنا الدليل **مستقل تمامًا** عن الـGPS (جهاز بلوتوث فعلي اختاره المستخدم بنفسه)، و**مابنغيّرش إحداثي واحد**. وكمان `location_name` بقت deprecated في HA ومش هتتدعم من 2027.7، فـ`in_zones` هي الطريق الصح.
+- **تحذير مكتوب في الإعدادات:** ماتختارش سماعة العربية أو هيدفون بتاخده معاك.
+
+**٣. منتقي أجهزة البلوتوث في الإعدادات** — `getPairedBluetoothDevices` (bridge method جديد) بيعرض الأجهزة المقترنة مع علامة "متصل"، ونفس اللستة بتخدم المُشغّل والمرساة (دالة رسم واحدة، من غير تكرار).
+
+**إعادة التقييم لحظية:** مستقبل الأحداث (من 2.20.0) بيعيد تقييم المُشغّل عند كل اتصال/فصل بلوتوث، وكل قراية موقع جديدة بتعيد تقييم نطاق المنطقة. الإعدادات بتتخزّن فبتكمّل بعد إعادة تشغيل الموبايل. versionCode 113.
+
 ### [2.20.0] — 2026-11-15  (NATIVE + JS — محتاج بناء APK) — **مستشعرات جديدة: البلوتوث والأجهزة القريبة**
 سبع مستشعرات جديدة بتتسجّل في Home Assistant زي التطبيق الرسمي، كلها في `MobileAppService`:
 - **`bluetooth_connection`** — عدد الأجهزة المتصلة، ومعاها في الـ attributes أسماء الأجهزة: `connected_paired_devices` و`connected_not_paired_devices` و`paired_devices` (نفس مفاتيح التطبيق الرسمي عشان أي أتوميشن جاهزة تشتغل زي ما هي). أهم استخدام: سماعة/راديو العربية بيتصل = الشخص بيسوق، وسماعة البيت متصلة = جوّه.
@@ -898,6 +917,25 @@
 ---
 
 ## English
+
+### [2.21.0] — 2026-11-15  (NATIVE + JS — requires APK build) — **actually using Bluetooth for location accuracy and presence**
+The sensors in 2.20.0 were **data sent to HA and nothing more** — they played no part in computing location or presence. This release wires them into location, after reading `person/entity.py` and `device_tracker/entity.py` in HA.
+
+**1. High accuracy mode (`high_accuracy_mode`) — triggered by Bluetooth or zone, off by default.**
+- `PRIORITY_HIGH_ACCURACY` every 5 s (the official `HighAccuracyLocationService` values) instead of `BALANCED` every 60 s, so GPS runs **together with** Wi-Fi and the network rather than leaning mostly on the network.
+- **Triggers mirroring the official `location_ham`:** a chosen Bluetooth device being connected (car audio connected = driving, so be precise), and/or being within **300 m** of a zone (the official `DEFAULT_TRIGGER_RANGE_METERS`). **No trigger chosen means always on** — the official app's exact logic — with a battery warning shown in settings.
+- A `high_accuracy_mode` binary sensor reports to HA when the mode is active.
+- **This is not a revert of 2.19.0:** the 200 m accuracy ceiling and the removal of the 30 m/40 m distance gates — which were the **actual cause** of the frozen location — both stand, and the default is still BALANCED. Only the priority became optional.
+
+**2. Bluetooth home anchor (`in_zones`) — certainty of presence indoors.**
+- The user picks devices that **never leave the house** (a speaker, a TV, a desktop). While one of them is connected the app sends `in_zones:["zone.home"]` **along with the real coordinates, unchanged**.
+- When HA receives `in_zones` it **skips computing the zone from the coordinates entirely** and uses the list directly (`TrackerEntity` in `device_tracker/entity.py`), so presence becomes certain while the map stays accurate.
+- **The essential difference from the 2.18.5 mistake:** there we re-derived the zone from the same GPS locally with a stricter rule than HA's and forced the result via `location_name`. Here the evidence is **entirely independent** of GPS (a real Bluetooth device the user picked themselves), and **not a single coordinate is altered**. `location_name` is also deprecated in HA and unsupported from 2027.7, so `in_zones` is the correct mechanism.
+- **Warning shown in settings:** never pick car audio or headphones you carry with you.
+
+**3. Bluetooth device picker in settings** — a new `getPairedBluetoothDevices` bridge method lists paired devices with a "connected" marker; one render function serves both the trigger list and the anchor list, with no duplication.
+
+**Live re-evaluation:** the event receiver from 2.20.0 re-evaluates the trigger on every Bluetooth connect/disconnect, and each new location fix re-evaluates the zone range. The config is persisted so both survive a reboot. versionCode 113.
 
 ### [2.20.0] — 2026-11-15  (NATIVE + JS — requires APK build) — **new sensors: Bluetooth & nearby devices**
 Seven new sensors registered in Home Assistant, mirroring the official app, all in `MobileAppService`:

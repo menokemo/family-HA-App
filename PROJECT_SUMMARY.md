@@ -403,6 +403,8 @@ geofencing + إرسال speed/battery الموثوق، أرقام ومباني �
 **الصوت والموقع:** `ringer_mode` · `do_not_disturb` · `detected_activity` ·
 `geocoded_location`.
 
+**اتضاف في 2.21.0:** `high_accuracy_mode`.
+
 **اتضافوا في 2.20.0:** `beacon_monitor` · `ble_emitter` (اختياريين بمفتاح — تحت) · `bluetooth_state` · `bluetooth_connection` (عدد المتصلين +
 أسماء الأجهزة في الـ attributes بنفس مفاتيح الرسمي) · `phone_state` ·
 `device_locked` · `next_alarm` · `mobile_data` · `sim_1_signal_strength`. القراية في
@@ -431,6 +433,47 @@ geofencing + إرسال speed/battery الموثوق، أرقام ومباني �
 (accelerometer/gyroscope/pressure/light/proximity) — معدّل تحديثها عالي جدًا وبتغرّق
 HA ببيانات مالهاش استخدام في تطبيق عائلي. `sim_2` و`sim_2_signal_strength` —
 نضيفهم لو حد في العيلة بيستخدم خطين.
+
+### دقة الموقع والحضور — تلات طبقات (2.21.0)
+القاعدة اللي وصلنا لها بعد قراية `person/entity.py` و`device_tracker/entity.py`
+و`zone/__init__.py`: **الحضور اليقيني جوّه البيت مابيجيش من تحسين الـGPS، بيجي من
+دليل مستقل عن الـGPS.** وده أولوية HA نفسها:
+
+```
+latest = latest_connected or latest_legacy_home or latest_gps or latest_not_home
+```
+`latest_connected` = تراكر `tracking_type: connection` ومعاه `in_zones`. والتعليق في
+كود HA بيقول إن راوتر أو بيكون بيبلّغ إنه في منطقة = أوثق إشارة حضور. **تراكر
+`mobile_app` دايمًا `position`** فمستحيل ياخد الخانة دي — محجوزة لتكاملات جوّه HA.
+
+| الطبقة | الدقة | الحالة |
+|---|---|---|
+| ١. GPS/Fused (BALANCED) | 10–30م جوّه، أمتار بره | ✅ الافتراضي (2.19.0) |
+| ٢. وضع الدقة العالية (HIGH_ACCURACY بمُشغّل) | أمتار **بره** البيت؛ بيفرق أقل جوّه | ✅ اختياري (2.21.0) |
+| ٣. مرساة البلوتوث → `in_zones` | يقيني جوّه البيت | ✅ اختياري (2.21.0) |
+| ٤. ESP32 يرصد `ble_emitter` → تراكر `connection` | يقيني + **أولوية HA العليا** | ⏳ محتاج ESP32 |
+
+**دليل الطبقة ٤ (ESP32 + ESPHome):** الخطوات لما نعملها:
+1. شغّل مفتاح **«بث الموبايل ده كبيكون»** في إعدادات الموقع والخريطة، وانسخ
+   الـUUID اللي بيظهر تحته (لكل موبايل UUID خاص).
+2. ESP32 بـESPHome في البيت، وفي الـYAML:
+   ```yaml
+   esp32_ble_tracker:
+   binary_sensor:
+     - platform: ble_presence
+       ibeacon_uuid: "<UUID الموبايل>"
+       name: "Mena phone home"
+       timeout: 2min
+   ```
+3. الكيان اللي بيطلع ده بيتحوّل لتراكر `connection` في HA (أو يتربط بالشخص عبر
+   أتوميشن/`device_tracker`)، وساعتها **بيتغلّب على الـGPS تمامًا** في `person`.
+4. **ملحوظة بطارية:** بث البيكون أرخص من المسح بكتير (`ADVERTISE_MODE_LOW_POWER`
+   و`TX_POWER_ULTRA_LOW`)، فالطبقة دي هي الأوفر والأدق في نفس الوقت — الموبايل
+   بيبث بس والـESP32 هو اللي بيسمع.
+
+**ملحوظة مهمة للمستخدم:** لو إعداد النظام **Google Location Accuracy** مقفول في
+الموبايل، Fused مابيقدرش يستخدم الواي‑فاي والشبكة أصلًا والدقة بتبوظ لوحدها —
+يستحق فحصة قبل أي تعديل في الكود.
 
 ### تبعة مفتوحة — الأفراد غير الأدمن مش بيستقبلوا الأحداث المخصّصة (من 2.17.4)
 Home Assistant بيسمح لغير الأدمن بالاشتراك في `state_changed` **بس**؛ أي اشتراك
