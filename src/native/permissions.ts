@@ -20,8 +20,7 @@ export type PermKey =
   | 'overlay'
   | 'fullScreen'
   | 'activity'
-  | 'bluetooth'
-  | 'phone';
+  | 'bluetooth';
 
 export const PERMISSION_KEYS: PermKey[] = [
   'notifications',
@@ -32,14 +31,12 @@ export const PERMISSION_KEYS: PermKey[] = [
   'fullScreen',
   'activity',
   'bluetooth',
-  'phone',
 ];
 
 const BACKGROUND_LOCATION = 'android.permission.ACCESS_BACKGROUND_LOCATION' as const;
 // من أندرويد 12 بقى الإذن الجديد BLUETOOTH_CONNECT؛ قبل كده إذن البلوتوث
 // القديم بيتمنح وقت التثبيت فمافيش حاجة نطلبها.
 const BLUETOOTH_CONNECT = 'android.permission.BLUETOOTH_CONNECT' as const;
-const READ_PHONE_STATE = 'android.permission.READ_PHONE_STATE' as const;
 const BLUETOOTH_SCAN = 'android.permission.BLUETOOTH_SCAN' as const;
 const BLUETOOTH_ADVERTISE = 'android.permission.BLUETOOTH_ADVERTISE' as const;
 
@@ -80,8 +77,6 @@ export async function checkPermission(key: PermKey): Promise<boolean> {
       return version < 29 ? true : PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACTIVITY_RECOGNITION);
     case 'bluetooth':
       return version < 31 ? true : PermissionsAndroid.check(BLUETOOTH_CONNECT as never);
-    case 'phone':
-      return PermissionsAndroid.check(READ_PHONE_STATE as never);
   }
 }
 
@@ -121,9 +116,6 @@ export async function requestPermission(key: PermKey): Promise<void> {
       return;
     case 'bluetooth':
       if (version >= 31) await PermissionsAndroid.request(BLUETOOTH_CONNECT as never);
-      return;
-    case 'phone':
-      await PermissionsAndroid.request(READ_PHONE_STATE as never);
       return;
   }
 }

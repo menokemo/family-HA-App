@@ -414,8 +414,7 @@ geofencing + إرسال speed/battery الموثوق، أرقام ومباني �
 **اتضاف في 2.21.0:** `high_accuracy_mode`.
 
 **اتضافوا في 2.20.0:** `beacon_monitor` · `ble_emitter` (اختياريين بمفتاح — تحت) · `bluetooth_state` · `bluetooth_connection` (عدد المتصلين +
-أسماء الأجهزة في الـ attributes بنفس مفاتيح الرسمي) · `phone_state` ·
-`device_locked` · `next_alarm` · `mobile_data` · `sim_1_signal_strength`. القراية في
+أسماء الأجهزة في الـ attributes بنفس مفاتيح الرسمي) · `device_locked` · `next_alarm`. القراية في
 `BluetoothHelper.kt` بنفس أسلوب `BluetoothUtils.kt` الرسمي. أهم استخدام عملي
 لمستشعر البلوتوث: **سياق الحضور** — سماعة العربية متصلة = بيسوق، سماعة البيت
 متصلة = جوّه، وده بيكمّل الـ GPS من غير أي تكلفة بطارية إضافية.
@@ -436,6 +435,11 @@ geofencing + إرسال speed/battery الموثوق، أرقام ومباني �
 - **لسه ممكن يتضاف لو احتجناه:** فلتر UUID (نرصد بيكونات معيّنة بس)، وتحكّم في
   فترة المسح وقوة البث من الإعدادات، وفلتر Kalman للـRSSI (الرسمي بيستخدمه؛ إحنا
   دلوقتي متوسط متحرك بسيط — كفاية لترتيب الغرف).
+
+**اتشالوا في 2.21.2:** `phone_state` و`sim_1_signal_strength` و`mobile_data` —
+كانوا محتاجين `READ_PHONE_STATE` اللي أندرويد بيعرضه كـ«إجراء وإدارة المكالمات».
+النص ده غير مقبول لتطبيق أمان عيلي والمقابل ثانوي. (`mobile_data` كان مكرّر مع
+`network_type` كمان.) **ماينفعش يترجّعوا** — التفاصيل في `BUGS_AND_FIXES.md`.
 
 **مستشعرات الرسمي اللي قرّرنا مانعملهاش:** مستشعرات الحسّاسات الخام
 (accelerometer/gyroscope/pressure/light/proximity) — معدّل تحديثها عالي جدًا وبتغرّق

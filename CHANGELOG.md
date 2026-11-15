@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.21.2] — 2026-11-15  (NATIVE + JS — محتاج بناء APK) — **شيل إذن الهاتف**
+- **اتشال إذن `READ_PHONE_STATE` نهائيًا.** أندرويد بيحطه في مجموعة «الهاتف» وبيعرضه للمستخدم بنص: **«هل تسمح لـSecure Family بإجراء المكالمات وإدارتها؟»** — نص مرعب لتطبيق أمان عيلي، والعيلة هتشك في باقي الأذونات كمان واللي منها أذونات فعلًا مهمة للأمان (الموقع في الخلفية، التنبيه فوق شاشة القفل). النص بتاع النظام ومافيش طريقة نغيّره.
+- **المقابل كان مايستاهلش:** الإذن كان بس عشان 3 مستشعرات — `phone_state` و`sim_1_signal_strength` و`mobile_data`. ولا واحد فيهم بيحسّن الموقع ولا الحضور ولا التنبيهات. اتشالوا التلاتة.
+- **`mobile_data` كان مكرّر أصلاً:** `network_type` الموجود من زمان بيقول واي‑فاي/شبكة موبايل/مفيش.
+- **ملحوظة:** لو بنيت نسخة قبل كده وظهرت المستشعرات دي في Home Assistant، هتبقى `unavailable` — تقدر تمسحها من الكيانات. التطبيق **عمره ما كان** بيقدر يتصل بحد: إذن `CALL_PHONE` مش موجود في الـmanifest خالص.
+- معالج الأذونات بقى 8 بنود بدل 9. versionCode 114.
+
 ### [2.21.1] — 2026-11-15  (تعديل JS — بييجي من metro) — **فصل التنبيهات وفلترة المخاطر**
 - **تنبيهات العيلة اتفصلت عن المخاطر العامة.** تبويب التنبيهات بقى بعنوانين: «العيلة» (وصول/مغادرة، بطارية ضعيفة، مش بيبعت موقع) و«مخاطر قريبة». كانوا مخلوطين في لستة واحدة فالتنبيه المهم بتاع العيلة بيضيع وسط عشرات الحوادث.
 - **المخاطر بقت متفلترة على 10كم** من البيت أو من أي فرد من العيلة. HA بيجيب كل كيانات `geo_location.*` في البلد (كانت 52 حادثة أغلبها على بعد عشرات الكيلومترات ومالهاش أي علاقة بالعيلة).
@@ -924,6 +931,13 @@
 ---
 
 ## English
+
+### [2.21.2] — 2026-11-15  (NATIVE + JS — requires APK build) — **phone permission removed**
+- **`READ_PHONE_STATE` is gone for good.** Android files it under the Phone group and shows the user: **"Allow Secure Family to make and manage phone calls?"** — an alarming prompt for a family safety app. Family members who see it will distrust the rest of the permission wizard, including the ones that genuinely matter for safety (background location, alert over the lock screen). The wording is the system's and cannot be changed.
+- **What it bought wasn't worth it:** the permission existed only for three sensors — `phone_state`, `sim_1_signal_strength` and `mobile_data`. None of them improves location, presence or alerting. All three are removed.
+- **`mobile_data` was duplicated anyway:** the long-standing `network_type` already reports Wi-Fi / cellular / none.
+- **Note:** if you built an earlier version and these sensors appeared in Home Assistant, they will go `unavailable` and can be deleted from the entity list. The app was **never** able to place a call: `CALL_PHONE` has never been in the manifest.
+- The permissions wizard is now 8 items instead of 9. versionCode 114.
 
 ### [2.21.1] — 2026-11-15  (JS change — ships via metro) — **alerts split, hazards filtered**
 - **Family alerts are now separated from public hazards.** The Alerts tab has two headed sections: "Family" (arrivals/departures, low battery, not reporting) and "Nearby hazards". They were one mixed list, so a real family alert was lost among dozens of incidents.

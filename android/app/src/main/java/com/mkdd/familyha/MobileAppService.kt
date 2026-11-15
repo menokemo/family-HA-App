@@ -28,7 +28,6 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.os.StatFs
-import android.telephony.TelephonyManager
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.ActivityRecognition
@@ -81,8 +80,6 @@ class MobileAppService : Service() {
   private var lastLocationSendMs = 0L
   private var lastUpdateLocationStr: String? = null
   private var accurateInFlight = false
-  // حالة المكالمة بتوصلنا من الـ broadcast (أدق من القراية الدورية لأنها لحظية).
-  private var phoneState = "idle"
   private var stateReceiver: BroadcastReceiver? = null
   private var stateDebounce: Runnable? = null
   // إعدادات البيكونات — بتوصل من التطبيق وبتتخزّن عشان تفضل بعد إعادة تشغيل الخدمة.
@@ -543,11 +540,8 @@ class MobileAppService : Service() {
     // مفيدة للحضور في البيت/العربية (مثلاً اتصال بسماعة العربية = بيسوق).
     registerSensor("bluetooth_state", "Bluetooth State", if (BluetoothHelper.isOn(this)) "on" else "off", null, null, "mdi:bluetooth", type = "binary_sensor", entityCategory = "diagnostic")
     registerSensor("bluetooth_connection", "Bluetooth Connection", "0", null, "connection(s)", "mdi:bluetooth-connect", stateClass = "measurement")
-    registerSensor("phone_state", "Phone State", phoneState, null, null, "mdi:phone")
     registerSensor("device_locked", "Device Locked", if (deviceLocked()) "on" else "off", null, null, "mdi:cellphone-lock", type = "binary_sensor", entityCategory = "diagnostic")
     registerSensor("next_alarm", "Next Alarm", nextAlarmUtc(), "timestamp", null, "mdi:alarm")
-    registerSensor("mobile_data", "Mobile Data", if (mobileDataEnabled()) "on" else "off", null, null, "mdi:signal", type = "binary_sensor", entityCategory = "diagnostic")
-    registerSensor("sim_1_signal_strength", "SIM 1 Signal Strength", simSignalDbm().toString(), "signal_strength", "dBm", "mdi:signal-cellular-3", stateClass = "measurement")
     // البيكونات (اختيارية، بمفتاح في الإعدادات): رصد بيكونات iBeacon للحضور على
     // مستوى الغرفة، وبث الموبايل نفسه كبيكون عشان ESPHome يرصده.
     registerSensor("beacon_monitor", "Beacon Monitor", BleBeacons.monitorState(this), null, null, "mdi:bluetooth", entityCategory = "diagnostic")
@@ -609,11 +603,8 @@ class MobileAppService : Service() {
       .put(sensorState("screen_on", if (screenOn()) "on" else "off", "mdi:cellphone"))
       .put(sensorState("bluetooth_state", if (BluetoothHelper.isOn(this)) "on" else "off", if (BluetoothHelper.isOn(this)) "mdi:bluetooth" else "mdi:bluetooth-off"))
       .put(bluetoothConnectionState())
-      .put(sensorState("phone_state", phoneState, if (phoneState == "idle") "mdi:phone" else "mdi:phone-in-talk"))
       .put(sensorState("device_locked", if (deviceLocked()) "on" else "off", "mdi:cellphone-lock"))
       .put(nextAlarmState())
-      .put(sensorState("mobile_data", if (mobileDataEnabled()) "on" else "off", "mdi:signal"))
-      .put(sensorState("sim_1_signal_strength", simSignalDbm(), "mdi:signal-cellular-3"))
       .put(beaconMonitorState())
       .put(bleEmitterState())
       .put(sensorState("high_accuracy_mode", if (highAccuracyActive) "on" else "off", "mdi:crosshairs-gps"))
@@ -954,48 +945,9 @@ class MobileAppService : Service() {
     return sensorState("next_alarm", nextAlarmUtc(), "mdi:alarm", attrs)
   }
 
-  private fun telephony(): TelephonyManager? = try {
-    getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
-  } catch (e: Exception) {
-    null
-  }
-
-  private fun mobileDataEnabled(): Boolean {
-    return try {
-      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
-      telephony()?.isDataEnabled == true
-    } catch (e: Exception) {
-      false
-    }
-  }
-
-  // قوة شبكة الموبايل بالـ dBm. محتاجة READ_PHONE_STATE على أندرويد 12+،
-  // فلو الإذن مش ممنوح بنرجّع 0 بدل ما نكسر باقي التحديث.
-  private fun simSignalDbm(): Int {
-    return try {
-      // getSignalStrength من API 28 لكن getCellSignalStrengths من API 29.
-      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return 0
-      telephony()?.signalStrength?.cellSignalStrengths?.firstOrNull()?.dbm ?: 0
-    } catch (e: Exception) {
-      0
-    }
-  }
-
-  private fun readPhoneState(): String {
-    return try {
-      when (telephony()?.callState) {
-        TelephonyManager.CALL_STATE_RINGING -> "ringing"
-        TelephonyManager.CALL_STATE_OFFHOOK -> "offhook"
-        else -> "idle"
-      }
-    } catch (e: Exception) {
-      "idle"
-    }
-  }
-
-  // أحداث فورية: بلوتوث (فتح/قفل واتصال/فصل جهاز)، قفل الشاشة، المنبّه الجاي،
-  // وحالة المكالمة. بننتظر شويّة قبل الإرسال عشان الحدث الواحد مايعملش كذا
-  // إرسال (مثلاً سماعة بتتصل على كذا بروفايل في نفس اللحظة).
+  // أحداث فورية: بلوتوث (فتح/قفل واتصال/فصل جهاز)، قفل الشاشة، والمنبّه الجاي.
+  // بننتظر شويّة قبل الإرسال عشان الحدث الواحد مايعملش كذا إرسال (مثلاً سماعة
+  // بتتصل على كذا بروفايل في نفس اللحظة).
   private fun registerStateReceiver() {
     if (stateReceiver != null) return
     val filter = IntentFilter().apply {
@@ -1003,7 +955,6 @@ class MobileAppService : Service() {
       addAction("android.bluetooth.device.action.ACL_CONNECTED")
       addAction("android.bluetooth.device.action.ACL_DISCONNECTED")
       addAction(AlarmManager.ACTION_NEXT_ALARM_CLOCK_CHANGED)
-      addAction(TelephonyManager.ACTION_PHONE_STATE_CHANGED)
       addAction(Intent.ACTION_SCREEN_OFF)
       addAction(Intent.ACTION_USER_PRESENT)
     }
@@ -1015,13 +966,6 @@ class MobileAppService : Service() {
         // جهاز بلوتوث اتصل/اتفصل = مُشغّل الدقة العالية ومرساة البيت ممكن
         // يتغيّروا، فبنعيد التقييم فورًا.
         evaluateHighAccuracy()
-        if (intent?.action == TelephonyManager.ACTION_PHONE_STATE_CHANGED) {
-          phoneState = when (intent.getStringExtra(TelephonyManager.EXTRA_STATE)) {
-            TelephonyManager.EXTRA_STATE_RINGING -> "ringing"
-            TelephonyManager.EXTRA_STATE_OFFHOOK -> "offhook"
-            else -> "idle"
-          }
-        }
         stateDebounce?.let { handler.removeCallbacks(it) }
         val run = Runnable { updateSensors() }
         stateDebounce = run
@@ -1035,7 +979,6 @@ class MobileAppService : Service() {
         registerReceiver(receiver, filter)
       }
       stateReceiver = receiver
-      phoneState = readPhoneState()
     } catch (e: Exception) {
     }
   }

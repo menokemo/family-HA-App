@@ -15,7 +15,6 @@ const ICONS: Record<PermKey, { icon: string; color: string }> = {
   fullScreen: { icon: 'phone-portrait-outline', color: colors.danger },
   activity: { icon: 'walk-outline', color: '#E05A8D' },
   bluetooth: { icon: 'bluetooth-outline', color: '#2F6BFF' },
-  phone: { icon: 'call-outline', color: '#30B36B' },
 };
 
 export function PermissionsWizard({ visible, onDone }: { visible: boolean; onDone: () => void }) {
