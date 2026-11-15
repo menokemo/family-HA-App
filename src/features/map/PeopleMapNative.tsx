@@ -272,11 +272,16 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
   const otherPoints = mePerson ? points.filter(p => p.id !== mePerson.entity_id) : points;
   const meHaLat = mePerson ? num(mePerson.attributes.latitude) : NaN;
   const meHaLng = mePerson ? num(mePerson.attributes.longitude) : NaN;
-  const myCoord: [number, number] | undefined = liveLocation
-    ? [liveLocation.longitude, liveLocation.latitude]
-    : Number.isFinite(meHaLat) && Number.isFinite(meHaLng)
+  // علامتي بتستخدم **إحداثيات HA الصحيحة** (نفس اللي HA بيحسب بيها الحضور وبيعرضها
+  // الخريطة الرسمية) — مش الـ GPS المنفصل بتاع المكتبة (`liveLocation`) اللي بيبوظ
+  // جوّه المباني ويطلّعني بعيد بالرغم إن HA عنده موقعي صح. الـ GPS المنفصل بس كحل
+  // أخير لو HA مفيهوش إحداثيات.
+  const myCoord: [number, number] | undefined =
+    Number.isFinite(meHaLat) && Number.isFinite(meHaLng)
       ? [meHaLng, meHaLat]
-      : undefined;
+      : liveLocation
+        ? [liveLocation.longitude, liveLocation.latitude]
+        : undefined;
 
   // المسار على الطريق (OSRM) من موقعي للفرد المختار - بيتحدّث مع تغيير الاختيار
   // أو وضع المسار أو موقعي. مابيرسمش مسار لنفسي. بيلغي الطلب القديم قبل الجديد.

@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.18.2] — 2026-11-15  (تعديل JS — بييجي من metro) — **الحل الحقيقي لـ"بعيد عن البيت"**
+- **علامة "أنا" كانت بتبان بعيد عن البيت بالرغم إن HA عنده موقعي صح.** الفحص أثبت إن `device_tracker` و`person` الاتنين عندهم الإحداثيات **صح** و`in_zones: home` — يعني المشكلة في **عرض خريطتنا مش في GPS/native**.
+  - **السبب:** علامة "أنا" كانت بتاخد الموقع من **GPS منفصل في التليفون** (مكتبة JS) وبيتغلّب على إحداثيات HA الصحيحة؛ والمكتبة دي بتبوظ جوّه المباني وترجع موقع بعيد.
+  - **الحل:** "أنا" بقت تستخدم **إحداثيات HA** (نفس مصدر الحضور)، والـ GPS المنفصل بس كحل أخير. في النيتف والويب. **JS — من metro، من غير APK.**
+
 ### [2.18.1] — 2026-11-15  (إصلاح NATIVE — محتاج بناء APK)
 - **السبب الجذري الحقيقي لـ"الشخص بعيد عن البيت": فلتر وقت الموقع (من قراءة كود التطبيق الرسمي).** كنا بناخد `result.lastLocation` من fused **من غير فحص وقت**، والـ fused بيرجّع أحيانًا **fix مخبّأ قديم** من ساعة ما الجهاز كان مكان تاني بعيد → الشخص بيبان بعيد. دلوقتي بنطبّق نفس فلاتر التطبيق الرسمي:
   - ارفض الموقع **من المستقبل** (`time > now + 5s`).
@@ -854,6 +859,11 @@
 ---
 
 ## English
+
+### [2.18.2] — 2026-11-15  (JS change — ships via metro) — **the real fix for "far from home"**
+- **The "me" marker showed far from home even though HA had my correct location.** Checking HA showed both `device_tracker` and `person` had **correct** coordinates and `in_zones: home` — so the bug was in **our map display, not GPS/native**.
+  - **Cause:** the "me" marker took its position from a **separate phone GPS** (a JS library) that overrode HA's correct coordinates; that library breaks indoors and returns a far location.
+  - **Fix:** "me" now uses **HA's coordinates** (the same source as presence), with the separate GPS only as a last resort. Native and web. **JS — ships via metro, no APK.**
 
 ### [2.18.1] — 2026-11-15  (NATIVE fix — requires APK build)
 - **The real root cause of "member far from home": location time filtering (from reading the official app's code).** We took `result.lastLocation` from fused **with no time check**, and fused sometimes returns a **stale cached fix** from when the device was elsewhere → member shown far away. Now we apply the same filters the official app uses:

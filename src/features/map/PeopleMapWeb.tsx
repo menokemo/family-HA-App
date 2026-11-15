@@ -316,10 +316,13 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
     });
     return () => stopWatch?.();
   }, []);
-  const myCoord = liveLocation ?? (me ? coord(me) : undefined);
+  // علامتي بإحداثيات HA الصحيحة (اللي بيحسب بيها الحضور) مش الـ GPS المنفصل بتاع
+  // المكتبة اللي بيبوظ جوّه المباني ويطلّعني بعيد. المنفصل بس كحل أخير لو مفيش HA.
+  const meCoord = me ? coord(me) : undefined;
+  const myCoord = meCoord ?? liveLocation;
   useEffect(() => {
-    if (liveLocation) webRef.current?.injectJavaScript(`window.setMe && window.setMe(${liveLocation.longitude},${liveLocation.latitude}); true;`);
-  }, [liveLocation?.latitude, liveLocation?.longitude]);
+    if (myCoord) webRef.current?.injectJavaScript(`window.setMe && window.setMe(${myCoord.longitude},${myCoord.latitude}); true;`);
+  }, [myCoord?.latitude, myCoord?.longitude]);
 
   // ====== طلب الموقع اللايف للشخص المختار (زي Find Hub) ======
   // أول ما تفتح كارت شخص (غير نفسك)، نطلب من موبايله يدخل الوضع اللايف (يبعت
