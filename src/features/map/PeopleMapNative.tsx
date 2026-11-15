@@ -112,6 +112,26 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
     return m;
   }, [people]);
 
+  // مركز كل منطقة بمفتاح حالتها (الاسم/الـ slug بكل الحالات) — عشان نثبّت الفرد
+  // على مركز منطقته وهو جواها بدل GPS الخام المتذبذب (= صفر تشتت في البيت/الشغل،
+  // زي Life360 والتطبيق الرسمي). الخام بيتعرض بس وهو بره المناطق (بيتنقّل فعلًا).
+  const zoneCenterByState = useMemo(() => {
+    const m: Record<string, [number, number]> = {};
+    for (const e of states) {
+      if (!e.entity_id.startsWith('zone.')) continue;
+      const lat = num(e.attributes.latitude);
+      const lng = num(e.attributes.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+      const center: [number, number] = [lng, lat];
+      const slug = e.entity_id.slice('zone.'.length);
+      const fname = String(e.attributes.friendly_name ?? slug);
+      for (const k of [slug, fname, slug.toLowerCase(), fname.toLowerCase()]) m[k] = center;
+    }
+    return m;
+  }, [states]);
+  const zoneCenterOf = (state: string): [number, number] | undefined =>
+    zoneCenterByState[state] ?? zoneCenterByState[state.toLowerCase()];
+
   // الموقع الحي لتليفوني (Fused عبر Play Services) - بنعرض بيه علامة "أنا"
   // الموحّدة مكان ما كانت النقطة الزرقاء، بدل الأفاتار اللي على موقع HA القديم.
   useEffect(() => {
@@ -126,15 +146,18 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
     () =>
       people
         .map((p, i): Point | null => {
-          const lat = num(p.attributes.latitude);
-          const lng = num(p.attributes.longitude);
+          // وهو جوه منطقة: ثبّته على مركزها (موقع مستقر). بره: GPS الخام.
+          const snap = zoneCenterOf(String(p.state ?? ''));
+          const lat = snap ? snap[1] : num(p.attributes.latitude);
+          const lng = snap ? snap[0] : num(p.attributes.longitude);
           if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
           const pic = p.attributes.entity_picture as string | undefined;
           const uri = pic ? (pic.startsWith('http') ? pic : absoluteHaUrl(settings, pic)) : undefined;
           return { id: p.entity_id, name: String(p.attributes.friendly_name ?? p.entity_id), lat, lng, uri, color: colorFor[p.entity_id] ?? PERSON_RING[i % PERSON_RING.length] };
         })
         .filter((p): p is Point => p !== null),
-    [people, settings, colorFor],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [people, settings, colorFor, zoneCenterByState],
   );
 
   // العناوين الحقيقية للأفراد اللي بره المناطق (not_home) - BigDataCloud مع كاش.
@@ -272,11 +295,16 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
   const otherPoints = mePerson ? points.filter(p => p.id !== mePerson.entity_id) : points;
   const meHaLat = mePerson ? num(mePerson.attributes.latitude) : NaN;
   const meHaLng = mePerson ? num(mePerson.attributes.longitude) : NaN;
-  const myCoord: [number, number] | undefined = liveLocation
-    ? [liveLocation.longitude, liveLocation.latitude]
-    : Number.isFinite(meHaLat) && Number.isFinite(meHaLng)
-      ? [meHaLng, meHaLat]
-      : undefined;
+  // وأنا جوه منطقة: علامتي على مركزها (مستقر، مفيش تشتت وأنا في البيت). بره
+  // المناطق: الموقع الحي من تليفوني (أسرع استجابة وأنا بتنقّل)، وإلا موقع HA.
+  const meZoneCenter = mePerson ? zoneCenterOf(String(mePerson.state ?? '')) : undefined;
+  const myCoord: [number, number] | undefined = meZoneCenter
+    ? meZoneCenter
+    : liveLocation
+      ? [liveLocation.longitude, liveLocation.latitude]
+      : Number.isFinite(meHaLat) && Number.isFinite(meHaLng)
+        ? [meHaLng, meHaLat]
+        : undefined;
 
   // المسار على الطريق (OSRM) من موقعي للفرد المختار - بيتحدّث مع تغيير الاختيار
   // أو وضع المسار أو موقعي. مابيرسمش مسار لنفسي. بيلغي الطلب القديم قبل الجديد.

@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.17.6] — 2026-11-15  (تعديل JS — بييجي من metro)
+- **دقة الموقع — المرحلة أ: تثبيت الفرد على مركز منطقته (= صفر تشتت في البيت).**
+  - وهو جوه منطقة (بيت/شغل/أي zone) العلامة بتتعرض على **مركز المنطقة** بدل GPS الخام المتذبذب — فمفيش تنطّط وأنت واقف، زي Life360 والتطبيق الرسمي. بره المناطق (بيتنقّل فعلًا) بيتعرض الموقع الحي الخام.
+  - بينطبق على علامات الأفراد **وعلامتك أنت** (لو جوه منطقة → مركزها؛ بره → الموقع الحي من تليفونك).
+  > المرحلة ب (التأخير بعد الحركة + تضييق الدقة أثناء التنقّل) native — جاية في دفعة APK.
+
 ### [2.17.5] — 2026-11-15  (تعديل JS — بييجي من metro)
 - **تفاصيل الرحلات في التايملاين (المجموعة ٢).** لما تشغّل تايملاين فرد، بيظهر تحت تحديد الفترة **قايمة رحلاته**: كل رحلة بوقت البداية→النهاية، المدة، المسافة، ومتوسط السرعة. الضغط على رحلة بيركّز الخريطة عليها.
   - التقطيع بيفصل رحلة عن اللي بعدها عند **وقفة** = فجوة زمنية ≥ 10 دقايق في نفس المكان (HA بيسجّل نقطة لما الموقع يتغيّر، فالوقوف بيبان كفجوة). التجميعات اللي حركتها < 200م بتتجاهل. دالة `segmentTrips` مع ٤ اختبارات.
@@ -824,6 +830,12 @@
 ---
 
 ## English
+
+### [2.17.6] — 2026-11-15  (JS change — ships via metro)
+- **Location accuracy — Phase A: snap a member to their zone center (= zero scatter at home).**
+  - While inside a zone (home/work/any zone) the marker is shown at the **zone center** instead of jittery raw GPS — no more hopping while standing still, like Life360 / the official app. Outside zones (actually travelling) the live raw location is shown.
+  - Applies to member markers **and your own marker** (in a zone → its center; outside → live location from your phone).
+  > Phase B (lag after moving + tighter accuracy while travelling) is native — coming in an APK batch.
 
 ### [2.17.5] — 2026-11-15  (JS change — ships via metro)
 - **Trip details in the timeline (Group 2).** When you play a member's timeline, a **list of their trips** appears under the range selector: each trip shows start→end time, duration, distance, and average speed. Tapping a trip focuses the map on it.
