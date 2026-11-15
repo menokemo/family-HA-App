@@ -6,6 +6,9 @@
 
 ## العربية
 
+### [2.17.8] — 2026-11-15  (تعديل JS — بييجي من metro)
+- **إصلاح: توزيع المتكدّسين كان بيطلّع بعضهم برّه دايرة المنطقة (شارع تاني).** دلوقتي نصف قطر الحلقة **محصور جوه دايرة المنطقة** (≤ 60% من نصف قطرها الحقيقي)، فكل الأفراد يفضلوا **جوه دايرة البيت** مهما كان عددهم. (بنقرا نصف قطر الـ zone من HA.)
+
 ### [2.17.7] — 2026-11-15  (تعديل JS — بييجي من metro)
 - **إصلاح: بعد تثبيت الأفراد على مركز المنطقة (2.17.6) بقوا فوق بعض ومش كلهم باينين.** دلوقتي الأفراد المتكدّسين على نفس مركز منطقة بيتوزّعوا في **حلقة صغيرة ثابتة** حوالين المركز (بالترتيب، مش عشوائي) فكلهم يبانوا من غير ما يرجع التشتت. نصف القطر بيكبر شوية مع عددهم. (حل كامل بعدد وتوسيع جاي مع ميزة التجميع clustering.)
 
@@ -833,6 +836,9 @@
 ---
 
 ## English
+
+### [2.17.8] — 2026-11-15  (JS change — ships via metro)
+- **Fix: the fan-out pushed some members outside the zone circle (onto another street).** The ring radius is now **clamped inside the zone circle** (≤ 60% of its real radius), so everyone stays **inside the home circle** regardless of count. (Zone radius read from HA.)
 
 ### [2.17.7] — 2026-11-15  (JS change — ships via metro)
 - **Fix: after snapping members to the zone center (2.17.6) they stacked on top of each other and weren't all visible.** Members co-located at the same zone center now fan out on a **small fixed ring** around it (deterministic, not random), so all are visible without the scatter returning. The radius grows slightly with the count. (A full count-bubble solution comes with clustering.)
