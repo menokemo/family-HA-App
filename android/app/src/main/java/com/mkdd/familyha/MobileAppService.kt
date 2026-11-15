@@ -72,6 +72,9 @@ class MobileAppService : Service() {
   private var fastMode = false
   private var liveRevert: Runnable? = null
   private var lastLocation: Location? = null
+  private var pendingLocation: Location? = null // مرشّح قفزة مستنّي تأكيد بتحديث تاني
+  private var movingMode = false // تحديث سريع تلقائي طول ما الجهاز بيتحرك
+  private var movingRevert: Runnable? = null
 
   private fun hasLocationPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -216,9 +219,12 @@ class MobileAppService : Service() {
       // الرسمي، فبيدي موقع مظبوط وإحنا في البيت.
       // الوضع اللايف (fastMode): تحديث كل ~10 ثواني لما فرد بيتفرّج على موقعي؛
       // الوضع العادي: كل دقيقتين لتوفير البطارية.
-      val interval = if (fastMode) FAST_INTERVAL_MS else LOCATION_INTERVAL_MS
-      val fastest = if (fastMode) FAST_FASTEST_MS else NORMAL_FASTEST_MS
-      val distance = if (fastMode) 0f else LOCATION_DISTANCE_M
+      // سريع لو فرد بيتفرّج (fastMode) أو الجهاز نفسه بيتحرك (movingMode) — عشان
+      // مايبقاش فيه تأخير بعد ما أتحرك. عادي (كل دقيقتين) وهو ثابت لتوفير البطارية.
+      val useFast = fastMode || movingMode
+      val interval = if (useFast) FAST_INTERVAL_MS else LOCATION_INTERVAL_MS
+      val fastest = if (useFast) FAST_FASTEST_MS else NORMAL_FASTEST_MS
+      val distance = if (useFast) 0f else LOCATION_DISTANCE_M
       val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, interval)
         .setMinUpdateDistanceMeters(distance)
         .setMinUpdateIntervalMillis(fastest)
@@ -345,14 +351,61 @@ class MobileAppService : Service() {
     }
 
   private fun handleLocation(loc: Location) {
+    // (أ) فلتر الدقة: ارفض أي قراية دقتها أسوأ من الحد (دايرة واسعة = غير موثوقة).
     if (loc.hasAccuracy() && loc.accuracy > MAX_ACCURACY_M) return
+
+    // حركة حقيقية بتتحدّد من سرعة الـ GPS (دوبلر) — موثوقة أكتر من فرق الموقع.
+    val movingBySpeed = loc.hasSpeed() && loc.speed >= MOVING_SPEED_MS
+    if (movingBySpeed) onMovementDetected() // سرّع التحديث طول ما بيتحرك
+
     val last = lastLocation
-    if (last != null) {
-      val moved = last.distanceTo(loc)
-      val noise = maxOf(loc.accuracy, if (last.hasAccuracy()) last.accuracy else 0f)
-      if (moved < maxOf(noise, MIN_REPORT_MOVE_M)) return
+    if (last == null) {
+      sendLocation(loc)
+      return
     }
-    sendLocation(loc)
+
+    // (ج) وهو بيتحرك فعلًا → ابعت فورًا من غير عتبة ولا تأخير (مفيش lag).
+    if (movingBySpeed) {
+      pendingLocation = null
+      sendLocation(loc)
+      return
+    }
+
+    // (ب) ثابت/تشتت ضمن العتبة → تجاهل تمامًا (= صفر تنطّط وأنا واقف).
+    val moved = last.distanceTo(loc)
+    val noise = maxOf(loc.accuracy, if (last.hasAccuracy()) last.accuracy else 0f)
+    if (moved < maxOf(noise, MIN_REPORT_MOVE_M)) {
+      pendingLocation = null
+      return
+    }
+
+    // قفزة وإحنا "ثابتين" (سرعة ~0): ممكن تكون قفزة شاذة (WiFi/برج). مانقبلهاش إلا
+    // لما ييجي تحديث تاني قريب من نفس المكان الجديد (تأكيد بقرايتين) — فالقفزة
+    // الفردية بترجع لمكانها بتتجاهل.
+    val pending = pendingLocation
+    if (pending != null && pending.distanceTo(loc) < CONFIRM_RADIUS_M) {
+      pendingLocation = null
+      sendLocation(loc)
+    } else {
+      pendingLocation = loc
+    }
+  }
+
+  // اتكشفت حركة (سرعة) → شغّل الوضع السريع وأعد ضبط مؤقّت الرجوع. بعد فترة سكون
+  // (من غير حركة) بيرجع للوضع العادي تلقائيًا لتوفير البطارية.
+  private fun onMovementDetected() {
+    movingRevert?.let { handler.removeCallbacks(it) }
+    if (!movingMode) {
+      movingMode = true
+      if (!fastMode) restartLocationUpdates()
+    }
+    val revert = Runnable {
+      movingMode = false
+      movingRevert = null
+      if (!fastMode) restartLocationUpdates()
+    }
+    movingRevert = revert
+    handler.postDelayed(revert, MOVING_REVERT_MS)
   }
 
   // بيحسب اسم المنطقة الحالية من الموقع + المناطق المخزّنة، مع hysteresis زي منطق
@@ -385,11 +438,35 @@ class MobileAppService : Service() {
     // بدل ما تحسبها محليًا (حساب غلط). HA بيستقبلها كعدد صحيح موجب.
     if (location.hasSpeed() && location.speed >= 0f) data.put("speed", location.speed.toInt())
     if (location.hasBearing()) data.put("course", location.bearing.toInt())
-    // نرفق location_name (محسوب محليًا بـ hysteresis) عشان HA ياخد الحالة منّنا
-    // مش من حساب GPS الخام (= صفر تذبذب)، مع الإبقاء على الإحداثيات (الشخص يفضل
-    // ظاهر على الخريطة).
-    computeZoneName(location)?.let { data.put("location_name", it) }
+    // نرفق location_name عشان HA ياخد الحالة منّنا مش من حساب GPS الخام (= صفر
+    // تذبذب)، مع الإبقاء على الإحداثيات (الشخص يفضل ظاهر على الخريطة).
+    effectiveZoneName(location)?.let { data.put("location_name", it) }
     post(JSONObject().put("type", "update_location").put("data", data))
+  }
+
+  // اسم المنطقة الفعلي = قفل البيت بالـ WiFi فوق حساب GPS. المجتمع والتطبيق الرسمي
+  // بينصحوا باستخدام شبكة WiFi كإشارة "في البيت" لأنها مستقلة عن تذبذب GPS:
+  // - بنتعلّم SSID البيت تلقائيًا وإحنا مؤكّدين في البيت بالـ GPS.
+  // - بعدها لو متّصلين بنفس الشبكة → الحالة "home" ثابتة مهما اتذبذب الـ GPS.
+  private fun effectiveZoneName(loc: Location): String? {
+    val prefs = getSharedPreferences("mobile_app", Context.MODE_PRIVATE)
+    val zones = GeoZones.parse(prefs.getString("zones", "") ?: "")
+    if (zones.isEmpty()) return null
+    // تعلّم واي فاي البيت: وانت مؤكّد في البيت بالـ GPS، خزّن SSID الحالي.
+    val gpsHome = GeoZones.smallestContaining(zones, loc.latitude, loc.longitude)?.name == "home"
+    if (gpsHome) {
+      val ssid = wifiSsid()
+      if (ssid.isNotEmpty() && ssid != "Not connected" && ssid != "unknown") {
+        prefs.edit().putString("home_wifi_ssid", ssid).apply()
+      }
+    }
+    // قفل البيت بالواي فاي: متّصل بشبكة البيت المتعلَّمة → "home" ثابتة.
+    val homeSsid = prefs.getString("home_wifi_ssid", "") ?: ""
+    if (homeSsid.isNotEmpty() && wifiSsid() == homeSsid) {
+      prefs.edit().putString("current_zone", "home").apply()
+      return "home"
+    }
+    return computeZoneName(loc)
   }
 
   private fun registerSensors() {
@@ -643,6 +720,7 @@ class MobileAppService : Service() {
     super.onDestroy()
     ticker?.let { handler.removeCallbacks(it) }
     liveRevert?.let { handler.removeCallbacks(it) }
+    movingRevert?.let { handler.removeCallbacks(it) }
     try {
       fusedClient.removeLocationUpdates(locationCallback)
     } catch (e: Exception) {
@@ -672,6 +750,9 @@ class MobileAppService : Service() {
     private const val LOCATION_DISTANCE_M = 40f
     private const val MAX_ACCURACY_M = 65f
     private const val MIN_REPORT_MOVE_M = 30f
+    private const val MOVING_SPEED_MS = 1.4f // ≥ ~5 km/h = بيتحرك فعلًا (سرعة دوبلر)
+    private const val CONFIRM_RADIUS_M = 50f // تحديثين ضمنها = تأكيد نفس المكان الجديد
+    private const val MOVING_REVERT_MS = 180000L // 3 دقايق سكون → رجوع للوضع العادي
     private const val SENSOR_INTERVAL_MS = 900000L
     private const val ACTIVITY_INTERVAL_MS = 120000L
   }

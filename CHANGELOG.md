@@ -6,6 +6,14 @@
 
 ## العربية
 
+### [2.18.0] — 2026-11-15  (إصلاح NATIVE — محتاج بناء APK)
+- **الحل الجذري لدقة الموقع (مبني على بحث، مش ترقيع عرض).** كله في الخدمة النيتف:
+  - **مرجع الحركة = سرعة الـ GPS (دوبلر):** بيتحرك فعلًا (≥1.4م/ث) → ابعت فورًا (مفيش تأخير). ثابت → فلترة.
+  - **deadband:** وهو ثابت أي قراية ضمن العتبة (الدقة أو 30م) تتجاهل تمامًا = **صفر تنطّط وانت واقف**.
+  - **تأكيد بقرايتين:** القفزة الشاذة (WiFi/برج) ماتتقبلش إلا لو تحديث تاني أكّد نفس المكان (ضمن 50م) → القفزة الفردية بتترفض.
+  - **قفل البيت بالـ WiFi:** بيتعلّم شبكة البيت تلقائيًا وانت مؤكّد في البيت، وبعدها طول ما متّصل بيها → الحالة **"home" ثابتة** مهما اتذبذب GPS.
+  - **تسريع تلقائي مع الحركة:** التحديث بيبقى سريع لما تتحرك ويرجع عادي بعد 3 دقايق سكون → بيحل التأخير بعد الحركة. versionCode 108.
+
 ### [2.17.9] — 2026-11-15  (تعديل JS — بييجي من metro)
 - **تراجع كامل عن أسلوب "تثبيت الفرد على مركز المنطقة" (2.17.6→2.17.8).** الأسلوب ده طلع ترقيع وجاب مشاكل متتالية (تكدّس → خروج برّه الدايرة → الفرد بعيد عن البيت). رجعنا لعرض **الموقع الحقيقي** للفرد زي ما كان في 2.17.5 (حالة ثابتة ومعروفة). الحل الجذري الصح لتشتت الموقع هيتعمل بأسلوب تاني (hold/deadband أو فلترة عند المصدر native) بعد الاتفاق عليه.
 
@@ -839,6 +847,14 @@
 ---
 
 ## English
+
+### [2.18.0] — 2026-11-15  (NATIVE fix — requires APK build)
+- **Root fix for location accuracy (research-based, not a display patch).** All in the native service:
+  - **Movement truth = GPS Doppler speed:** actually moving (≥1.4 m/s) → send immediately (no lag). Stationary → filter.
+  - **Deadband:** while stationary, any reading within the threshold (accuracy or 30 m) is ignored entirely = **zero hopping while standing still**.
+  - **Two-reading confirmation:** an outlier jump (WiFi/tower) is accepted only if a second reading confirms the new place (within 50 m) → lone spurious jumps are rejected.
+  - **WiFi home lock:** the home network SSID is auto-learned while confirmed home, then whenever connected to it the state stays a **stable "home"** regardless of GPS drift.
+  - **Auto speed-up while moving:** updates go fast when you move and revert to normal after 3 min of stillness → fixes lag after moving. versionCode 108.
 
 ### [2.17.9] — 2026-11-15  (JS change — ships via metro)
 - **Reverted the "snap member to zone center" approach entirely (2.17.6→2.17.8).** It turned out to be a patch that caused a chain of problems (stacking → landing outside the circle → member far from home). Back to showing the member's **real location** as in 2.17.5 (a known-good, stable state). The proper root fix for location scatter will be done differently (a hold/deadband filter, or filtering at the native source) once agreed.
