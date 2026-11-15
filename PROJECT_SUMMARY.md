@@ -2,7 +2,7 @@
 
 *[English below Arabic / الإنجليزية أسفل العربية]*
 
-آخر تحديث: 2026-11-14 · Last updated: 2026-11-14
+آخر تحديث: 2026-11-15 · Last updated: 2026-11-15
 
 ---
 
@@ -389,6 +389,41 @@ geofencing + إرسال speed/battery الموثوق، أرقام ومباني �
 - كشف الحوادث + تقييم سلوك القيادة (فرملة/تسارع/سرعة) — معالجة حسّاسات ثقيلة.
 - SOS بإرسال طوارئ حقيقي/مساعدة على الطريق/حماية هوية — خدمات Life360 مش ميزات
   موقع. (لكن **SOS يبلّغ العيلة بموقعك** واقعي ونقدر نعمله.)
+
+### مستشعرات الموبايل (mobile_app) — الموجود والناقص
+الخدمة النيتف `MobileAppService` بتسجّل المستشعرات دي في HA وبتحدّثها كل 15 دقيقة،
+بالإضافة لتحديث **لحظي** عند الأحداث (بلوتوث/قفل الشاشة/مكالمة/منبّه) بتجميع 1.5ث:
+
+**البطارية والجهاز (من 2.16.x):** `battery_level` · `battery_state` · `is_charging` ·
+`charger_type` · `battery_health` · `battery_temperature` · `storage_free` ·
+`screen_on` (= `is_interactive` عند الرسمي) · `app_version` · `last_update`.
+
+**الشبكة:** `network_type` · `wifi_connection` · `wifi_bssid` · `wifi_signal_strength`.
+
+**الصوت والموقع:** `ringer_mode` · `do_not_disturb` · `detected_activity` ·
+`geocoded_location`.
+
+**اتضافوا في 2.20.0:** `bluetooth_state` · `bluetooth_connection` (عدد المتصلين +
+أسماء الأجهزة في الـ attributes بنفس مفاتيح الرسمي) · `phone_state` ·
+`device_locked` · `next_alarm` · `mobile_data` · `sim_1_signal_strength`. القراية في
+`BluetoothHelper.kt` بنفس أسلوب `BluetoothUtils.kt` الرسمي. أهم استخدام عملي
+لمستشعر البلوتوث: **سياق الحضور** — سماعة العربية متصلة = بيسوق، سماعة البيت
+متصلة = جوّه، وده بيكمّل الـ GPS من غير أي تكلفة بطارية إضافية.
+
+**⏳ دفعة البيكونات (لسه — محتاجة مفتاح في الإعدادات الأول):**
+- `beacon_monitor` — مسح BLE لرصد بيكونات iBeacon واستنتاج **الغرفة** (حضور داخل
+  البيت بدقة أعلى من GPS). الفكرة: مسح دوري (مش مستمر) وترتيب البيكونات بالـ RSSI،
+  ونبعت أقرب بيكون + المسافة المقدّرة.
+- `ble_emitter` — الموبايل نفسه يبث كـ iBeacon (UUID/major/minor) عشان أجهزة تانية
+  (ESPHome/Room Assistant) ترصده.
+- **ليه مؤجّلين:** الاتنين محتاجين مسح/بث BLE مستمر = استهلاك بطارية حقيقي، وأذونات
+  `BLUETOOTH_SCAN`/`BLUETOOTH_ADVERTISE`، وإعدادات (UUID وmajor/minor وفترة المسح).
+  فلازم يبقى ليهم **مفتاح تشغيل + شاشة إعدادات** قبل ما يتشغّلوا، مش يشتغلوا افتراضيًا.
+
+**مستشعرات الرسمي اللي قرّرنا مانعملهاش:** مستشعرات الحسّاسات الخام
+(accelerometer/gyroscope/pressure/light/proximity) — معدّل تحديثها عالي جدًا وبتغرّق
+HA ببيانات مالهاش استخدام في تطبيق عائلي. `sim_2` و`sim_2_signal_strength` —
+نضيفهم لو حد في العيلة بيستخدم خطين.
 
 ### تبعة مفتوحة — الأفراد غير الأدمن مش بيستقبلوا الأحداث المخصّصة (من 2.17.4)
 Home Assistant بيسمح لغير الأدمن بالاشتراك في `state_changed` **بس**؛ أي اشتراك

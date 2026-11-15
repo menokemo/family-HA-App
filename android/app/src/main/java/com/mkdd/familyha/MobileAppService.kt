@@ -1,10 +1,14 @@
 package com.mkdd.familyha
 
+import android.app.AlarmManager
+import android.app.KeyguardManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.bluetooth.BluetoothAdapter
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -24,6 +28,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.os.StatFs
+import android.telephony.TelephonyManager
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.ActivityRecognition
@@ -76,6 +81,10 @@ class MobileAppService : Service() {
   private var lastLocationSendMs = 0L
   private var lastUpdateLocationStr: String? = null
   private var accurateInFlight = false
+  // حالة المكالمة بتوصلنا من الـ broadcast (أدق من القراية الدورية لأنها لحظية).
+  private var phoneState = "idle"
+  private var stateReceiver: BroadcastReceiver? = null
+  private var stateDebounce: Runnable? = null
 
   private fun hasLocationPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -284,6 +293,7 @@ class MobileAppService : Service() {
   }
 
   private fun startTicker() {
+    registerStateReceiver()
     ticker?.let { handler.removeCallbacks(it) }
     val runnable = object : Runnable {
       override fun run() {
@@ -463,6 +473,15 @@ class MobileAppService : Service() {
     registerSensor("ringer_mode", "Ringer Mode", ringerMode(), null, null, "mdi:volume-high")
     registerSensor("do_not_disturb", "Do Not Disturb", if (dndOn()) "on" else "off", null, null, "mdi:moon-waning-crescent", type = "binary_sensor")
     registerSensor("screen_on", "Screen On", if (screenOn()) "on" else "off", null, null, "mdi:cellphone", type = "binary_sensor")
+    // بلوتوث: الحالة + عدد الأجهزة المتصلة (بأسماء الأجهزة في الـ attributes).
+    // مفيدة للحضور في البيت/العربية (مثلاً اتصال بسماعة العربية = بيسوق).
+    registerSensor("bluetooth_state", "Bluetooth State", if (BluetoothHelper.isOn(this)) "on" else "off", null, null, "mdi:bluetooth", type = "binary_sensor", entityCategory = "diagnostic")
+    registerSensor("bluetooth_connection", "Bluetooth Connection", "0", null, "connection(s)", "mdi:bluetooth-connect", stateClass = "measurement")
+    registerSensor("phone_state", "Phone State", phoneState, null, null, "mdi:phone")
+    registerSensor("device_locked", "Device Locked", if (deviceLocked()) "on" else "off", null, null, "mdi:cellphone-lock", type = "binary_sensor", entityCategory = "diagnostic")
+    registerSensor("next_alarm", "Next Alarm", nextAlarmUtc(), "timestamp", null, "mdi:alarm")
+    registerSensor("mobile_data", "Mobile Data", if (mobileDataEnabled()) "on" else "off", null, null, "mdi:signal", type = "binary_sensor", entityCategory = "diagnostic")
+    registerSensor("sim_1_signal_strength", "SIM 1 Signal Strength", simSignalDbm().toString(), "signal_strength", "dBm", "mdi:signal-cellular-3", stateClass = "measurement")
   }
 
   private fun registerSensor(
@@ -474,6 +493,7 @@ class MobileAppService : Service() {
     icon: String,
     type: String = "sensor",
     stateClass: String? = null,
+    entityCategory: String? = null,
   ) {
     val data = JSONObject()
       .put("unique_id", uniqueId)
@@ -484,11 +504,20 @@ class MobileAppService : Service() {
     if (deviceClass != null) data.put("device_class", deviceClass)
     if (unit != null) data.put("unit_of_measurement", unit)
     if (stateClass != null) data.put("state_class", stateClass)
+    if (entityCategory != null) data.put("entity_category", entityCategory)
     post(JSONObject().put("type", "register_sensor").put("data", data))
   }
 
-  private fun sensorState(uniqueId: String, state: Any, icon: String): JSONObject =
-    JSONObject().put("unique_id", uniqueId).put("state", state).put("icon", icon)
+  private fun sensorState(
+    uniqueId: String,
+    state: Any,
+    icon: String,
+    attributes: JSONObject? = null,
+  ): JSONObject {
+    val o = JSONObject().put("unique_id", uniqueId).put("state", state).put("icon", icon)
+    if (attributes != null) o.put("attributes", attributes)
+    return o
+  }
 
   private fun updateSensors() {
     val states = JSONArray()
@@ -507,6 +536,13 @@ class MobileAppService : Service() {
       .put(sensorState("ringer_mode", ringerMode(), "mdi:volume-high"))
       .put(sensorState("do_not_disturb", if (dndOn()) "on" else "off", "mdi:moon-waning-crescent"))
       .put(sensorState("screen_on", if (screenOn()) "on" else "off", "mdi:cellphone"))
+      .put(sensorState("bluetooth_state", if (BluetoothHelper.isOn(this)) "on" else "off", if (BluetoothHelper.isOn(this)) "mdi:bluetooth" else "mdi:bluetooth-off"))
+      .put(bluetoothConnectionState())
+      .put(sensorState("phone_state", phoneState, if (phoneState == "idle") "mdi:phone" else "mdi:phone-in-talk"))
+      .put(sensorState("device_locked", if (deviceLocked()) "on" else "off", "mdi:cellphone-lock"))
+      .put(nextAlarmState())
+      .put(sensorState("mobile_data", if (mobileDataEnabled()) "on" else "off", "mdi:signal"))
+      .put(sensorState("sim_1_signal_strength", simSignalDbm(), "mdi:signal-cellular-3"))
     post(JSONObject().put("type", "update_sensor_states").put("data", states))
     // الموقع الجغرافي (reverse geocoding) بيحتاج شبكة — بنعمله في ثريد منفصل
     // عشان مانعملش network على الـ main thread، وبنبعته لوحده لما يجهز.
@@ -667,6 +703,131 @@ class MobileAppService : Service() {
     }
   }
 
+  // عدد الأجهزة المتصلة + أسماء المقترنة/المتصلة في الـ attributes، بنفس
+  // مفاتيح التطبيق الرسمي عشان أي أتوميشن جاهزة تشتغل زي ما هي.
+  private fun bluetoothConnectionState(): JSONObject {
+    val devices = BluetoothHelper.devices(this)
+    val attrs = JSONObject()
+      .put("connected_paired_devices", JSONArray(devices.filter { it.paired && it.connected }.map { BluetoothHelper.label(it) }))
+      .put("connected_not_paired_devices", JSONArray(devices.filter { !it.paired && it.connected }.map { BluetoothHelper.label(it) }))
+      .put("paired_devices", JSONArray(devices.filter { it.paired }.map { BluetoothHelper.label(it) }))
+    val connected = devices.count { it.connected }
+    return sensorState("bluetooth_connection", connected, "mdi:bluetooth-connect", attrs)
+  }
+
+  private fun deviceLocked(): Boolean {
+    return try {
+      val km = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+      km.isDeviceLocked
+    } catch (e: Exception) {
+      false
+    }
+  }
+
+  private fun nextAlarmInfo(): AlarmManager.AlarmClockInfo? {
+    return try {
+      (getSystemService(Context.ALARM_SERVICE) as AlarmManager).nextAlarmClock
+    } catch (e: Exception) {
+      null
+    }
+  }
+
+  private fun nextAlarmUtc(): String {
+    val info = nextAlarmInfo() ?: return "unavailable"
+    val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+    sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
+    return sdf.format(Date(info.triggerTime))
+  }
+
+  private fun nextAlarmState(): JSONObject {
+    val info = nextAlarmInfo()
+    val attrs = JSONObject()
+      .put("Time in Milliseconds", info?.triggerTime ?: 0L)
+      .put("Package", info?.showIntent?.creatorPackage ?: "unknown")
+    if (info != null) attrs.put("Local Time", Date(info.triggerTime).toString())
+    return sensorState("next_alarm", nextAlarmUtc(), "mdi:alarm", attrs)
+  }
+
+  private fun telephony(): TelephonyManager? = try {
+    getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
+  } catch (e: Exception) {
+    null
+  }
+
+  private fun mobileDataEnabled(): Boolean {
+    return try {
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+      telephony()?.isDataEnabled == true
+    } catch (e: Exception) {
+      false
+    }
+  }
+
+  // قوة شبكة الموبايل بالـ dBm. محتاجة READ_PHONE_STATE على أندرويد 12+،
+  // فلو الإذن مش ممنوح بنرجّع 0 بدل ما نكسر باقي التحديث.
+  private fun simSignalDbm(): Int {
+    return try {
+      // getSignalStrength من API 28 لكن getCellSignalStrengths من API 29.
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return 0
+      telephony()?.signalStrength?.cellSignalStrengths?.firstOrNull()?.dbm ?: 0
+    } catch (e: Exception) {
+      0
+    }
+  }
+
+  private fun readPhoneState(): String {
+    return try {
+      when (telephony()?.callState) {
+        TelephonyManager.CALL_STATE_RINGING -> "ringing"
+        TelephonyManager.CALL_STATE_OFFHOOK -> "offhook"
+        else -> "idle"
+      }
+    } catch (e: Exception) {
+      "idle"
+    }
+  }
+
+  // أحداث فورية: بلوتوث (فتح/قفل واتصال/فصل جهاز)، قفل الشاشة، المنبّه الجاي،
+  // وحالة المكالمة. بننتظر شويّة قبل الإرسال عشان الحدث الواحد مايعملش كذا
+  // إرسال (مثلاً سماعة بتتصل على كذا بروفايل في نفس اللحظة).
+  private fun registerStateReceiver() {
+    if (stateReceiver != null) return
+    val filter = IntentFilter().apply {
+      addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
+      addAction("android.bluetooth.device.action.ACL_CONNECTED")
+      addAction("android.bluetooth.device.action.ACL_DISCONNECTED")
+      addAction(AlarmManager.ACTION_NEXT_ALARM_CLOCK_CHANGED)
+      addAction(TelephonyManager.ACTION_PHONE_STATE_CHANGED)
+      addAction(Intent.ACTION_SCREEN_OFF)
+      addAction(Intent.ACTION_USER_PRESENT)
+    }
+    val receiver = object : BroadcastReceiver() {
+      override fun onReceive(context: Context?, intent: Intent?) {
+        if (intent?.action == TelephonyManager.ACTION_PHONE_STATE_CHANGED) {
+          phoneState = when (intent.getStringExtra(TelephonyManager.EXTRA_STATE)) {
+            TelephonyManager.EXTRA_STATE_RINGING -> "ringing"
+            TelephonyManager.EXTRA_STATE_OFFHOOK -> "offhook"
+            else -> "idle"
+          }
+        }
+        stateDebounce?.let { handler.removeCallbacks(it) }
+        val run = Runnable { updateSensors() }
+        stateDebounce = run
+        handler.postDelayed(run, STATE_DEBOUNCE_MS)
+      }
+    }
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        registerReceiver(receiver, filter, RECEIVER_NOT_EXPORTED)
+      } else {
+        registerReceiver(receiver, filter)
+      }
+      stateReceiver = receiver
+      phoneState = readPhoneState()
+    } catch (e: Exception) {
+    }
+  }
+
   private fun screenOn(): Boolean {
     return try {
       val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -691,6 +852,14 @@ class MobileAppService : Service() {
     super.onDestroy()
     ticker?.let { handler.removeCallbacks(it) }
     liveRevert?.let { handler.removeCallbacks(it) }
+    stateDebounce?.let { handler.removeCallbacks(it) }
+    stateReceiver?.let {
+      try {
+        unregisterReceiver(it)
+      } catch (e: Exception) {
+      }
+    }
+    stateReceiver = null
     try {
       fusedClient.removeLocationUpdates(locationCallback)
     } catch (e: Exception) {
@@ -730,5 +899,7 @@ class MobileAppService : Service() {
     private const val LIVE_TTL_MS = 120000L
     private const val SENSOR_INTERVAL_MS = 900000L
     private const val ACTIVITY_INTERVAL_MS = 120000L
+    // تجميع الأحداث اللحظية (بلوتوث/قفل/مكالمة) في إرسال واحد.
+    private const val STATE_DEBOUNCE_MS = 1500L
   }
 }

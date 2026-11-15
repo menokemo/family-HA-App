@@ -6,6 +6,21 @@
 
 ## العربية
 
+### [2.20.0] — 2026-11-15  (NATIVE + JS — محتاج بناء APK) — **مستشعرات جديدة: البلوتوث والأجهزة القريبة**
+سبع مستشعرات جديدة بتتسجّل في Home Assistant زي التطبيق الرسمي، كلها في `MobileAppService`:
+- **`bluetooth_connection`** — عدد الأجهزة المتصلة، ومعاها في الـ attributes أسماء الأجهزة: `connected_paired_devices` و`connected_not_paired_devices` و`paired_devices` (نفس مفاتيح التطبيق الرسمي عشان أي أتوميشن جاهزة تشتغل زي ما هي). أهم استخدام: سماعة/راديو العربية بيتصل = الشخص بيسوق، وسماعة البيت متصلة = جوّه.
+- **`bluetooth_state`** — البلوتوث مفتوح ولا مقفول.
+- **`phone_state`** — `idle` / `ringing` / `offhook` (في مكالمة).
+- **`device_locked`** — الموبايل مقفول ولا لأ.
+- **`next_alarm`** — وقت المنبّه الجاي (timestamp) مع التطبيق اللي حاططه في الـ attributes.
+- **`mobile_data`** — بيانات الموبايل مفتوحة ولا لأ.
+- **`sim_1_signal_strength`** — قوة شبكة الموبايل بالـ dBm.
+- **ملف جديد `BluetoothHelper.kt`** — بيقرأ الأجهزة بنفس أسلوب `BluetoothUtils.kt` الرسمي: الأجهزة المقترنة من الـ adapter + المتصلين على بروفايل GATT من الـ BluetoothManager، والاتحاد بينهم. حالة الاتصال بتتقرأ بـ reflection لميثود `isConnected` المخفية (زي الرسمي بالظبط) بس بترجّع `false` لو فشلت بدل ما ترمي استثناء، عشان جهاز واحد غريب مايوقّفش قراية الباقي.
+- **تحديث لحظي بدل انتظار الدورة:** بقى في مستقبل أحداث للبلوتوث (فتح/قفل، اتصال/فصل جهاز) وقفل الشاشة والمنبّه الجاي وحالة المكالمة، مع **تجميع 1.5 ثانية** عشان الحدث الواحد مايعملش كذا إرسال (السماعة بتتصل على كذا بروفايل في نفس اللحظة).
+- **أذونات جديدة:** `BLUETOOTH_CONNECT` (أندرويد 12+) و`READ_PHONE_STATE`، واتضافوا للمعالج (wizard) الأذونات بأسمائهم وشرحهم بالثلاث لغات. لو الإذن مش ممنوح المستشعر بيرجّع قيمة فاضية بدل ما يكسّر باقي التحديث.
+- **اتشالت لوحة التشخيص المؤقتة** من الخريطة بعد ما قاست السبب ووصلنا لحل 2.19.0.
+- **لسه جاي (دفعة 2):** `beacon_monitor` و`ble_emitter` — رصد البيكونات لتحديد الغرفة. محتاجين مسح BLE مستمر، فلازم يبقى ليهم مفتاح تشغيل في الإعدادات الأول عشان مايأكلوش بطارية. versionCode 112.
+
 ### [2.19.0] — 2026-11-15  (NATIVE + JS — محتاج بناء APK) — **مطابقة التطبيق الرسمي**
 بعد فحص كود `home-assistant/android` و`home-assistant/core` و`home-assistant/frontend`،
 اتعدّلت الخدمة والخريطة تطابق الرسمي بدل اجتهادات محلية كانت بتجمّد الموقع.
@@ -876,6 +891,21 @@
 ---
 
 ## English
+
+### [2.20.0] — 2026-11-15  (NATIVE + JS — requires APK build) — **new sensors: Bluetooth & nearby devices**
+Seven new sensors registered in Home Assistant, mirroring the official app, all in `MobileAppService`:
+- **`bluetooth_connection`** — number of connected devices, with device names in the attributes: `connected_paired_devices`, `connected_not_paired_devices`, `paired_devices` (same keys as the official app, so existing automations work unchanged). Main use: car audio connected = driving; home speaker connected = indoors.
+- **`bluetooth_state`** — Bluetooth on or off.
+- **`phone_state`** — `idle` / `ringing` / `offhook`.
+- **`device_locked`** — phone locked or not.
+- **`next_alarm`** — next alarm time (timestamp), with the scheduling package in the attributes.
+- **`mobile_data`** — mobile data enabled or not.
+- **`sim_1_signal_strength`** — cellular signal in dBm.
+- **New file `BluetoothHelper.kt`** — reads devices the same way the official `BluetoothUtils.kt` does: bonded devices from the adapter plus GATT-profile connections from the BluetoothManager, unioned. Connection state is read through reflection on the hidden `isConnected` method (exactly as the official app does), except it returns `false` on failure instead of throwing, so one odd device can't stop the rest being read.
+- **Event-driven updates instead of waiting for the tick:** a receiver now listens for Bluetooth (on/off, device connect/disconnect), screen lock, next alarm and call state, with a **1.5 s debounce** so one event doesn't cause several sends (a headset connects on several profiles at once).
+- **New permissions:** `BLUETOOTH_CONNECT` (Android 12+) and `READ_PHONE_STATE`, added to the permissions wizard with names and descriptions in all three languages. Without the permission the sensor reports an empty value rather than breaking the rest of the update.
+- **Removed the temporary debug overlay** from the map now that it has served its purpose and 2.19.0 is confirmed.
+- **Still to come (batch 2):** `beacon_monitor` and `ble_emitter` — beacon detection for room-level presence. These need continuous BLE scanning, so they need their own settings toggle first to avoid draining the battery. versionCode 112.
 
 ### [2.19.0] — 2026-11-15  (NATIVE + JS — requires APK build) — **parity with the official app**
 After reading `home-assistant/android`, `home-assistant/core` and `home-assistant/frontend`, the service and the map now match the official app instead of local heuristics that froze the location.
