@@ -61,7 +61,15 @@ export class HomeAssistantSocket {
       else if (event.event_type.startsWith('alarmo_')) this.onAlarmoEvent({ eventType: event.event_type as AlarmoEvent['eventType'], data:event.data ?? {}, timeFired:event.time_fired });
     }
   }
-  private async subscribe(eventType: string): Promise<void> { await this.command({ type:'subscribe_events', event_type:eventType }); }
+  private async subscribe(eventType: string): Promise<void> {
+    // مانسيبش رفض الاشتراك يتسرّب كـ unhandled rejection (red box)؛ ونسجّل نوع
+    // الحدث اللي فشل للتشخيص. الاشتراكات دي بتتبعت fire-and-forget من handle().
+    try {
+      await this.command({ type: 'subscribe_events', event_type: eventType });
+    } catch (e) {
+      console.warn('[HA] subscribe failed:', eventType, e instanceof Error ? e.message : e);
+    }
+  }
   command(payload: Record<string, unknown>): Promise<unknown> {
     return new Promise((resolve,reject) => {
       if (!this.socket || this.socket.readyState !== WebSocket.OPEN) { reject(new Error('WebSocket is not connected')); return; }

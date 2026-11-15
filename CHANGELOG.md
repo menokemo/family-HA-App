@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.17.4] — 2026-11-15  (تعديل JS — بييجي من metro)
+- **تشخيص + إصلاح جزئي لأخطاء "Unauthorized" (unhandled promise rejections) اللي بتطلع كـ red boxes.**
+  - رسالة أي خطأ من HA REST بقت تتضمّن **الـ method + الـ endpoint** (مثال: `Unauthorized · GET /api/...`) عشان يبان النداء المصدر بالظبط بدل "Unauthorized" مجرّدة.
+  - اشتراكات الأحداث في الاتصال المباشر (`socket.ts`) كانت بتتبعت **fire-and-forget** (`void`)، فأي رفض منها كان بيتسرّب كـ red box. دلوقتي بيتمسك ويتسجّل أنهي اشتراك فشل.
+  > خطوة قياس عشان نحدّد مصدر الـ 401 بدقة قبل الحل الجذري النهائي.
+
 ### [2.17.3] — 2026-11-15  (إصلاح NATIVE — محتاج بناء APK)
 - **الحل الجذري لسيل الإشعارات المكرّرة "mena left Home" (٣٠ إشعار في نفس الثانية) وانت في البيت.**
   - **السبب:** `AlarmMonitorService` كان بيفتح WebSocket جديد لـ HA (مشترك في `state_changed`) **من غير ما يقفل القديم** في كل `onStartCommand` (اللي بيتنده كل تحديث إعدادات + `START_STICKY`). فالاشتراكات بتتراكم، وتغيير منطقة **واحد** بيتعالج مرّة لكل اتصال متراكم → سيل إشعارات متطابقة. (مش GPS ولا HA — HA بياناته صح والموقع ثابت.)
@@ -814,6 +820,12 @@
 ---
 
 ## English
+
+### [2.17.4] — 2026-11-15  (JS change — ships via metro)
+- **Diagnosis + partial fix for the "Unauthorized" unhandled-promise-rejection red boxes.**
+  - HA REST error messages now include the **method + endpoint** (e.g. `Unauthorized · GET /api/...`) so the originating call is identifiable instead of a bare "Unauthorized".
+  - The realtime socket's event subscriptions were fired **fire-and-forget** (`void`), so any rejection leaked as a red box. They're now caught, logging which subscription failed.
+  > A measurement step to pinpoint the 401 source before the final root fix.
 
 ### [2.17.3] — 2026-11-15  (NATIVE fix — requires APK build)
 - **Root fix for the flood of duplicate "mena left Home" notifications (30 at the same second) while at home.**

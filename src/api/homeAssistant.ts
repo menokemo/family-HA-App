@@ -46,7 +46,9 @@ async function request(settings: ConnectionSettings, path: string, init?: Reques
     ...init,
     headers: { ...headers(token), ...(init?.headers ?? {}) },
   });
-  if (!response.ok) throw new Error(await readError(response));
+  // بنضيف الـ method + المسار لرسالة الخطأ عشان أي 401/غيره يبان مصدره بالظبط
+  // (بدل "Unauthorized" مجرّدة مش معروف جاية من أنهي نداء).
+  if (!response.ok) throw new Error(`${await readError(response)} · ${init?.method ?? 'GET'} ${path.split('?')[0]}`);
   return response;
 }
 
