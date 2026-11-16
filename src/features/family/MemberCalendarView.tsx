@@ -48,6 +48,8 @@ export function MemberCalendarView({ calendars, states, settings }: Props) {
     const personCols: Column[] = [];
     const shared: HaEntity[] = [];
     for (const cal of calendars) {
+      // تقويم الأكل بيتعرض في شاشة الأكل مش في أعمدة التقويم.
+      if (cal.entity_id.includes('secure_family_meals')) continue;
       const pid = cal.attributes.person_entity_id as string | undefined;
       const person = pid ? persons.get(pid) : undefined;
       if (person) {

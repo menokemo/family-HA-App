@@ -9,11 +9,12 @@ import { CalendarView } from './CalendarView';
 import { MemberCalendarView } from './MemberCalendarView';
 import { ListsView } from './ListsView';
 import { MemberAvatar } from './MemberAvatar';
+import { MealsView } from './MealsView';
 import { PressableScale } from '../../components/PressableScale';
 import { Card } from '../../components/Card';
 
 type Props = { states: HaEntity[]; settings: ConnectionSettings; onSettingsChange: (patch: Partial<ConnectionSettings>) => void };
-type Screen = 'hub' | 'calendar' | 'lists';
+type Screen = 'hub' | 'calendar' | 'lists' | 'meals';
 
 export function FamilyTab({ states, settings, onSettingsChange }: Props) {
   const { colors } = useTheme();
@@ -27,7 +28,10 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
   // لو الاختيار المحفوظ بقى مش متطابق مع أي تقويم حالي (IDs قديمة من
   // تجربة سابقة مثلًا)، الفلترة هترجع فاضية رغم وجود تقاويم فعليًا -
   // نرجع نعرض الكل بدل ما تفضل الشاشة فاضية بشكل مربك للمستخدم.
-  const calendars = filteredCalendars.length > 0 || allCalendars.length === 0 ? filteredCalendars : allCalendars;
+  const calendarsAll = filteredCalendars.length > 0 || allCalendars.length === 0 ? filteredCalendars : allCalendars;
+  // تقويم الأكل بيروح لشاشة الأكل، فبنفصله عن تقاويم شاشة التقويم (عرض الأفراد/القائمة).
+  const mealsCalendar = allCalendars.find(c => c.entity_id.includes('secure_family_meals'));
+  const calendars = calendarsAll.filter(c => !c.entity_id.includes('secure_family_meals'));
   const allLists = findTodoEntities(states);
   const filteredLists = settings.selectedTodoIds?.length ? allLists.filter(l => settings.selectedTodoIds!.includes(l.entity_id)) : allLists;
   const lists = filteredLists.length > 0 || allLists.length === 0 ? filteredLists : allLists;
@@ -87,7 +91,7 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
     return (
       <View style={{ flex: 1 }}>
         <BackHeader title={i18n.t('lists')} onBack={() => setScreen('hub')} onSettings={() => setShowListSettings(true)} />
-        <ListsView lists={lists} settings={settings} myName={states.find(p => p.entity_id === settings.selectedPersonId)?.attributes.friendly_name as string | undefined} />
+        <ListsView lists={lists} settings={settings} persons={states.filter(e => e.entity_id.startsWith('person.'))} myName={states.find(p => p.entity_id === settings.selectedPersonId)?.attributes.friendly_name as string | undefined} />
         <EntityPickerModal
           visible={showListSettings}
           title={i18n.t('listSettings')}
@@ -102,6 +106,26 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
   }
 
   const persons = states.filter(e => e.entity_id.startsWith('person.'));
+
+  if (screen === 'meals') {
+    return (
+      <View style={{ flex: 1 }}>
+        <BackHeader title={i18n.t('meals')} onBack={() => setScreen('hub')} onSettings={() => setShowListSettings(true)} />
+        {mealsCalendar
+          ? <MealsView mealsCalendar={mealsCalendar} lists={lists} settings={settings} />
+          : <View style={{ padding: 24 }}><Text style={{ color: colors.muted }}>{i18n.t('mealsNeedsComponent')}</Text></View>}
+        <EntityPickerModal
+          visible={showListSettings}
+          title={i18n.t('listSettings')}
+          hint={i18n.t('listSettingsHint')}
+          entities={allLists}
+          selectedIds={settings.selectedTodoIds?.length ? settings.selectedTodoIds : allLists.map(l => l.entity_id)}
+          onClose={() => setShowListSettings(false)}
+          onSave={ids => { onSettingsChange({ selectedTodoIds: ids }); setShowListSettings(false); }}
+        />
+      </View>
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={s.hub}>
@@ -131,6 +155,15 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
           subtitle={itemCount === null ? i18n.t('loading') : `${lists.length} · ${itemCount} ${i18n.t('itemsLeft')}`}
           onPress={() => setScreen('lists')}
         />
+        {mealsCalendar ? (
+          <Tile
+            icon="restaurant"
+            color="#1D9E75"
+            title={i18n.t('meals')}
+            subtitle={i18n.t('mealsThisWeek')}
+            onPress={() => setScreen('meals')}
+          />
+        ) : null}
       </View>
     </ScrollView>
   );

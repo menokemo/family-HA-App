@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.28.0] — 2026-11-16  (تعديل JS + مكوّن v0.8.0) — **اكتمال تبويب العائلة: تمييز مين ضاف + خطة الأكل**
+- **المهام — تمييز مين ضاف بصورته:** جمب كل عنصر بتظهر **صورة الفرد** اللي ضافه (من الاسم المخزّن، بيتربط بكيان person؛ لو مفيش صورة يبان أول حرف ملوّن) بدل نص «added by».
+- **خطة الأكل (Meals):** شاشة أسبوعية — كل يوم فيه فطار/غدا/عشا، تضغط تضيف/تعدّل، وزر 🛒 بيضيف الوجبة لقائمة المشتريات (todo). مخزّنة في تقويم `secure_family_meals` (المكوّن v0.8.0 بيعمله) — أعدنا استخدام بنية التقويم بدل مخزن جديد. التقويم ده متفلتر من أعمدة التقويم.
+- **الهَب:** كارت «الأكل» الجديد.
+- helper `deleteCalendarEvent` (عبر WebSocket) لاستبدال وجبة الخانة.
+
 ### [2.27.1] — 2026-11-16  (تعديل JS) — **إصلاح شكل التقويم متعدد الأفراد**
 - شريط الأيام كان بيتمدّد ويطوّل جدًا (مالوش ارتفاع ثابت) فيزيح الأعمدة ويبوّظ الشكل. دلوقتي ارتفاع ثابت للشريط، والأعمدة بتترتّب من فوق وتاخد باقي الشاشة. وعرض الأحداث بقى View بسيط بدل ScrollView متداخل.
 
@@ -1049,6 +1055,12 @@
 ---
 
 ## English
+
+### [2.28.0] — 2026-11-16  (JS change + component v0.8.0) — **Family tab complete: who-added avatars + meal plan**
+- **Tasks — who added, by avatar:** each item now shows the **avatar** of the person who added it (resolved from the stored name to a `person` entity; coloured initial if no photo) instead of an "added by" text.
+- **Meal plan (Meals):** a weekly screen — each day has breakfast/lunch/dinner, tap to add/edit, and a 🛒 button adds the meal to the groceries list (todo). Stored in a `secure_family_meals` calendar (created by component v0.8.0) — reusing the calendar infra instead of a new store. That calendar is filtered out of the calendar columns.
+- **Hub:** new "Meals" card.
+- `deleteCalendarEvent` helper (via WebSocket) to replace a slot's meal.
 
 ### [2.27.1] — 2026-11-16  (JS change) — **fix multi-member calendar layout**
 - The day strip had no fixed height so it stretched huge, pushing the columns down and breaking the layout. The strip now has a fixed height, columns top-align and take the rest of the screen, and events render in a plain View instead of a nested ScrollView.

@@ -8,8 +8,9 @@ import { addTodoItem, getTodoItems, removeTodoItem, setTodoItemStatus, updateTod
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { PressableScale } from '../../components/PressableScale';
 import { CATEGORIES, categoryLabel, detectCategory, stripCategoryEmoji } from './categories';
+import { MemberAvatar } from './MemberAvatar';
 
-type Props = { lists: HaEntity[]; settings: ConnectionSettings; myName?: string };
+type Props = { lists: HaEntity[]; settings: ConnectionSettings; myName?: string; persons?: HaEntity[] };
 type Row = { kind: 'item'; item: TodoItem } | { kind: 'header'; count: number };
 
 // بيانات إنشاء التذكير (اسم اللي عمله) بتتخزن كسطر مخفي في نهاية
@@ -24,7 +25,7 @@ function splitCreator(description?: string): { notes: string; createdBy?: string
   return { notes: description.slice(0, idx), createdBy: description.slice(idx + CREATOR_MARKER.length).trim() };
 }
 
-export function ListsView({ lists, settings, myName }: Props) {
+export function ListsView({ lists, settings, myName, persons }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [activeId, setActiveId] = useState(lists[0]?.entity_id);
@@ -135,13 +136,17 @@ export function ListsView({ lists, settings, myName }: Props) {
                 <Text style={styles.noteEmoji}>{detectCategory(row.item.summary).emoji}</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.noteText, row.item.status === 'completed' && styles.itemTextDone]} numberOfLines={2}>{stripCategoryEmoji(row.item.summary)}</Text>
-                  <Text style={styles.noteDue}>
-                    {row.item.due ? new Date(row.item.due).toLocaleDateString(i18n.locale, { day: 'numeric', month: 'short' }) : ''}
-                    {row.item.due && splitCreator(row.item.description).createdBy ? '  ·  ' : ''}
-                    {splitCreator(row.item.description).createdBy ? `${i18n.t('addedBy')} ${splitCreator(row.item.description).createdBy}` : ''}
-                  </Text>
+                  {row.item.due ? <Text style={styles.noteDue}>{new Date(row.item.due).toLocaleDateString(i18n.locale, { day: 'numeric', month: 'short' })}</Text> : null}
                 </View>
               </PressableScale>
+              {(() => {
+                // صورة مين ضاف العنصر (من الاسم المخزّن في description) — بتظهر
+                // جمب العنصر عشان يبان مين عمله زي ما طلب المستخدم.
+                const by = splitCreator(row.item.description).createdBy;
+                if (!by) return null;
+                const person = persons?.find(p => String(p.attributes.friendly_name) === by);
+                return <MemberAvatar person={person} name={by} settings={settings} size={26} />;
+              })()}
               <PressableScale onPress={() => void remove(row.item)} hitSlop={10}>
                 <Ionicons name="close" size={18} color={row.item.status === 'completed' ? colors.muted : 'rgba(255,255,255,.85)'} />
               </PressableScale>

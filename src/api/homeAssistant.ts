@@ -380,6 +380,12 @@ export async function createCalendarEvent(settings: ConnectionSettings, entityId
   await request(settings, '/api/services/calendar/create_event', { method: 'POST', body: JSON.stringify({ entity_id: entityId, ...data }) });
 }
 
+// حذف حدث تقويم بالـ uid — عبر WebSocket (مفيش خدمة REST لحذف أحداث التقويم).
+// بنستخدمه في خطة الأكل لاستبدال وجبة (نحذف القديمة وننشئ الجديدة).
+export async function deleteCalendarEvent(settings: ConnectionSettings, entityId: string, uid: string): Promise<void> {
+  await wsCommand(settings, { type: 'calendar/event/delete', entity_id: entityId, uid });
+}
+
 // الأحداث المتكررة بتعدّي من WebSocket مش من الخدمة أعلاه (راجع calendarCommands.ts)
 export async function createRecurringCalendarEvent(settings: ConnectionSettings, entityId: string, input: RecurringEventInput): Promise<void> {
   await wsCommand(settings, buildRecurringEventCommand(entityId, input));
