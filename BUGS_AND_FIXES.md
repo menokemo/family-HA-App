@@ -13,14 +13,16 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
-**«From me» كانت مسافة طريق و«of home» مستقيمة — فمختلفين وإنت في البيت (2.26.1)** —
+**«From me» كانت مسافة طريق و«of home» مستقيمة — فمختلفين وإنت في البيت (2.26.2)** —
 المستخدم في البيت ويشوف فرد تاني بره: «of home» = 17.3كم و«From me» = 26.5كم.
-المفروض يتساووا لأن «أنا» = البيت. السبب: `myCoord` صح (إحداثيات HA)، لكن العرض كان
-بيبدّل «From me» لمسافة **الطريق** (`routeInfo.distanceMeters`) أول ما يتحسب مسار
-(ETA ظاهر)، فبيقارن طريق (26.5) بمستقيمة (17.3). **الحل:** «From me» مستقيمة دايمًا
-في `PeopleList.tsx` و`PeopleMapWeb.tsx` (زي «of home»)، ووقت الطريق يفضل في الـETA.
-**الدرس:** متحطّش نوعين مسافة مختلفين (طريق/مستقيمة) في خانتين جنب بعض بنفس
-المعنى الظاهري — المستخدم بيتوقّع إنهم نفس القياس.
+المفروض يتساووا لأن «أنا» = البيت. السبب: `myCoord` صح (إحداثيات HA)، لكن «From me»
+مسافة **طريق** (`routeInfo.distanceMeters`) و«of home» مسافة **مستقيمة** (haversine)،
+فبيقارن طريق بمستقيمة. **الحل (حسب طلب المستخدم: مسافات طريق فعلية):** «From me»
+تفضل طريق، و«of home» بقى **مسار جديد البيت→الفرد** (نفس وضع المسار) في
+`PeopleMapNative.tsx`، فالاتنين على الطريق ويتساووا وإنت في البيت. الاتجاه بيفضل جنب
+المسافة، وفيه fallback للمستقيمة لو تعذّر المسار. **الدرس:** متحطّش نوعين مسافة
+مختلفين (طريق/مستقيمة) جنب بعض بنفس المعنى — وحّدهم على نفس القياس اللي المستخدم عايزه.
+(ملاحظة: 2.26.1 جرّبت توحيدهم على المستقيمة — المستخدم رفض، فوحّدناهم على الطريق في 2.26.2.)
 
 **بيقول «بيتحرك 7كم/س» وهو واقف في البيت (2.26.1)** — `readMotion` كان بيعتبر أي
 سرعة ≥ `MOVING_KMH` (6) حركة. جوّه المباني الـGPS بيطلّع سرعة وهمية 6-8كم/س وهو
@@ -665,14 +667,17 @@ build قديم جوه الحزمة مش موجود. الحل: `blockList` في `
 
 ### ✅ Resolved
 
-**"From me" was road distance while "of home" was straight-line — mismatched when home (2.26.1)** —
+**"From me" was road distance while "of home" was straight-line — mismatched when home (2.26.2)** —
 user at home sees another member outside: "of home" = 17.3 km, "From me" = 26.5 km.
-They should match since "me" = home. Cause: `myCoord` is correct (HA coords), but the
-view swapped "From me" to the **road** distance (`routeInfo.distanceMeters`) once a
-route was computed (ETA shown), comparing road (26.5) with straight-line (17.3).
-**Fix:** "From me" is always straight-line in `PeopleList.tsx` and `PeopleMapWeb.tsx`
-(like "of home"); route time stays in the ETA. **Lesson:** don't put two different
-distance types (road/straight-line) in adjacent boxes that read as the same thing.
+They should match since "me" = home. Cause: `myCoord` is correct (HA coords), but
+"From me" is a **road** distance (`routeInfo.distanceMeters`) while "of home" was a
+**straight-line** (haversine) — comparing road with straight-line. **Fix (per user:
+real road distances):** "From me" stays road, and "of home" is now a **new home→person
+route** (same travel mode) in `PeopleMapNative.tsx`, so both are by road and match when
+you're home. The compass direction stays next to the distance, with a straight-line
+fallback if the route fails. **Lesson:** don't put two different distance types
+(road/straight-line) side by side for the same meaning — unify on the one the user wants.
+(2.26.1 tried unifying on straight-line; user rejected it, so 2.26.2 unifies on road.)
 
 **Said "moving 7 km/h" while standing still at home (2.26.1)** — `readMotion` treated
 any speed ≥ `MOVING_KMH` (6) as moving. Indoors, GPS reports phantom speeds of

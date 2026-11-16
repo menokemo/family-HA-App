@@ -118,6 +118,9 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
   const [addrMap, setAddrMap] = useState<Record<string, string>>({});
   const [routeMode, setRouteMode] = useState<RouteMode>('driving');
   const [routeInfo, setRouteInfo] = useState<RouteResult | null>(null);
+  // مسار الطريق من البيت للفرد المختار — عشان "of home" تبقى مسافة طريق فعلية
+  // (مش مستقيمة)، فتساوي "From me" وإنت في البيت.
+  const [homeRouteInfo, setHomeRouteInfo] = useState<RouteResult | null>(null);
   const [batteryAlert, setBatteryAlert] = useState<string | null>(null);
   const [presence, setPresence] = useState<PresenceEvt[]>([]);
   const prevStateRef = useRef<Record<string, string>>({});
@@ -458,6 +461,22 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
     }
     return m;
   }, [people, zones]);
+
+  // مسار الطريق من البيت للفرد المختار (بنفس وضع المسار). بيلغي القديم قبل الجديد.
+  const homeCoordKey = homeZone ? `${homeZone.lng.toFixed(5)},${homeZone.lat.toFixed(5)}` : '';
+  useEffect(() => {
+    if (!picked || picked === mePerson?.entity_id || !homeZone || !pickedPoint) {
+      setHomeRouteInfo(null);
+      return;
+    }
+    const ctrl = new AbortController();
+    void (async () => {
+      const r = await fetchRoute(routeMode, [homeZone.lng, homeZone.lat], [pickedPoint.lng, pickedPoint.lat], ctrl.signal);
+      if (!ctrl.signal.aborted) setHomeRouteInfo(r);
+    })();
+    return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [picked, pickedCoordKey, homeCoordKey, routeMode, mePerson?.entity_id]);
 
   const fromMeText = (lat: number, lng: number) => (myCoord ? distance(haversine({ latitude: myCoord[1], longitude: myCoord[0] }, { latitude: lat, longitude: lng })) : undefined);
 
@@ -872,6 +891,7 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
           playing: playIdx !== null,
           trips,
           homeDir: homeDirFor,
+          homeRouteInfo,
           onPickTrip: focusTrip,
         }}
         devices={deviceItems}

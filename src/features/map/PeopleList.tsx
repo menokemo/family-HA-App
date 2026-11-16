@@ -49,6 +49,8 @@ export type PeopleListProps = {
   playing?: boolean;
   /** اتجاه ومسافة كل فرد بالنسبة للبيت ("2.3 km شمال شرق") — مش موجود للي في البيت. */
   homeDir?: Record<string, string>;
+  /** مسار الطريق من البيت للفرد المختار — "of home" بتستخدم مسافته الفعلية. */
+  homeRouteInfo?: RouteResult | null;
   trips?: Trip[];
   onPickTrip?: (trip: Trip) => void;
 };
@@ -79,6 +81,7 @@ export function PeopleList({
   onPlayTrail,
   playing,
   homeDir,
+  homeRouteInfo,
   trips,
   onPickTrip,
 }: PeopleListProps) {
@@ -148,7 +151,14 @@ export function PeopleList({
               <>
                 <View style={s.details}>
                   <Box s={s} label={i18n.t('battery')} value={batteryText(p, states)} />
-                  {homeDir?.[p.entity_id] ? <Box s={s} label={i18n.t('ofHome')} value={homeDir[p.entity_id]} /> : null}
+                  {homeDir?.[p.entity_id] ? (
+                    <Box
+                      s={s}
+                      label={i18n.t('ofHome')}
+                      // مسافة الطريق الفعلية من البيت (لو اتحسبت) + الاتجاه، وإلا المستقيمة.
+                      value={homeRouteInfo ? `${distance(homeRouteInfo.distanceMeters)} ${homeDir[p.entity_id].split(' ').pop()}` : homeDir[p.entity_id]}
+                    />
+                  ) : null}
                   {isMe ? (
                     <Box
                       s={s}
@@ -157,7 +167,7 @@ export function PeopleList({
                     />
                   ) : (
                     <>
-                      <Box s={s} label={i18n.t('fromMe')} value={fromMe(p)} />
+                      <Box s={s} label={i18n.t('fromMe')} value={routeInfo ? distance(routeInfo.distanceMeters) : fromMe(p)} />
                       {mo?.moving ? (
                         <Box s={s} label={i18n.t('speed')} value={`${Math.round(mo.speed)} km/h`} />
                       ) : (

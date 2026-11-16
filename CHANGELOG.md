@@ -6,9 +6,11 @@
 
 ## العربية
 
-### [2.26.1] — 2026-11-16  (تعديل JS — بييجي من metro) — **إصلاح المسافة والحركة في الخريطة**
-- **«From me» بقت مسافة مستقيمة دايمًا** (زي «of home»). قبل كده كانت بتتبدّل لمسافة **الطريق** (`routeInfo.distanceMeters`) لما يكون في مسار، فكانت تطلّع رقم مختلف عن «of home» حتى وإنت في البيت (مثلاً 26.5كم طريق مقابل 17.3كم مستقيمة) — ملخبط لأن الاتنين المفروض يتساووا وإنت في البيت. دلوقتي الاتنين مستقيمة؛ وقت الطريق بيفضل في الـETA. اتصلّح في الـnative والـweb.
+### [2.26.2] — 2026-11-16  (تعديل JS — بييجي من metro) — **مسافات الطريق الفعلية في الخريطة + إصلاح الحركة**
+- **«of home» و«From me» بقوا مسافات طريق فعلية (مش مستقيمة).** «From me» = مسار موقعي→الفرد (زي ما كان)، و«of home» بقى **مسار جديد البيت→الفرد** بنفس وضع المسار. فالاتنين يتساووا وإنت في البيت (كلهم على الطريق)، بدل ما «of home» كانت مستقيمة (17.3كم) و«From me» طريق (26.5كم) فيبانوا مختلفين وإنت في مكان واحد. الاتجاه (شمال/شرق...) بيفضل جنب مسافة «of home». لو تعذّر حساب المسار، بيرجع للمسافة المستقيمة.
 - **ماعادش يقول «بيتحرك» وإنت جوّه منطقة.** `readMotion` كان بيعتبر أي سرعة ≥ 6كم/س حركة، حتى لو الشخص في البيت — والـGPS جوّه المباني بيطلّع سرعة وهمية (6-8كم/س وهو واقف). دلوقتي لو حالة الشخص منطقة (البيت/أي zone) → مش بيتحرك، فبتظهر «Home» بدل «Moving 7 km/h».
+
+> ملاحظة: 2.26.1 كانت خطوة وسيطة خلّت «From me» مستقيمة — اترجعت في 2.26.2 لصالح مسافات الطريق حسب طلب المستخدم.
 
 ### [2.26.0] — 2026-11-16  (تعديل JS — بييجي من metro) — **كوارث طبيعية + تلوين حسب الخطورة + نطاق منفصل**
 - **أنواع جديدة اتضافت للتصنيف:** حادث طريق 🚗، زلزال, فيضان 🌊، عاصفة/إعصار — جنب الإسعاف/المطافي/الشرطة. محايدة للبراند (كلمات بالهولندي/الإنجليزي/الألماني)، ونوع الحادثة بياخد أولوية على الخدمة (مثلاً «Ambulance ongeval» = حادث). دي بتشتغل مع مصادر زي **GDACS** و**USGS** لما تتضاف في HA.
@@ -1014,9 +1016,11 @@
 
 ## English
 
-### [2.26.1] — 2026-11-16  (JS change — ships via metro) — **map distance & motion fixes**
-- **"From me" is now always straight-line distance** (like "of home"). It used to switch to the **road** distance (`routeInfo.distanceMeters`) when a route was active, so it showed a different number from "of home" even while you were at home (e.g. 26.5 km by road vs 17.3 km straight-line) — confusing, since both should match when you're home. Both are straight-line now; the route time stays in the ETA. Fixed in native and web.
+### [2.26.2] — 2026-11-16  (JS change — ships via metro) — **real road distances on the map + motion fix**
+- **"of home" and "From me" are now real road distances (not straight-line).** "From me" = route from my location to the person (as before); "of home" is now a **new route from home to the person** using the same travel mode. So both match when you're home (both by road), instead of "of home" being straight-line (17.3 km) while "From me" was road (26.5 km) for one place. The compass direction stays next to the "of home" distance. Falls back to straight-line if the route can't be computed.
 - **No longer says "moving" while you're inside a zone.** `readMotion` treated any speed ≥ 6 km/h as moving, even at home — and indoor GPS reports phantom speeds (6-8 km/h while stationary). Now if the person's state is a zone (home/any zone) they're not moving, so it shows "Home" instead of "Moving 7 km/h".
+
+> Note: 2.26.1 was an intermediate step that made "From me" straight-line — reverted in 2.26.2 in favour of road distances per user request.
 
 ### [2.26.0] — 2026-11-16  (JS change — ships via metro) — **natural disasters + severity colouring + separate radius**
 - **New classified types:** road accident 🚗, earthquake, flood 🌊, storm/cyclone — alongside ambulance/fire/police. Brand-neutral (Dutch/English/German keywords), and the incident type takes priority over the service (e.g. "Ambulance ongeval" = accident). These light up with sources like **GDACS** and **USGS** once added in HA.
