@@ -6,6 +6,15 @@
 
 ## العربية
 
+### [2.29.0] — 2026-11-16  (تعديل JS — بييجي من metro) — **تبويب العائلة: الأجندة بستايل Cozi بدل الأعمدة**
+- **رفض الأعمدة:** المستخدم قال التقويم متعدد الأفراد (الأعمدة) «مش حلو ومش عملي ومليان تشتت»، وطلب UI سهل وبسيط وواضح بس بستايل كروت/ألوان/علامات Cozi.
+- **`AgendaView` الجديدة:** قايمة أجندة واحدة من كل التقاويم — كارت **«النهاردة»** ملوّن فوق، وتحته الأيام الجاية (لحد 30 يوم). كل حدث = **شريط بلون الفرد** + العنوان + الوقت + **صورة الفرد** (نفس ألوان الأفراد الثابتة في كل مكان).
+- **إضافة سهلة:** زر «+» عائم بيفتح شيت: عنوان + اختيار **لمين** (صور الأفراد أو «العيلة») + شريط 14 يوم + ساعة/دقيقة → بيكتب في تقويم الفرد المختار أو التقويم المشترك. **ضغطة مطوّلة** على الحدث = مسح (عبر `deleteCalendarEvent`).
+- **الشِل:** بقى **3 تبويبات بسيطة (Agenda · Tasks · Meals)** بأزرار pill، وزر «⋮» بيفتح اختيار التقاويم/القوائم حسب التبويب.
+- **تنظيف:** اتشال `MemberCalendarView` (الأعمدة المرفوضة) و`CalendarView` (العرض القديم) — كود ميّت، محفوظ في git لو احتجنا منطق التكرار.
+- مفاتيح i18n جديدة (ar/en/nl): `tomorrow, forWho, day, addEvent, deleteEventConfirm, delete, agendaEmpty`.
+- **مؤجّل:** تعديل حدث موجود + أحداث متكررة من الشيت (دلوقتي إضافة/مسح بس).
+
 ### [2.28.0] — 2026-11-16  (تعديل JS + مكوّن v0.8.0) — **اكتمال تبويب العائلة: تمييز مين ضاف + خطة الأكل**
 - **المهام — تمييز مين ضاف بصورته:** جمب كل عنصر بتظهر **صورة الفرد** اللي ضافه (من الاسم المخزّن، بيتربط بكيان person؛ لو مفيش صورة يبان أول حرف ملوّن) بدل نص «added by».
 - **خطة الأكل (Meals):** شاشة أسبوعية — كل يوم فيه فطار/غدا/عشا، تضغط تضيف/تعدّل، وزر 🛒 بيضيف الوجبة لقائمة المشتريات (todo). مخزّنة في تقويم `secure_family_meals` (المكوّن v0.8.0 بيعمله) — أعدنا استخدام بنية التقويم بدل مخزن جديد. التقويم ده متفلتر من أعمدة التقويم.
@@ -1055,6 +1064,15 @@
 ---
 
 ## English
+
+### [2.29.0] — 2026-11-16  (JS change — comes from metro) — **Family tab: Cozi-style agenda instead of columns**
+- **Columns rejected:** the user found the multi-member column calendar "not nice, not practical, cluttered" and asked for an easy, simple, clear UI but with Cozi's card/colour/badge **style** ("the style, not the function").
+- **New `AgendaView`:** one agenda across all calendars — a coloured **"Today"** hero card on top, then the upcoming days (up to 30). Each event = a **member-colour bar** + title + time + **member avatar** (same stable per-member colours used everywhere).
+- **Easy add:** a floating "+" opens a sheet — title + **who** (member avatars or "Family") + a 14-day strip + hour/minute → writes to the chosen member's or the shared calendar. **Long-press** an event to delete (via `deleteCalendarEvent`).
+- **Shell:** now **3 simple tabs (Agenda · Tasks · Meals)** with pill buttons; the `⋮` button opens the calendar/list picker for the active tab.
+- **Cleanup:** removed `MemberCalendarView` (the rejected columns) and `CalendarView` (the old view) — dead code, kept in git in case we want the recurrence logic back.
+- New i18n keys (ar/en/nl): `tomorrow, forWho, day, addEvent, deleteEventConfirm, delete, agendaEmpty`.
+- **Deferred:** editing an existing event + recurring events from the sheet (add/delete only for now).
 
 ### [2.28.0] — 2026-11-16  (JS change + component v0.8.0) — **Family tab complete: who-added avatars + meal plan**
 - **Tasks — who added, by avatar:** each item now shows the **avatar** of the person who added it (resolved from the stored name to a `person` entity; coloured initial if no photo) instead of an "added by" text.

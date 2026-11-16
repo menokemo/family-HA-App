@@ -228,8 +228,9 @@ it ourselves.**
 | Map: arrival/departure alerts | ✅ | Work even if the app is fully closed (same architecture as the alarm background service) |
 | Map: nearby places (Overpass API) | ✅ | Free, no API key |
 | Map: live-GPS distance | ✅ | `@react-native-community/geolocation` |
-| Family tab: calendar (day strip + date picker) | ✅ | Colored category cards (icon/color), weekly/monthly/yearly recurring events via WebSocket (still to be tried on a live HA), add event |
-| Family tab: reminders | ✅ | Add/edit dialog: title + notes + date and time + category, and who added it; still the same HA `todo.*` |
+| Family tab: agenda (Cozi-style) | ✅ | Single agenda across all calendars — "Today" hero card + upcoming days, each event = member-colored bar + title + time + member avatar; FAB add sheet (title + who + 14-day strip + time), long-press to delete. Replaced the rejected multi-member columns (2.29.0). Edit/recurring add still to come |
+| Family tab: 3-tab shell | ✅ | Pill tabs Agenda · Tasks · Meals; `⋮` settings picks which calendars/lists show |
+| Family tab: reminders | ✅ | Add/edit dialog: title + notes + date and time + category, and who added it (member avatar); still the same HA `todo.*` |
 | Decentralized per-tab settings | ✅ | `⋮` button next to the LIVE indicator (Alarmo, Cameras, Dashboard, Map) |
 | Interactive colors + visual depth | ✅ | Unified press feedback (PressableScale) across the whole app, shadows on badges and cards |
 | Home-screen widget | ⚠️ | Built with `react-native-android-widget`: alarm state + Home/Away/Disarm + who is home + reminder count; not yet tried on a device |
@@ -614,8 +615,21 @@ todo · البناء mockup الأول ثم مراحل.
   + زر 🛒 يضيف للمشتريات) مخزّنة في تقويم `secure_family_meals` (المكوّن v0.8.0)، وكارت
   «الأكل» في الهَب. helper `deleteCalendarEvent` (WS) لاستبدال الوجبة.
 
-**لسه (تحسينات اختيارية):** إثراء كروت الهَب بملخّصات حيّة أكتر · created_by أدق (تخزين
-person_id بدل الاسم) · تعيين مهمة لفرد (مش بس مين ضاف) · ميزانية/مستندات لو اتقرر نعملها.
+- **التطبيق 2.29.0 — تحوّل الاستايل: الأجندة بدل الأعمدة (الشكل النهائي):** المستخدم رفض
+  **التقويم متعدد الأفراد (الأعمدة)** لأنه «مش حلو ومش عملي ومليان تشتت»، وطلب UI سهل
+  وبسيط وواضح بس **بستايل كروت/ألوان/علامات Cozi** («الاستايل مش الفنكشان»). فاتبنى
+  `AgendaView`: قايمة أجندة واحدة من كل التقاويم — كارت **«النهاردة»** ملوّن فوق، وتحته
+  الأيام الجاية، كل حدث سطر فيه **شريط لون الفرد** + العنوان + الوقت + **صورة الفرد**
+  (نفس ألوان الأفراد الثابتة). زر «+» عائم بيفتح شيت إضافة (عنوان + اختيار **لمين** بصور
+  الأفراد/«العيلة» + شريط 14 يوم + الوقت) بيكتب في تقويم الفرد المختار أو التقويم المشترك.
+  ضغطة مطوّلة على الحدث = مسح. والشِل بقى **3 تبويبات بسيطة (Agenda · Tasks · Meals)**
+  بأزرار pill. **اتشال الكود الميّت:** `MemberCalendarView` (الأعمدة المرفوضة) و
+  `CalendarView` (العرض القديم) اتمسحوا — محفوظين في git لو احتجنا نرجّع منطق التكرار.
+
+**لسه (تحسينات اختيارية):** **تعديل حدث + أحداث متكررة** في شيت الإضافة (دلوقتي إضافة/مسح
+بس، من غير تكرار — أعياد الميلاد السنوية بتتعمل من المكوّن أو مؤجّلة لحد ما نرجّع منطق
+التكرار من git) · إثراء كروت الملخّص · created_by أدق (تخزين person_id بدل الاسم) ·
+تعيين مهمة لفرد (مش بس مين ضاف) · ميزانية/مستندات لو اتقرر نعملها.
 
 ### تبعة مفتوحة — الأفراد غير الأدمن مش بيستقبلوا الأحداث المخصّصة (من 2.17.4)
 Home Assistant بيسمح لغير الأدمن بالاشتراك في `state_changed` **بس**؛ أي اشتراك

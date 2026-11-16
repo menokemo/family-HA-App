@@ -3,187 +3,101 @@ import { Modal, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTheme, type Palette } from '../../theme';
 import { i18n } from '../../i18n';
-import { findCalendarEntities, findTodoEntities, getCalendarEvents, getTodoItems } from '../../api/homeAssistant';
+import { findCalendarEntities, findTodoEntities } from '../../api/homeAssistant';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
-import { CalendarView } from './CalendarView';
-import { MemberCalendarView } from './MemberCalendarView';
+import { AgendaView } from './AgendaView';
 import { ListsView } from './ListsView';
-import { MemberAvatar } from './MemberAvatar';
 import { MealsView } from './MealsView';
 import { PressableScale } from '../../components/PressableScale';
 import { Card } from '../../components/Card';
 
 type Props = { states: HaEntity[]; settings: ConnectionSettings; onSettingsChange: (patch: Partial<ConnectionSettings>) => void };
-type Screen = 'hub' | 'calendar' | 'lists' | 'meals';
+type Tab = 'agenda' | 'tasks' | 'meals';
 
 export function FamilyTab({ states, settings, onSettingsChange }: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
-  const [screen, setScreen] = useState<Screen>('hub');
-  const [calMode, setCalMode] = useState<'members' | 'list'>('members');
+  const [tab, setTab] = useState<Tab>('agenda');
   const [showCalendarSettings, setShowCalendarSettings] = useState(false);
   const [showListSettings, setShowListSettings] = useState(false);
+
   const allCalendars = findCalendarEntities(states);
   const filteredCalendars = settings.selectedCalendarIds?.length ? allCalendars.filter(c => settings.selectedCalendarIds!.includes(c.entity_id)) : allCalendars;
-  // لو الاختيار المحفوظ بقى مش متطابق مع أي تقويم حالي (IDs قديمة من
-  // تجربة سابقة مثلًا)، الفلترة هترجع فاضية رغم وجود تقاويم فعليًا -
-  // نرجع نعرض الكل بدل ما تفضل الشاشة فاضية بشكل مربك للمستخدم.
+  // لو الاختيار المحفوظ بقى IDs قديمة مش موجودة، نرجع نعرض الكل بدل شاشة فاضية.
   const calendarsAll = filteredCalendars.length > 0 || allCalendars.length === 0 ? filteredCalendars : allCalendars;
-  // تقويم الأكل بيروح لشاشة الأكل، فبنفصله عن تقاويم شاشة التقويم (عرض الأفراد/القائمة).
+  // تقويم الأكل ليه شاشته، فبيتفصل عن تقاويم الأجندة.
   const mealsCalendar = allCalendars.find(c => c.entity_id.includes('secure_family_meals'));
   const calendars = calendarsAll.filter(c => !c.entity_id.includes('secure_family_meals'));
   const allLists = findTodoEntities(states);
   const filteredLists = settings.selectedTodoIds?.length ? allLists.filter(l => settings.selectedTodoIds!.includes(l.entity_id)) : allLists;
   const lists = filteredLists.length > 0 || allLists.length === 0 ? filteredLists : allLists;
-  const [eventCount, setEventCount] = useState<number | null>(null);
-  const [itemCount, setItemCount] = useState<number | null>(null);
-  const calendarKey = calendars.map(c => c.entity_id).sort().join('|');
-  const listKey = lists.map(l => l.entity_id).sort().join('|');
-
-  useEffect(() => {
-    if (screen !== 'hub') return;
-    let on = true;
-    if (!calendars.length) { setEventCount(0); return; }
-    const start = new Date();
-    const end = new Date();
-    end.setDate(end.getDate() + 7);
-    void Promise.all(calendars.map(c => getCalendarEvents(settings, c.entity_id, start.toISOString(), end.toISOString()).catch(() => [])))
-      .then(lists2 => { if (on) setEventCount(lists2.flat().length); });
-    return () => { on = false; };
-  }, [screen, calendarKey, settings.baseUrl, settings.token]);
-
-  useEffect(() => {
-    if (screen !== 'hub') return;
-    let on = true;
-    if (!lists.length) { setItemCount(0); return; }
-    void Promise.all(lists.map(l => getTodoItems(settings, l.entity_id).catch(() => [])))
-      .then(all => { if (on) setItemCount(all.flat().filter(i => i.status !== 'completed').length); });
-    return () => { on = false; };
-  }, [screen, listKey, settings.baseUrl, settings.token]);
-
-  if (screen === 'calendar') {
-    return (
-      <View style={{ flex: 1 }}>
-        <BackHeader title={i18n.t('calendar')} onBack={() => setScreen('hub')} onSettings={() => setShowCalendarSettings(true)} />
-        <View style={s.segment}>
-          {(['members', 'list'] as const).map(m => (
-            <PressableScale key={m} style={[s.segBtn, calMode === m && s.segBtnOn]} onPress={() => setCalMode(m)}>
-              <Text style={[s.segText, calMode === m && s.segTextOn]}>{i18n.t(m === 'members' ? 'byMember' : 'listView')}</Text>
-            </PressableScale>
-          ))}
-        </View>
-        {calMode === 'members'
-          ? <MemberCalendarView calendars={calendars} states={states} settings={settings} />
-          : <ScrollView contentContainerStyle={s.content}><CalendarView calendars={calendars} settings={settings} /></ScrollView>}
-        <EntityPickerModal
-          visible={showCalendarSettings}
-          title={i18n.t('calendarSettings')}
-          hint={i18n.t('calendarSettingsHint')}
-          entities={allCalendars}
-          selectedIds={settings.selectedCalendarIds?.length ? settings.selectedCalendarIds : allCalendars.map(c => c.entity_id)}
-          onClose={() => setShowCalendarSettings(false)}
-          onSave={ids => { onSettingsChange({ selectedCalendarIds: ids }); setShowCalendarSettings(false); }}
-        />
-      </View>
-    );
-  }
-  if (screen === 'lists') {
-    return (
-      <View style={{ flex: 1 }}>
-        <BackHeader title={i18n.t('lists')} onBack={() => setScreen('hub')} onSettings={() => setShowListSettings(true)} />
-        <ListsView lists={lists} settings={settings} persons={states.filter(e => e.entity_id.startsWith('person.'))} myName={states.find(p => p.entity_id === settings.selectedPersonId)?.attributes.friendly_name as string | undefined} />
-        <EntityPickerModal
-          visible={showListSettings}
-          title={i18n.t('listSettings')}
-          hint={i18n.t('listSettingsHint')}
-          entities={allLists}
-          selectedIds={settings.selectedTodoIds?.length ? settings.selectedTodoIds : allLists.map(l => l.entity_id)}
-          onClose={() => setShowListSettings(false)}
-          onSave={ids => { onSettingsChange({ selectedTodoIds: ids }); setShowListSettings(false); }}
-        />
-      </View>
-    );
-  }
-
   const persons = states.filter(e => e.entity_id.startsWith('person.'));
 
-  if (screen === 'meals') {
-    return (
-      <View style={{ flex: 1 }}>
-        <BackHeader title={i18n.t('meals')} onBack={() => setScreen('hub')} onSettings={() => setShowListSettings(true)} />
-        {mealsCalendar
-          ? <MealsView mealsCalendar={mealsCalendar} lists={lists} settings={settings} />
-          : <View style={{ padding: 24 }}><Text style={{ color: colors.muted }}>{i18n.t('mealsNeedsComponent')}</Text></View>}
-        <EntityPickerModal
-          visible={showListSettings}
-          title={i18n.t('listSettings')}
-          hint={i18n.t('listSettingsHint')}
-          entities={allLists}
-          selectedIds={settings.selectedTodoIds?.length ? settings.selectedTodoIds : allLists.map(l => l.entity_id)}
-          onClose={() => setShowListSettings(false)}
-          onSave={ids => { onSettingsChange({ selectedTodoIds: ids }); setShowListSettings(false); }}
-        />
-      </View>
-    );
-  }
+  // لو تبويب الأكل مش متاح (المكوّن القديم) ما نسيبش المستخدم واقف عليه.
+  useEffect(() => { if (tab === 'meals' && !mealsCalendar) setTab('agenda'); }, [tab, mealsCalendar]);
+
+  const TABS: { key: Tab; label: string; icon: string }[] = [
+    { key: 'agenda', label: i18n.t('agenda'), icon: 'calendar' },
+    { key: 'tasks', label: i18n.t('lists'), icon: 'checkbox' },
+    ...(mealsCalendar ? [{ key: 'meals' as Tab, label: i18n.t('meals'), icon: 'restaurant' }] : []),
+  ];
+
+  const openSettings = () => { if (tab === 'agenda') setShowCalendarSettings(true); else setShowListSettings(true); };
 
   return (
-    <ScrollView contentContainerStyle={s.hub}>
-      <Text style={s.hubTitle}>{i18n.t('family')}</Text>
-      {persons.length > 0 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.avatarRow}>
-          {persons.map(p => (
-            <View key={p.entity_id} style={s.avatarItem}>
-              <MemberAvatar person={p} settings={settings} size={46} ring />
-              <Text style={s.avatarName} numberOfLines={1}>{String(p.attributes.friendly_name ?? p.entity_id).split(' ')[0]}</Text>
-            </View>
-          ))}
-        </ScrollView>
-      ) : null}
-      <View style={s.tileGrid}>
-        <Tile
-          icon="calendar"
-          color={colors.primary}
-          title={i18n.t('calendar')}
-          subtitle={eventCount === null ? i18n.t('loading') : `${eventCount} ${i18n.t('eventsThisWeek')}`}
-          onPress={() => setScreen('calendar')}
-        />
-        <Tile
-          icon="checkbox"
-          color={colors.safe}
-          title={i18n.t('lists')}
-          subtitle={itemCount === null ? i18n.t('loading') : `${lists.length} · ${itemCount} ${i18n.t('itemsLeft')}`}
-          onPress={() => setScreen('lists')}
-        />
-        {mealsCalendar ? (
-          <Tile
-            icon="restaurant"
-            color="#1D9E75"
-            title={i18n.t('meals')}
-            subtitle={i18n.t('mealsThisWeek')}
-            onPress={() => setScreen('meals')}
-          />
+    <View style={{ flex: 1 }}>
+      <View style={s.header}>
+        <Text style={s.title}>{i18n.t('family')}</Text>
+        <PressableScale onPress={openSettings} style={s.settingsBtn}>
+          <Ionicons name="options-outline" size={20} color={colors.text} />
+        </PressableScale>
+      </View>
+
+      <View style={s.tabBar}>
+        {TABS.map(t => {
+          const on = tab === t.key;
+          return (
+            <PressableScale key={t.key} style={[s.tab, on && s.tabOn]} onPress={() => setTab(t.key)}>
+              <Ionicons name={on ? t.icon : (t.icon + '-outline')} size={16} color={on ? colors.black : colors.muted} />
+              <Text style={[s.tabText, on && s.tabTextOn]}>{t.label}</Text>
+            </PressableScale>
+          );
+        })}
+      </View>
+
+      <View style={{ flex: 1 }}>
+        {tab === 'agenda' ? (
+          <AgendaView calendars={calendars} states={states} settings={settings} />
+        ) : tab === 'tasks' ? (
+          <ListsView lists={lists} settings={settings} persons={persons} myName={persons.find(p => p.entity_id === settings.selectedPersonId)?.attributes.friendly_name as string | undefined} />
+        ) : mealsCalendar ? (
+          <MealsView mealsCalendar={mealsCalendar} lists={lists} settings={settings} />
         ) : null}
       </View>
-    </ScrollView>
-  );
-}
 
-function BackHeader({ title, onBack, onSettings }: { title: string; onBack: () => void; onSettings: () => void }) {
-  const { colors } = useTheme();
-  const s = useMemo(() => makeStyles(colors), [colors]);
-  return (
-    <View style={s.backHeader}>
-      <PressableScale onPress={onBack} style={s.backBtn}><Ionicons name="chevron-back" size={22} color={colors.text} /></PressableScale>
-      <Text style={[s.backTitle, { flex: 1 }]}>{title}</Text>
-      <PressableScale onPress={onSettings} style={s.backBtn}><Ionicons name="ellipsis-vertical" size={18} color={colors.text} /></PressableScale>
+      <EntityPickerModal
+        visible={showCalendarSettings}
+        title={i18n.t('calendarSettings')}
+        hint={i18n.t('calendarSettingsHint')}
+        entities={allCalendars.filter(c => !c.entity_id.includes('secure_family_meals'))}
+        selectedIds={settings.selectedCalendarIds?.length ? settings.selectedCalendarIds : allCalendars.map(c => c.entity_id)}
+        onClose={() => setShowCalendarSettings(false)}
+        onSave={ids => { onSettingsChange({ selectedCalendarIds: ids }); setShowCalendarSettings(false); }}
+      />
+      <EntityPickerModal
+        visible={showListSettings}
+        title={i18n.t('listSettings')}
+        hint={i18n.t('listSettingsHint')}
+        entities={allLists}
+        selectedIds={settings.selectedTodoIds?.length ? settings.selectedTodoIds : allLists.map(l => l.entity_id)}
+        onClose={() => setShowListSettings(false)}
+        onSave={ids => { onSettingsChange({ selectedTodoIds: ids }); setShowListSettings(false); }}
+      />
     </View>
   );
 }
 
-// نافذة اختيار مستقلة تمامًا - كل شاشة (تقويم / تذكيرات) بتاخد نسختها
-// الخاصة (entities + selectedIds + مفتاح حفظ مختلف)، من غير أي تشابك
-// بين الاتنين زي ما كان قبل كده.
+// نافذة اختيار التقاويم/القوائم اللي تظهر في التبويب.
 function EntityPickerModal({
   visible, title, hint, entities, selectedIds, onClose, onSave,
 }: {
@@ -193,7 +107,7 @@ function EntityPickerModal({
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const [local, setLocal] = useState(selectedIds);
-  useEffect(() => { if (visible) setLocal(selectedIds); }, [visible]);
+  useEffect(() => { if (visible) setLocal(selectedIds); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [visible]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -229,40 +143,15 @@ function EntityPickerModal({
   );
 }
 
-function Tile({ icon, color, title, subtitle, onPress }: { icon: string; color: string; title: string; subtitle: string; onPress: () => void }) {
-  const { colors } = useTheme();
-  const s = useMemo(() => makeStyles(colors), [colors]);
-  return (
-    <PressableScale style={s.tile} onPress={onPress}>
-      <View style={[s.tileIcon, { backgroundColor: color + '26' }]}>
-        <Ionicons name={icon} size={26} color={color} />
-      </View>
-      <Text style={s.tileTitle}>{title}</Text>
-      <Text style={s.tileSubtitle}>{subtitle}</Text>
-    </PressableScale>
-  );
-}
-
 function makeStyles(colors: Palette) { return StyleSheet.create({
-  hub: { padding: 16, gap: 16 },
-  hubTitle: { color: colors.text, fontSize: 26, fontWeight: '800' },
-  avatarRow: { gap: 14, paddingVertical: 2, paddingRight: 8 },
-  avatarItem: { alignItems: 'center', gap: 5, width: 58 },
-  avatarName: { color: colors.muted, fontSize: 11, fontWeight: '600' },
-  segment: { flexDirection: 'row', gap: 6, paddingHorizontal: 12, paddingBottom: 6 },
-  segBtn: { flex: 1, paddingVertical: 8, borderRadius: 11, alignItems: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  segBtnOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  segText: { color: colors.muted, fontSize: 13, fontWeight: '700' },
-  segTextOn: { color: colors.black },
-  tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  tile: { width: '47.5%', backgroundColor: colors.surface, borderRadius: 20, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 10 },
-  tileIcon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  tileTitle: { color: colors.text, fontWeight: '800', fontSize: 16 },
-  tileSubtitle: { color: colors.muted, fontSize: 12, fontWeight: '600' },
-  backHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingTop: 14, paddingBottom: 4 },
-  backBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
-  backTitle: { color: colors.text, fontSize: 20, fontWeight: '800' },
-  content: { padding: 16, gap: 14 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 },
+  title: { color: colors.text, fontSize: 26, fontWeight: '800' },
+  settingsBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  tabBar: { flexDirection: 'row', gap: 7, paddingHorizontal: 14, paddingBottom: 8 },
+  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 9, borderRadius: 13, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  tabOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  tabText: { color: colors.muted, fontSize: 13, fontWeight: '700' },
+  tabTextOn: { color: colors.black },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(4,8,14,.6)', justifyContent: 'flex-end' },
   modalSheet: { backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, maxHeight: '80%', gap: 12 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
