@@ -103,6 +103,26 @@ class DoorbellRingerModule(private val reactContext: ReactApplicationContext) :
     play(tone, false)
   }
 
+  /**
+   * بتتنادى لما شاشة الجرس تتقفل. لو الجرس هو اللي صحّى التطبيق (كان في الخلفية/
+   * القفل) بنرجّع التطبيق للخلفية عشان الشاشة ترجع للقفل/اللي كان ظاهر قبل الرنّة
+   * بدل ما التطبيق يفضل مفتوح على آخر شاشة. وبنشيل "إظهار فوق القفل" في كل الحالات.
+   */
+  @ReactMethod
+  fun dismissCall() {
+    val act = currentActivity ?: return
+    act.runOnUiThread {
+      try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+          act.setShowWhenLocked(false)
+          act.setTurnScreenOn(false)
+        }
+        if (DoorbellBridge.wokeApp) act.moveTaskToBack(true)
+        DoorbellBridge.wokeApp = false
+      } catch (e: Exception) { /* ignore */ }
+    }
+  }
+
   override fun invalidate() {
     stopRinging()
     super.invalidate()

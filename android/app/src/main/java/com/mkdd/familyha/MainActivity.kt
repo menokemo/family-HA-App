@@ -26,12 +26,26 @@ class MainActivity : ReactActivity() {
   override fun createReactActivityDelegate(): ReactActivityDelegate =
       DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled)
 
+  // بنتابع لو التطبيق في المقدمة وقت ما توصل رنّة الجرس — عشان نعرف لو الجرس هو
+  // اللي صحّى التطبيق (كان في الخلفية/القفل) ولا كان مفتوح أصلاً.
+  private var isForeground = false
+
+  override fun onResume() {
+    super.onResume()
+    isForeground = true
+  }
+
+  override fun onPause() {
+    isForeground = false
+    super.onPause()
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     handleDoorbellIntent(intent)
   }
 
-  // الـActivity من نوع singleTask، فلو كانت مفتوحة ووصلت رنّة، بييجي onNewIntent
+  // الـActivity من نوع singleTask، فلو كانت مفتوحة ووصلت رنّة, بييجي onNewIntent
   // بدل onCreate. لازم نحدّث الـintent الحالي ونعالجه.
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
@@ -45,6 +59,9 @@ class MainActivity : ReactActivity() {
   private fun handleDoorbellIntent(intent: Intent?) {
     val camera = intent?.getStringExtra("doorbell_camera") ?: return
     if (camera.isEmpty()) return
+    // الجرس صحّى التطبيق لو مكانش في المقدمة وقت وصول الرنّة. بنخزّنها عشان
+    // لما المكالمة تتقفل نرجّع التطبيق للخلفية (نرجع للقفل/اللي كان ظاهر).
+    DoorbellBridge.wokeApp = !isForeground
     showOverLockScreen()
     DoorbellBridge.deliver(camera)
   }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import InCallManager from 'react-native-incall-manager';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -8,7 +8,7 @@ import { authHeaders, cameraSnapshotUrl } from '../../api/homeAssistant';
 import { colors } from '../../theme';
 import { i18n } from '../../i18n';
 import { WebRtcCameraPlayer } from './WebRtcCameraPlayer';
-import { startDoorbellRinging, stopDoorbellRinging, doorbellRingerAvailable, type DoorbellTone } from '../../native/DoorbellRinger';
+import { startDoorbellRinging, stopDoorbellRinging, doorbellRingerAvailable, dismissDoorbellCall, type DoorbellTone } from '../../native/DoorbellRinger';
 
 type Props = { camera: HaEntity; settings: ConnectionSettings; states: HaEntity[]; onClose: () => void };
 
@@ -30,6 +30,9 @@ export function DoorbellScreen({ camera, settings, states, onClose }: Props) {
   const token = typeof camera.attributes.access_token === 'string' ? camera.attributes.access_token : undefined;
   const title = String(camera.attributes.friendly_name ?? i18n.t('doorbellTitle'));
 
+  // الإغلاق: نرجّع التطبيق للخلفية لو الجرس صحّاه (native)، وبعدين نقفل الشاشة.
+  const close = useCallback(() => { dismissDoorbellCall(); onClose(); }, [onClose]);
+
   // نغمة + اهتزاز وهي بترنّ فقط. بعد الرد صوت المكالمة (السبيكر) بيتدار جوّه
   // WebRtcCameraPlayer عبر manageAudio، فمابنلمسش InCallManager.start هنا.
   // بنفضّل نغمة التطبيق اللي الأدمن اختارها (native)؛ لو الموديول مش متاح (APK
@@ -39,13 +42,13 @@ export function DoorbellScreen({ camera, settings, states, onClose }: Props) {
     const tone = (settings.doorbellRingtone as DoorbellTone | undefined) ?? 'ding_dong';
     if (doorbellRingerAvailable) startDoorbellRinging(tone);
     else InCallManager.startRingtone('_BUNDLE_', [0, 1000, 800], 'default', 30);
-    const timeout = setTimeout(onClose, RING_TIMEOUT_MS);
+    const timeout = setTimeout(close, RING_TIMEOUT_MS);
     return () => {
       if (doorbellRingerAvailable) stopDoorbellRinging();
       else InCallManager.stopRingtone();
       clearTimeout(timeout);
     };
-  }, [answered, onClose, settings.doorbellRingtone]);
+  }, [answered, close, settings.doorbellRingtone]);
 
   // البث المباشر: وهي بترنّ = استقبال فقط وصوت مكتوم (عشان النغمة تبان)؛ بعد الرد
   // = كلام ثنائي وصوت وارد. تغيير الـ key بيعيد تركيب الاتصال (peer جديد بالمايك).
@@ -97,12 +100,12 @@ export function DoorbellScreen({ camera, settings, states, onClose }: Props) {
             active={speakerMuted}
             onPress={() => setSpeakerMuted(m => !m)}
           />
-          <CallBtn icon="call" label={i18n.t('doorbellEndCall')} danger big onPress={onClose} />
+          <CallBtn icon="call" label={i18n.t('doorbellEndCall')} danger big onPress={close} />
         </View>
       ) : (
         <View style={styles.ringBar}>
           <View style={styles.ringAction}>
-            <PressableScale style={[styles.circle, styles.decline]} onPress={onClose}>
+            <PressableScale style={[styles.circle, styles.decline]} onPress={close}>
               <Ionicons name="close" size={32} color="#fff" />
             </PressableScale>
             <Text style={styles.ringLabel}>{i18n.t('doorbellDismiss')}</Text>

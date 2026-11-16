@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.26.6] — 2026-11-16  (⚠️ تعديل native — محتاج build APK) — **إغلاق مكالمة الجرس يرجّع التطبيق للخلفية**
+- بعد إنهاء مكالمة الجرس، التطبيق كان بيفضل مفتوح على آخر شاشة كنت فيها (لأن الجرس بيصحّي التطبيق فوق القفل). دلوقتي: لو الجرس هو اللي صحّى التطبيق (كان في الخلفية/القفل)، الإنهاء بيرجّع التطبيق للخلفية — فترجع للقفل أو اللي كان ظاهر قبل الرنّة. لو كنت فاتح التطبيق أصلاً وقت الرنّة، الإنهاء بيسيبك في التطبيق عادي.
+- التفاصيل: `MainActivity` بيتابع لو التطبيق في المقدمة وقت الرنّة ويخزّن `wokeApp` في `DoorbellBridge`؛ `DoorbellRinger.dismissCall()` (بينادى عند الإغلاق) بيعمل `moveTaskToBack` لو الجرس صحّى التطبيق، ويشيل "إظهار فوق القفل".
+- **محتاج build APK** (تعديل native).
+
 ### [2.26.5] — 2026-11-16  (⚠️ تعديل native — محتاج build APK) — **نغمات جرس جديدة يختارها الأدمن**
 - **٣ نغمات جرس جديدة** (ding-dong · chime · bell) مولّدة كملفات صوت في `res/raw` — عشان الجرس مايرنّش بنغمة الموبايل الافتراضية.
 - **موديول native `DoorbellRinger`** بيشغّل النغمة المختارة من ملفات التطبيق (MediaPlayer + اهتزاز، على قناة النغمة) مع `startRinging/stopRinging/preview`.
@@ -1031,6 +1036,11 @@
 ---
 
 ## English
+
+### [2.26.6] — 2026-11-16  (⚠️ native change — needs APK build) — **ending a doorbell call sends the app to the background**
+- After ending a doorbell call, the app used to stay open on whatever screen you were last on (because the doorbell wakes the app over the lock screen). Now: if the doorbell woke the app (it was in the background/locked), ending the call sends the app back — so you return to the lock screen or whatever was showing before the ring. If you already had the app open when it rang, ending leaves you in the app as normal.
+- Details: `MainActivity` tracks whether the app was foreground when the ring arrived and stores `wokeApp` in `DoorbellBridge`; `DoorbellRinger.dismissCall()` (called on close) does `moveTaskToBack` when the doorbell woke the app, and clears show-over-lock.
+- **Needs an APK build** (native change).
 
 ### [2.26.5] — 2026-11-16  (⚠️ native change — needs APK build) — **new admin-selectable doorbell ringtones**
 - **3 new doorbell tones** (ding-dong · chime · bell) generated as audio files in `res/raw` — so the doorbell doesn't ring with the phone's default tone.

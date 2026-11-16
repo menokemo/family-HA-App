@@ -13,6 +13,10 @@ import com.facebook.react.modules.core.DeviceEventManagerModule
 object DoorbellBridge {
   @Volatile private var pendingCamera: String? = null
   @Volatile private var context: ReactApplicationContext? = null
+  // هل رنّة الجرس هي اللي صحّت التطبيق (كان في الخلفية/القفل)؟ بتتظبط في
+  // MainActivity وقت وصول الرنّة، وبتستخدمها شاشة الجرس عند الإنهاء عشان ترجّع
+  // التطبيق للخلفية بدل ما يفضل مفتوح على آخر شاشة.
+  @Volatile var wokeApp: Boolean = false
 
   fun attach(ctx: ReactApplicationContext) {
     context = ctx

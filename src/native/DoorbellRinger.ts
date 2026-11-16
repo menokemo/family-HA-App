@@ -6,6 +6,7 @@ const Native = (NativeModules as { DoorbellRinger?: {
   startRinging: (tone: string) => void;
   stopRinging: () => void;
   preview: (tone: string) => void;
+  dismissCall: () => void;
 } }).DoorbellRinger;
 
 export type DoorbellTone = 'ding_dong' | 'chime' | 'bell';
@@ -27,4 +28,12 @@ export function stopDoorbellRinging(): void {
 /** معاينة نغمة مرة واحدة (في إعدادات الأدمن). */
 export function previewDoorbellTone(tone: DoorbellTone): void {
   Native?.preview(tone);
+}
+
+/**
+ * بتتنادى عند إغلاق شاشة الجرس: لو الجرس صحّى التطبيق بترجّعه للخلفية (يرجع
+ * للقفل/اللي كان ظاهر) بدل ما يفضل مفتوح على آخر شاشة.
+ */
+export function dismissDoorbellCall(): void {
+  Native?.dismissCall();
 }
