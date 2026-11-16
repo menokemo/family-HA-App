@@ -18,6 +18,9 @@ export const FAMILY_CONFIG_FIELDS = [
   'selectedDashboardPath',
   'zoneWatchPersonIds',
   'mapEngine',
+  // كيان الجرس وكاميرته مركزيين — نفسهم لكل العيلة. "رنّ عندي" بيفضل شخصي (تحت).
+  'doorbellEntity',
+  'doorbellCamera',
   'selectedCalendarIds',
   'selectedTodoIds',
   'backgroundMonitoringEnabled',
@@ -30,6 +33,9 @@ export const FAMILY_CONFIG_FIELDS = [
 //    واحد بعينه — مالهاش أي معنى على موبايل تاني.
 //  • shareLocation / beaconMonitor / bleEmitter / highAccuracyMode: قرارات
 //    بتشغّل خدمات وبتاكل بطارية على جهاز الفرد، فبتفضل بإيده هو.
+//  • doorbellRingThisPhone: مين عايز الجرس يرنّ على موبايله قرار شخصي (مش كل
+//    فرد عايز شاشة تاخد موبايله كل ما حد يدقّ)، فمابينتشرش. كيان الجرس وكاميرته
+//    بس اللي بينتشروا (doorbellEntity/doorbellCamera فوق).
 
 export type FamilyConfig = Partial<Pick<ConnectionSettings, (typeof FAMILY_CONFIG_FIELDS)[number]>>;
 

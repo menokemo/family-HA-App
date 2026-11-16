@@ -35,6 +35,7 @@ class AlarmMonitorService : Service() {
   // رقم جيل الاتصال: كل محاولة اتصال بتاخد رقم، وبس كولباكات أحدث جيل هي اللي
   // بتشتغل. ده بيلغي أي سوكت قديم اتقفل (منع إعادة اتصال/تنظيف متأخر يضرب الجديد).
   private var generation = 0
+  private var lastDoorbellMs = 0L
   private var wakeLock: PowerManager.WakeLock? = null
   private val reconnectHandler = Handler(Looper.getMainLooper())
   private var msgId = 1
@@ -44,9 +45,14 @@ class AlarmMonitorService : Service() {
     const val CHANNEL_MONITOR = "alarm_monitor_channel"
     const val CHANNEL_ALERT = "alarm_alert_channel"
     const val CHANNEL_ZONE = "zone_notification_channel"
+    const val CHANNEL_DOORBELL = "doorbell_channel"
     const val NOTIF_ID_MONITOR = 1001
     const val NOTIF_ID_ALERT = 1002
+    const val NOTIF_ID_DOORBELL = 1003
     const val NOTIF_ID_ZONE_BASE = 2000
+    // رنّة الجرس ممكن تكون نبضة قصيرة (on ثم off) أو حدث + مستشعر مع بعض،
+    // فبنتجاهل أي رنّة تانية خلال الفترة دي عشان مانفتحش الشاشة مرتين.
+    private const val DOORBELL_DEBOUNCE_MS = 6000L
     const val PREFS = "alarm_monitor"
   }
 
@@ -150,6 +156,8 @@ class AlarmMonitorService : Service() {
                     showFullScreenAlert(reason)
                   }
                 }
+                val doorbellEntity = prefs().getString("doorbellEntity", "") ?: ""
+                if (doorbellEntity.isNotEmpty() && entityId == doorbellEntity) checkDoorbellRing(data)
                 if (entityId.startsWith("person.")) checkZoneChange(entityId, data)
               }
             }
@@ -177,7 +185,7 @@ class AlarmMonitorService : Service() {
 
   private fun scheduleReconnect() {
     // الخدمة بتفضل شغّالة لو مراقبة الإنذار أو مراقبة مناطق العائلة مفعّلة.
-    val keepAlive = prefs().getBoolean("enabled", false) || prefs().getBoolean("zoneWatchEnabled", false)
+    val keepAlive = prefs().getBoolean("enabled", false) || prefs().getBoolean("zoneWatchEnabled", false) || prefs().getBoolean("doorbellEnabled", false)
     if (stopped || !keepAlive) return
     if (activeSocket != null || connecting) return
     reconnectHandler.postDelayed({ if (!stopped) ensureConnected() }, 8000)
@@ -195,6 +203,9 @@ class AlarmMonitorService : Service() {
       nm.createNotificationChannel(
         NotificationChannel(CHANNEL_ZONE, "مواقع العائلة", NotificationManager.IMPORTANCE_DEFAULT),
       )
+      val doorbellChannel = NotificationChannel(CHANNEL_DOORBELL, "جرس الباب", NotificationManager.IMPORTANCE_HIGH)
+      doorbellChannel.enableVibration(true)
+      nm.createNotificationChannel(doorbellChannel)
     }
   }
 
@@ -258,6 +269,63 @@ class AlarmMonitorService : Service() {
   private fun formatEntityName(entityId: String): String {
     val part = entityId.substringAfter('.', entityId)
     return part.split('_').joinToString(" ") { word -> word.replaceFirstChar { it.uppercaseChar() } }
+  }
+
+  // كشف رنّة الجرس بشكل محايد للبراند — من تغيّر الحالة، مش من نوع الجهاز:
+  //  • binary_sensor: رنّ لما يبقى "on" وكان مش "on".
+  //  • event entity: حالته timestamp بتتغيّر كل رنّة، فأي تغيّر لقيمة صالحة = رنّة.
+  private fun checkDoorbellRing(data: JSONObject) {
+    val entityId = data.optString("entity_id")
+    val oldState = data.optJSONObject("old_state")?.optString("state") ?: ""
+    val newState = data.optJSONObject("new_state")?.optString("state") ?: ""
+    if (newState.isEmpty() || newState == "unknown" || newState == "unavailable") return
+    val rang = when {
+      newState == "on" && oldState != "on" -> true
+      entityId.startsWith("event.") && newState != oldState -> true
+      else -> false
+    }
+    if (!rang) return
+    val now = System.currentTimeMillis()
+    if (now - lastDoorbellMs < DOORBELL_DEBOUNCE_MS) return
+    lastDoorbellMs = now
+    fireDoorbell()
+  }
+
+  private fun fireDoorbell() {
+    val camera = prefs().getString("doorbellCamera", "") ?: ""
+    val lang = prefs().getString("language", "en")
+    // بنفتح MainActivity (تطبيق React Native) ومعاها اسم الكاميرا، فالـJS يفتح
+    // شاشة المكالمة الواردة ببثها. MainActivity بتظهر فوق القفل لما الـextra ده موجود.
+    val fullScreenIntent = Intent(this, MainActivity::class.java).apply {
+      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+      putExtra("doorbell_camera", camera)
+      putExtra("doorbell_ts", System.currentTimeMillis())
+    }
+    val pendingIntent = PendingIntent.getActivity(
+      this,
+      1,
+      fullScreenIntent,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+    val notification = NotificationCompat.Builder(this, CHANNEL_DOORBELL)
+      .setContentTitle(AlarmStrings.get(lang, "doorbell_title"))
+      .setContentText(AlarmStrings.get(lang, "doorbell_text"))
+      .setSmallIcon(android.R.drawable.ic_menu_camera)
+      .setPriority(NotificationCompat.PRIORITY_HIGH)
+      .setCategory(NotificationCompat.CATEGORY_CALL)
+      .setFullScreenIntent(pendingIntent, true)
+      .setAutoCancel(true)
+      .build()
+    getSystemService(NotificationManager::class.java).notify(NOTIF_ID_DOORBELL, notification)
+    // نفس منطق الإنذار: لو عندنا إذن العرض فوق التطبيقات، نفتح الشاشة فورًا
+    // بغضّ النظر عن حالة القفل؛ وإلا الإشعار فوق بيغطي حالة القفل على الأقل.
+    if (Settings.canDrawOverlays(this)) {
+      try {
+        startActivity(fullScreenIntent)
+      } catch (e: Exception) {
+        // الإشعار هيكمّل
+      }
+    }
   }
 
   private fun showFullScreenAlert(reason: String) {

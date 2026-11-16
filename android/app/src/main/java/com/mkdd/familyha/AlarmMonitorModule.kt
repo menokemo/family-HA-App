@@ -16,9 +16,48 @@ import com.facebook.react.bridge.ReactMethod
 class AlarmMonitorModule(private val reactContext: ReactApplicationContext) :
   ReactContextBaseJavaModule(reactContext) {
 
+  init {
+    // نوصّل جسر الجرس بالـReactContext عشان يقدر يبعت أحداث الرنّة للـJS.
+    DoorbellBridge.attach(reactContext)
+  }
+
   override fun getName() = "AlarmMonitor"
 
   private fun prefs() = reactContext.getSharedPreferences(AlarmMonitorService.PREFS, Context.MODE_PRIVATE)
+
+  // إعداد جرس الباب: كيان الجرس + كاميرته + تفعيل الرنّ على الجهاز ده. الخدمة
+  // بتراقب الكيان في نفس websocket مراقبة الإنذار. المراقبة محتاجة baseUrl/token
+  // عشان تفتح السوكت حتى لو الإنذار نفسه مش مفعّل.
+  @ReactMethod
+  fun setDoorbell(entityId: String, cameraId: String, enabled: Boolean, baseUrl: String, token: String, language: String, promise: Promise) {
+    try {
+      val on = enabled && entityId.isNotBlank()
+      prefs().edit()
+        .putString("doorbellEntity", if (on) entityId else "")
+        .putString("doorbellCamera", cameraId)
+        .putBoolean("doorbellEnabled", on)
+        .putString("baseUrl", baseUrl)
+        .putString("token", token)
+        .putString("language", language)
+        .apply()
+      val intent = Intent(reactContext, AlarmMonitorService::class.java)
+      if (on || prefs().getBoolean("enabled", false) || prefs().getBoolean("zoneWatchEnabled", false)) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) reactContext.startForegroundService(intent) else reactContext.startService(intent)
+      } else {
+        reactContext.stopService(intent)
+      }
+      promise.resolve(true)
+    } catch (e: Exception) {
+      promise.reject("set_doorbell_failed", e.message, e)
+    }
+  }
+
+  // الـJS بيسألها أول ما يشتغل: لو التطبيق اتفتح برنّة جرس وRN كان لسه بيحمّل،
+  // الكاميرا المعلّقة بترجع هنا مرة واحدة.
+  @ReactMethod
+  fun getPendingDoorbell(promise: Promise) {
+    promise.resolve(DoorbellBridge.consume())
+  }
 
   @ReactMethod
   fun canUseFullScreenIntent(promise: Promise) {

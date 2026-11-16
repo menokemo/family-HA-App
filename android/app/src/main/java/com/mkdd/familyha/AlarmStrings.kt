@@ -16,6 +16,8 @@ object AlarmStrings {
       "personLeft" to "{name} خرج من {zone}",
       "personArrived" to "{name} وصل {zone}",
       "familyLocation" to "موقع العيلة",
+      "doorbell_title" to "🔔 حد على الباب",
+      "doorbell_text" to "افتح عشان تشوف وترد",
     ),
     "en" to mapOf(
       "monitor_title" to "Secure Family",
@@ -29,6 +31,8 @@ object AlarmStrings {
       "personLeft" to "{name} left {zone}",
       "personArrived" to "{name} arrived at {zone}",
       "familyLocation" to "Family location",
+      "doorbell_title" to "🔔 Someone at the door",
+      "doorbell_text" to "Open to see and answer",
     ),
     "nl" to mapOf(
       "monitor_title" to "Secure Family",
@@ -42,6 +46,8 @@ object AlarmStrings {
       "personLeft" to "{name} heeft {zone} verlaten",
       "personArrived" to "{name} is aangekomen bij {zone}",
       "familyLocation" to "Gezinslocatie",
+      "doorbell_title" to "🔔 Iemand aan de deur",
+      "doorbell_text" to "Open om te zien en te antwoorden",
     ),
   )
 

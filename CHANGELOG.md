@@ -6,6 +6,16 @@
 
 ## العربية
 
+### [2.25.0] — 2026-11-16  (NATIVE + JS — محتاج بناء APK) — **جرس الباب بالكاميرا (مرحلة ١: مشاهدة وسماع)**
+أول مرحلة من ميزة الجرس: لما يرن، تطلع شاشة "مكالمة واردة" فوق القفل ببث الكاميرا، تشوف وتسمع وترد أو تتجاهل. **كله محايد للبراند** — مفيش اسم جهاز في الكود.
+- **اختيار الجرس (الأدمن):** أي كيان `binary_sensor` أو `event` + كاميرته، في أكورديون «جرس الباب». كيان الجرس وكاميرته **بينتشروا للعيلة** (`FAMILY_CONFIG_FIELDS`)؛ مفتاح **«رنّ على الموبايل ده» شخصي** لكل فرد (مش كل حد عايز شاشة تاخد موبايله).
+- **كشف الرنّة (محايد، من تغيّر الحالة):** `binary_sensor` → بقى `on`؛ `event entity` → الـtimestamp اتغيّر. في نفس websocket مراقبة الإنذار الموجود (`AlarmMonitorService`)، مع debounce 6 ثواني عشان النبضة القصيرة ماتفتحش الشاشة مرتين.
+- **الظهور فوق القفل:** إعادة استخدام آلية `AlarmActivity` نفسها — إشعار full-screen يفتح `MainActivity` اللي بتعمل `setShowWhenLocked`+`setTurnScreenOn`+`requestDismissKeyguard` لما الـintent فيه جرس، فتصحّي الموبايل وتظهر وهو مقفول.
+- **جسر للـJS (`DoorbellBridge`):** التطبيق شغّال → حدث `doorbellRing` فوري؛ التطبيق كان مقفول (بدء بارد) → الكاميرا تتخزّن معلّقة والـJS يسألها أول ما يشتغل (`getPendingDoorbell`).
+- **شاشة المكالمة الواردة (`DoorbellScreen`):** لقطة سريعة من الكاميرا تظهر فورًا + نغمة واهتزاز (`InCallManager`) + ردّ/تجاهل + مهلة 45 ثانية لو محدش رد. الرد يفتح البلاير الكامل بالبث والصوت (تسمع الزائر) بكل أزرار الفوتر.
+- **بنية نيتف جديدة:** `DoorbellBridge.kt`، تعديلات على `AlarmMonitorService`/`MainActivity`/`AlarmMonitorModule`، قناة إشعار `doorbell_channel`، ونصوص بالثلاث لغات في `AlarmStrings`.
+- **⏳ مرحلة ٢ (الكلام ثنائي الاتجاه):** مسار ميكروفون، يظهر زرار "اتكلم" بس لو تفاوض go2rtc أكّد الـbackchannel — لسه. versionCode 116.
+
 ### [2.24.1] — 2026-11-16  (تعديل JS — بييجي من metro) — **لمّ أزرار الكاميرا في فوتر**
 - **كل أزرار التحكّم اتلمّت في فوتر واحد** (بار سفلي مدوّر) بأيقونات نضيفة بدل ما تكون متفرّقة فوق. فوق فضل زرار الإغلاق والعنوان ومؤشّر LIVE بس. الأزرار بالترتيب: كتم الصوت · حفظ لقطة · PTZ · تصغير · تكبير · تدوير · تبديل بث/لقطة · تحديث.
 - **الأيقونات بقت أوضح:** كتم الصوت (بدل إيموجي 🔊 بقى `volume-high`/`volume-mute`)، PTZ (`game-controller`)، التدوير (`phone-landscape`)، وتبديل الوضع بقى أيقونة (`image`/`videocam`) بدل زرار نصّي.
@@ -970,6 +980,16 @@
 ---
 
 ## English
+
+### [2.25.0] — 2026-11-16  (NATIVE + JS — requires APK build) — **camera doorbell (phase 1: see & hear)**
+First phase of the doorbell feature: when it rings, a full-screen "incoming call" appears over the lock screen with the camera's stream — see, hear, answer or dismiss. **Entirely brand-neutral** — no device name in the code.
+- **Doorbell selection (admin):** any `binary_sensor` or `event` entity + its camera, in a "Doorbell" accordion. The doorbell entity and camera **publish to the family** (`FAMILY_CONFIG_FIELDS`); the **"ring this phone" toggle is personal** per member (not everyone wants a screen taking over their phone).
+- **Ring detection (neutral, from state change):** `binary_sensor` → went `on`; `event entity` → timestamp changed. On the existing alarm websocket (`AlarmMonitorService`), with a 6 s debounce so a short pulse doesn't open the screen twice.
+- **Appearing over the lock screen:** reuses the `AlarmActivity` mechanism — a full-screen notification opens `MainActivity`, which applies `setShowWhenLocked`+`setTurnScreenOn`+`requestDismissKeyguard` when the intent carries a doorbell, waking the phone over the lock screen.
+- **Bridge to JS (`DoorbellBridge`):** app running → immediate `doorbellRing` event; app was closed (cold start) → the camera is held pending and JS asks for it on startup (`getPendingDoorbell`).
+- **Incoming-call screen (`DoorbellScreen`):** a fast snapshot shows instantly + ringtone and vibration (`InCallManager`) + answer/dismiss + a 45 s timeout if unanswered. Answer opens the full player with stream and audio (you hear the visitor) and all the footer controls.
+- **New native pieces:** `DoorbellBridge.kt`, changes to `AlarmMonitorService`/`MainActivity`/`AlarmMonitorModule`, a `doorbell_channel` notification channel, and strings in all three languages in `AlarmStrings`.
+- **⏳ Phase 2 (two-way talk):** a mic track, with a "talk" button shown only when go2rtc negotiation confirms the backchannel — still to come. versionCode 116.
 
 ### [2.24.1] — 2026-11-16  (JS change — ships via metro) — **camera controls collected into a footer**
 - **All control buttons are now in one footer** (a rounded bottom bar) with clean icons instead of being scattered up top. The top keeps only the close button, the title and the LIVE dot. Order: mute · save snapshot · PTZ · zoom out · zoom in · rotate · toggle live/snapshot · refresh.

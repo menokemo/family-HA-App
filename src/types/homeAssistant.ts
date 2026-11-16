@@ -44,6 +44,10 @@ export interface ConnectionSettings {
   highAccuracyNearZones?: boolean;
   highAccuracyBtDevices?: string[];
   homeBtDevices?: string[];
+  // جرس الباب: الكيان والكاميرا مركزيين (ينتشروا)، والرنّ على الجهاز ده شخصي.
+  doorbellEntity?: string;
+  doorbellCamera?: string;
+  doorbellRingThisPhone?: boolean;
 }
 export interface AlarmoEvent {
   eventType: 'alarmo_failed_to_arm' | 'alarmo_command_success' | 'alarmo_ready_to_arm_modes_updated';

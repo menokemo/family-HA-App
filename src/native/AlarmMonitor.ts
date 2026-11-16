@@ -1,4 +1,4 @@
-import { NativeModules, PermissionsAndroid, Platform } from 'react-native';
+import { NativeEventEmitter, NativeModules, PermissionsAndroid, Platform } from 'react-native';
 
 type AlarmMonitorNative = {
   start: (baseUrl: string, token: string, entityId: string, alarmCode: string, language: string, sirenTone: string, biometricEnabled: boolean) => Promise<boolean>;
@@ -119,6 +119,25 @@ export function setBeaconConfig(monitor: boolean, transmit: boolean, uuid: strin
 export function saveImageToGallery(sourcePath: string, displayName: string): Promise<boolean> {
   const n = NativeModules.AlarmMonitor as (AlarmMonitorNative & { saveImageToGallery?: (p: string, name: string) => Promise<boolean> }) | undefined;
   return n?.saveImageToGallery?.(sourcePath, displayName) ?? Promise.resolve(false);
+}
+
+// إعداد جرس الباب للخدمة النيتف: كيان الجرس + كاميرته + تفعيل الرنّ على الجهاز ده.
+export function setDoorbell(entityId: string, cameraId: string, enabled: boolean, baseUrl: string, token: string, language: string): Promise<boolean> {
+  const n = NativeModules.AlarmMonitor as (AlarmMonitorNative & { setDoorbell?: (e: string, c: string, on: boolean, b: string, t: string, l: string) => Promise<boolean> }) | undefined;
+  return n?.setDoorbell?.(entityId, cameraId, enabled, baseUrl, token, language) ?? Promise.resolve(false);
+}
+
+// لو التطبيق اتفتح برنّة جرس والـRN كان لسه بيحمّل، الكاميرا المعلّقة بترجع هنا.
+export function getPendingDoorbell(): Promise<string | null> {
+  const n = NativeModules.AlarmMonitor as (AlarmMonitorNative & { getPendingDoorbell?: () => Promise<string | null> }) | undefined;
+  return n?.getPendingDoorbell?.() ?? Promise.resolve(null);
+}
+
+// اشتراك في حدث الرنّة وقت ما التطبيق شغّال. بيرجّع دالة إلغاء الاشتراك.
+export function onDoorbellRing(handler: (cameraId: string) => void): () => void {
+  const emitter = new NativeEventEmitter(NativeModules.AlarmMonitor as never);
+  const sub = emitter.addListener('doorbellRing', (cameraId: string) => handler(cameraId));
+  return () => sub.remove();
 }
 
 export type PairedBtDevice = { address: string; name: string; connected: boolean };

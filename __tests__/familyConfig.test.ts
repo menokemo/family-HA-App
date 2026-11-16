@@ -6,6 +6,9 @@ const settings = {
   token: 'secret-token',
   mapEngine: 'native',
   zoneWatchPersonIds: ['person.mena'],
+  doorbellEntity: 'event.front_doorbell',
+  doorbellCamera: 'camera.front_door',
+  doorbellRingThisPhone: true,
   // إعدادات خاصة بالجهاز — مالهاش أي لزمة تتنشر.
   bleUuid: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
   homeBtDevices: ['AA:BB:CC:DD:EE:FF'],
@@ -19,6 +22,17 @@ const settings = {
 describe('pickFamilyConfig', () => {
   it('بينشر محرّك الخريطة', () => {
     expect(pickFamilyConfig(settings).mapEngine).toBe('native');
+  });
+
+  it('بينشر كيان الجرس وكاميرته (مركزيين للعيلة)', () => {
+    const out = pickFamilyConfig(settings);
+    expect(out.doorbellEntity).toBe('event.front_doorbell');
+    expect(out.doorbellCamera).toBe('camera.front_door');
+  });
+
+  it('عمره ما ينشر "رنّ عندي" (قرار شخصي لكل جهاز)', () => {
+    const out = pickFamilyConfig(settings) as Record<string, unknown>;
+    expect(out.doorbellRingThisPhone).toBeUndefined();
   });
 
   it('عمره ما ينشر حاجة خاصة بالجهاز', () => {
