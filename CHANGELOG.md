@@ -6,6 +6,14 @@
 
 ## العربية
 
+### [2.23.0] — 2026-11-16  (تعديل JS — بييجي من metro) — **تحسينات تبويب الكاميرات**
+تلات تحسينات، كلها JS:
+- **إصلاح: صور الشبكة كانت متجمّدة.** في إعداد «معدّل تحديث اللقطة» (افتراضي 10ث) بس `CameraTile` كان بيحمّل الصورة **مرة واحدة** وقت فتح التبويب ومفيش مؤقّت خالص — فالإعداد كان موجود ومش بيعمل حاجة. دلوقتي الشبكة بتتحدّث كل X ثانية فعلاً. المؤقّت **واحد للشبكة كلها** (مش واحد لكل مربّع)، وبيقف وانت فاتح كاميرا بملء الشاشة (البث المباشر شغّال تحتها) وبيقف لما التطبيق يروح الخلفية (مفيش هدر بيانات وبطارية على صور محدش بيشوفها)، وبيحدّث فورًا أول ما ترجع للتطبيق. كسر كاش الصورة بـ`?v=nonce` عشان الرسمة تتجدّد فعلاً مش تفضل من الكاش.
+- **زرار كتم الصوت.** علامة 🔊/🔇 كانت **مؤشّر** بس — دلوقتي زرار بيكتم/يشغّل الصوت فعلاً (`track.enabled=false` بيكتم المسار البعيد محليًا). الكتم بيفضل شغّال كمان بعد إعادة الاتصال لأن كل مسار صوت جديد بيتظبّط من حالة الكتم وقت ما يوصل.
+- **إعادة اتصال تلقائي للبث المباشر.** قبل كده أي قطع في الـWebRTC = وقوع فوري على اللقطة الثابتة. دلوقتي بيحاول يرجّع البث **3 مرات** بفاصل متزايد (1ث، 2ث، 4ث) قبل ما يقع على اللقطة، ودائرة التحميل بتبيّن «بيحاول يرجّع». الأعطال النهائية (الكاميرا مش بتدعم WebRTC، مصادقة غلط) بتقع على اللقطة على طول من غير محاولات فاضية. عدّاد المحاولات بيترجّع لصفر أول ما البث يشتغل، فأي قطع بعد كده بياخد محاولاته كاملة.
+- **لسه جاي (محتاج APK):** حفظ لقطة للاستوديو — targetSdk 36 والتخزين مقيّد، فمحتاج كود نيتف صغير (MediaStore) مش هينفع من metro.
+- **JS — من metro، من غير APK.**
+
 ### [2.22.1] — 2026-11-16  (تعديل JS — بييجي من metro) — **محرّك الخريطة في إعداد العيلة**
 - **`mapEngine` اتضاف لـ`FAMILY_CONFIG_FIELDS`** — الأدمن يدوس «انشر إعداد العيلة» فكل الأفراد يتوحّدوا على نفس محرّك الخريطة (نيتف/ويب). قبل كده كان `zoneWatchPersonIds` هو الوحيد من إعدادات الخريطة اللي بينتشر.
 - **إعدادات خريطة اتستبعدت عن قصد من النشر** (والسبب متكتوب جنبها في الكود عشان محدش يضيفها بالغلط بعدين):
@@ -948,6 +956,14 @@
 ---
 
 ## English
+
+### [2.23.0] — 2026-11-16  (JS change — ships via metro) — **camera tab improvements**
+Three improvements, all JS:
+- **Fix: the grid snapshots were frozen.** There is a "snapshot refresh rate" setting (default 10 s) but `CameraTile` downloaded the image **once** on tab open with no timer at all — the setting did nothing. The grid now actually refreshes every X seconds. The timer is **one for the whole grid** (not one per tile), pauses while a full-screen camera is open (the live stream is playing underneath), pauses while the app is backgrounded (no wasting data and battery on images nobody is looking at), and refreshes immediately on return to the app. Image cache is busted with `?v=nonce` so the frame actually updates instead of staying cached.
+- **Mute button.** The 🔊/🔇 mark was a status **indicator** only — it is now a button that actually mutes/unmutes (`track.enabled=false` mutes the remote track locally). The mute state survives reconnection because every new audio track is set from the current mute state when it arrives.
+- **Automatic live reconnect.** Previously any WebRTC drop fell straight to the static snapshot. It now retries the live stream **3 times** with increasing backoff (1 s, 2 s, 4 s) before falling back, and the spinner shows "reconnecting". Definitive failures (camera doesn't support WebRTC, bad auth) fall to the snapshot immediately without wasted retries. The retry counter resets to zero as soon as the stream plays, so a later drop gets a full set of retries.
+- **Still to come (needs APK):** save a snapshot to the gallery — targetSdk 36 with scoped storage needs a small native MediaStore helper, which can't ship from metro.
+- **JS — ships via metro, no APK needed.**
 
 ### [2.22.1] — 2026-11-16  (JS change — ships via metro) — **map engine in the family config**
 - **`mapEngine` added to `FAMILY_CONFIG_FIELDS`** — the admin hits "publish family config" and everyone lands on the same map engine (native/web). Until now `zoneWatchPersonIds` was the only map setting that travelled.

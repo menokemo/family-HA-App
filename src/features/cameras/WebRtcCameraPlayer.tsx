@@ -18,7 +18,13 @@ type Props = {
   settings: ConnectionSettings;
   onUnavailable: (reason: string) => void;
   onAudioChange?: (hasAudio: boolean) => void;
+  muted?: boolean;
 };
+
+// قبل ما نقع على اللقطة الثابتة، بنحاول نرجّع البث المباشر كذا مرة بفاصل متزايد.
+// معظم القطع في البث لحظي (الشبكة، نوم الكاميرا شوية) وبيرجع لوحده.
+const MAX_RECONNECTS = 3;
+const RECONNECT_BACKOFF_MS = [1000, 2000, 4000];
 
 type WsMessage = {
   id?: number;
@@ -45,13 +51,26 @@ type ClientConfiguration = {
 const websocketUrl = (baseUrl: string) =>
   `${baseUrl.trim().replace(/\/+$/, '').replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:')}/api/websocket`;
 
-export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onAudioChange }: Props) {
+export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onAudioChange, muted = false }: Props) {
   const [streamUrl, setStreamUrl] = useState<string>();
   const [status, setStatus] = useState(i18n.t('connecting'));
+  const [reconnectNonce, setReconnectNonce] = useState(0);
   const fallbackRef = useRef(onUnavailable);
   fallbackRef.current = onUnavailable;
   const onAudioChangeRef = useRef(onAudioChange);
   onAudioChangeRef.current = onAudioChange;
+  // عدد المحاولات الفاشلة المتتالية — بيترجّع لصفر لما البث يشتغل.
+  const attemptsRef = useRef(0);
+  // مسار الصوت البعيد عشان نقدر نكتمه (enabled=false بيكتم مسار بعيد محليًا).
+  const audioTrackRef = useRef<{ enabled: boolean } | null>(null);
+  const mutedRef = useRef(muted);
+  mutedRef.current = muted;
+
+  // كتم/تشغيل الصوت على المسار الحالي. بيشتغل كمان بعد إعادة الاتصال لأن
+  // كل مسار جديد بيتظبّط من `mutedRef` وقت ما يوصل.
+  useEffect(() => {
+    if (audioTrackRef.current) audioTrackRef.current.enabled = !muted;
+  }, [muted]);
 
   useEffect(() => {
     // بدون ده، الصوت بيتوجّه لقناة "مكالمة" هادية وثابتة تقريبًا مش
@@ -75,11 +94,29 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onAudioCha
       console.log('[WebRTC]', camera.entity_id, message);
     };
 
+    // عطل نهائي: الكاميرا مش بتدعم WebRTC أو المصادقة غلط — إعادة المحاولة
+    // مش هتفيد، فبنقع على اللقطة الثابتة على طول.
     const fail = (reason: string) => {
       log(`❌ fail: ${reason}`);
       if (disposed) return;
       setStatus(reason);
       fallbackRef.current(reason);
+    };
+
+    // عطل مؤقت: جرّب ترجّع البث كذا مرة قبل ما تقع على اللقطة.
+    const retryOrFail = (reason: string) => {
+      if (disposed) return;
+      if (attemptsRef.current >= MAX_RECONNECTS) {
+        log(`❌ استنفدنا المحاولات (${reason})`);
+        fail(reason);
+        return;
+      }
+      const delay = RECONNECT_BACKOFF_MS[Math.min(attemptsRef.current, RECONNECT_BACKOFF_MS.length - 1)];
+      attemptsRef.current += 1;
+      log(`↻ إعادة محاولة ${attemptsRef.current}/${MAX_RECONNECTS} بعد ${delay}ms (${reason})`);
+      setStreamUrl(undefined); // امسح البث الميت عشان تبان دائرة التحميل ورسالة "بيحاول يرجّع".
+      setStatus(i18n.t('reconnecting'));
+      setTimeout(() => { if (!disposed) setReconnectNonce(n => n + 1); }, delay);
     };
 
     const command = (payload: Record<string, unknown>): Promise<unknown> => {
@@ -148,9 +185,9 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onAudioCha
           await peer?.addIceCandidate(new RTCIceCandidate(candidate));
           return;
         }
-        fail(event.message || i18n.t('cameraPlaybackFailed'));
+        retryOrFail(event.message || i18n.t('cameraPlaybackFailed'));
       } catch (error) {
-        if (!disposed) fail(error instanceof Error ? error.message : i18n.t('cameraPlaybackFailed'));
+        if (!disposed) retryOrFail(error instanceof Error ? error.message : i18n.t('cameraPlaybackFailed'));
       }
     };
 
@@ -187,10 +224,17 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onAudioCha
         };
         peerEvents.ontrack = event => {
           if (!remoteStream || disposed) return;
-          const kind = (event.track as unknown as { kind?: string }).kind;
+          const track = event.track as unknown as { kind?: string; enabled: boolean };
+          const kind = track.kind;
           log(`🎥 ontrack: ${kind}`);
           remoteStream.addTrack(event.track as never);
-          if (kind === 'audio') onAudioChangeRef.current?.(true);
+          if (kind === 'audio') {
+            audioTrackRef.current = track;
+            track.enabled = !mutedRef.current; // طبّق حالة الكتم على المسار الجديد (مهم بعد إعادة الاتصال).
+            onAudioChangeRef.current?.(true);
+          }
+          // وصل البث = نجاح، صفّر عدّاد المحاولات عشان أي قطع بعد كده ياخد محاولاته كاملة.
+          attemptsRef.current = 0;
           setStreamUrl(remoteStream.toURL());
           setStatus(i18n.t('liveStream'));
         };
@@ -200,7 +244,7 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onAudioCha
         };
         peerEvents.oniceconnectionstatechange = () => {
           log(`ICE state: ${peer?.iceConnectionState}`);
-          if (peer?.iceConnectionState === 'failed') fail(i18n.t('webrtcConnectionFailed'));
+          if (peer?.iceConnectionState === 'failed') retryOrFail(i18n.t('webrtcConnectionFailed'));
         };
 
         const offer = await peer.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
@@ -215,7 +259,7 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onAudioCha
         }));
       } catch (error) {
         log(`❌ خطأ في startWebRtc: ${error instanceof Error ? error.message : String(error)}`);
-        fail(error instanceof Error ? error.message : i18n.t('cameraPlaybackFailed'));
+        retryOrFail(error instanceof Error ? error.message : i18n.t('cameraPlaybackFailed'));
       }
     };
 
@@ -244,7 +288,7 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onAudioCha
         if (message.id === offerSubscriptionId) {
           if (message.success === false) {
             log(`❌ فشل الـ offer: ${message.error?.message ?? 'غير معروف'}`);
-            fail(message.error?.message ?? i18n.t('cameraPlaybackFailed'));
+            retryOrFail(message.error?.message ?? i18n.t('cameraPlaybackFailed'));
           } else {
             log('✅ الـ offer اتقبل، مستنيين event');
           }
@@ -267,7 +311,7 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onAudioCha
         void handleOfferEvent(message.event);
       }
       };
-      socket.onerror = () => { log('❌ socket.onerror'); fail(i18n.t('webrtcConnectionFailed')); };
+      socket.onerror = () => { log('❌ socket.onerror'); retryOrFail(i18n.t('webrtcConnectionFailed')); };
       socket.onclose = event => log(`socket.onclose (code ${event.code})`);
     };
 
@@ -303,11 +347,14 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onAudioCha
       InCallManager.stop();
       pending.forEach(request => request.reject(new Error('WebRTC player closed')));
       pending.clear();
+      audioTrackRef.current = null;
       remoteStream?.getTracks().forEach(track => track.stop());
       peer?.close();
       socket?.close();
     };
-  }, [camera.entity_id, settings.baseUrl, settings.token]);
+    // reconnectNonce في المصفوفة عشان أي زيادة فيه تعيد تشغيل الأثر كله (تنظيف
+    // ثم اتصال جديد) = محاولة إعادة اتصال نظيفة.
+  }, [camera.entity_id, settings.baseUrl, settings.token, reconnectNonce]);
 
   return (
     <View style={styles.container}>

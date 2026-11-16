@@ -108,6 +108,7 @@ export function CameraPlayer({ camera, settings, states, registry, title, onClos
   const hasPtz = useMemo(() => cameraHasPtz(registry, states, camera.entity_id), [registry, states, camera.entity_id]);
   const [isLandscape, setIsLandscape] = useState(false);
   const [hasAudio, setHasAudio] = useState(false);
+  const [muted, setMuted] = useState(false);
   const { scale, translateX, translateY, panHandlers, zoomed, zoomIn, zoomOut } = useZoomPan(() => setChromeVisible(v => !v));
   const token = typeof camera.attributes.access_token === 'string' ? camera.attributes.access_token : undefined;
   const snapshotUrl = useMemo(
@@ -139,6 +140,7 @@ export function CameraPlayer({ camera, settings, states, registry, title, onClos
       settings={settings}
       onUnavailable={reason => { setError(reason); setMode('snapshot'); }}
       onAudioChange={setHasAudio}
+      muted={muted}
     />
   ) : (
     <Image
@@ -169,10 +171,10 @@ export function CameraPlayer({ camera, settings, states, registry, title, onClos
           </View>
           <View style={{ flex: 1 }} />
           <View style={styles.toolbar}>
-            {mode === 'webrtc' ? (
-              <View style={styles.iconBtn}>
-                <Text style={styles.audioIcon}>{hasAudio ? '🔊' : '🔇'}</Text>
-              </View>
+            {mode === 'webrtc' && hasAudio ? (
+              <PressableScale style={[styles.iconBtn, muted && styles.iconBtnActive]} onPress={() => setMuted(m => !m)}>
+                <Text style={styles.audioIcon}>{muted ? '🔇' : '🔊'}</Text>
+              </PressableScale>
             ) : null}
             {hasPtz ? <PressableScale style={[styles.iconBtn, showPtz && styles.iconBtnActive]} onPress={() => setShowPtz(v => !v)}>
               <Ionicons name="videocam" size={17} color="#fff" />
