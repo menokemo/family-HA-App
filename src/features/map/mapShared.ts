@@ -22,6 +22,18 @@ export const LOW_BATTERY = 15;
 // مالهاش أي علاقة بالعيلة. بنعرض بس اللي في نطاق 10كم من البيت أو من أي فرد.
 export const HAZARD_NEAR_M = 10000;
 
+// نوع بلاغ الطوارئ — بيتحدّد من كلمات في الاسم/المصدر (محايد: مش مربوط بتكامل
+// معيّن، وبيغطّي الهولندي والإنجليزي والألماني لأن مصادر geo_location بتختلف).
+export type HazardKind = 'ambulance' | 'fire' | 'police' | 'other';
+
+export function hazardKind(text: string): HazardKind {
+  const t = text.toLowerCase();
+  if (/ambulance|ambu|\bmmt\b|trauma|medic|rettung|ziekenwagen/.test(t)) return 'ambulance';
+  if (/brandweer|feuerwehr|pompier|\bfire\b|\bbrand\b/.test(t)) return 'fire';
+  if (/politie|police|polizei|\bcop\b|cops/.test(t)) return 'police';
+  return 'other';
+}
+
 /** يرجّع المخاطر القريبة من أي "مرساة" (البيت أو أي فرد). من غير مراسي = مفيش
  *  حاجة نقيس عليها، فبنرجّع فاضي بدل ما نغرق اللستة بمخاطر بعيدة. */
 export function filterNearbyHazards<T extends { lat: number; lng: number }>(

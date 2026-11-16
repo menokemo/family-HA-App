@@ -23,6 +23,8 @@ import {
   reverseGeocode,
   fetchRoute,
   filterNearbyHazards,
+  hazardKind,
+  type HazardKind,
   compassKey,
   bearing,
   haversine,
@@ -58,6 +60,16 @@ type Props = { people: HaEntity[]; home?: HaEntity; states: HaEntity[]; selected
 type Point = { id: string; name: string; lat: number; lng: number; uri?: string; color: string };
 type Zone = { id: string; name: string; lat: number; lng: number; radius: number };
 type Hazard = { id: string; name: string; lat: number; lng: number; source: string };
+
+// أيقونة ولون لكل نوع بلاغ. ألوان ثابتة (مش من الثيم) عشان تفضل مميّزة في
+// الوضعين الفاتح والغامق.
+const HAZARD_STYLE: Record<HazardKind, { icon: string; color: string }> = {
+  ambulance: { icon: 'medical', color: '#E53935' },
+  fire: { icon: 'flame', color: '#F57C00' },
+  police: { icon: 'shield', color: '#1E6FE0' },
+  other: { icon: 'warning', color: '#E0A800' },
+};
+const hazStyle = (h: { name: string; source: string }) => HAZARD_STYLE[hazardKind(`${h.name} ${h.source}`)];
 type PresenceEvt = { id: string; person: string; kind: 'arrive' | 'leave'; place: string; ts: number };
 
 const num = (v: unknown) => Number(v);
@@ -507,8 +519,8 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
         title: h.name,
         subtitle: h.source || i18n.t('hazards'),
         meta: fromMeText(h.lat, h.lng),
-        icon: 'warning',
-        tint: colors.danger,
+        icon: hazStyle(h).icon,
+        tint: hazStyle(h).color,
         section: i18n.t('nearbyHazards'),
       })),
     ],
@@ -705,8 +717,8 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
           ? hazards.map(h => (
               <Marker key={h.id} id={`haz-${h.id}`} lngLat={[h.lng, h.lat]} anchor="center">
                 <PressableScale onPress={() => { setSelHazardId(h.id); focusAt(h.lng, h.lat, 14); }}>
-                  <View style={styles.hazard}>
-                    <Ionicons name="warning" size={16} color="#fff" />
+                  <View style={[styles.hazard, { backgroundColor: hazStyle(h).color }]}>
+                    <Ionicons name={hazStyle(h).icon} size={16} color="#fff" />
                   </View>
                 </PressableScale>
               </Marker>
@@ -868,7 +880,7 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
           <View style={styles.hazCard} pointerEvents="box-none">
             <View style={[styles.hazCardInner, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
               <View style={styles.hazCardHead}>
-                <View style={[styles.hazCardIcon, { backgroundColor: colors.danger }]}><Ionicons name="warning" size={20} color="#fff" /></View>
+                <View style={[styles.hazCardIcon, { backgroundColor: hazStyle(h).color }]}><Ionicons name={hazStyle(h).icon} size={20} color="#fff" /></View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.hazCardTitle, { color: colors.text }]} numberOfLines={2}>{h.name}</Text>
                   {h.source ? <Text style={[styles.hazCardSource, { color: colors.muted }]} numberOfLines={1}>{h.source}</Text> : null}

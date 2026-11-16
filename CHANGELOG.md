@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.25.5] — 2026-11-16  (تعديل JS — بييجي من metro) — **تمييز أنواع البلاغات بأيقونة ولون**
+- كل بلاغ طوارئ بقى ليه **أيقونة ولون حسب نوعه**: إسعاف (أحمر 🏥)، مطافي (برتقالي 🔥)، شرطة (أزرق 🛡️)، وغيره (أصفر ⚠️). بيبان على الماركر في الخريطة، وفي لستة التنبيهات، وفي كارت التفاصيل.
+- **التصنيف محايد** — من كلمات في الاسم/المصدر (بيغطّي الهولندي والإنجليزي والألماني)، مش مربوط بتكامل معيّن. دالة `hazardKind` مشتركة في `mapShared.ts` + 5 تستات (المجموع 62).
+- **الخريطة الويب لسه:** بترسم المخاطر جوّه WebView محقون، فالتمييز هياخده بعدين لو احتجناه — النيتف (اللي شغّال) اتعمل. **JS — من metro.**
+
 ### [2.25.4] — 2026-11-16  (تعديل JS — بييجي من metro) — **تفاصيل الخطر عند الضغط**
 - **الضغط على خطر** (من الماركر على الخريطة أو من لستة التنبيهات) بيفتح كارت تفاصيل فيه: نوع الخطر، و**أقرب فرد من العيلة أو البيت + المسافة**، والمسافة منك انت.
 - أقرب مرساة بتتحسب من **نفس مجموعة المراسي** اللي بنفلتر بيها (البيت + كل فرد)، فالنتيجة متسقة مع الفلترة.
@@ -997,6 +1002,11 @@
 ---
 
 ## English
+
+### [2.25.5] — 2026-11-16  (JS change — ships via metro) — **distinguish alert types by icon & colour**
+- Each emergency alert now has an **icon and colour by type**: ambulance (red 🏥), fire (orange 🔥), police (blue 🛡️), other (amber ⚠️). It shows on the map marker, in the alerts list, and in the detail card.
+- **Classification is neutral** — from keywords in the name/source (covering Dutch, English, German), not tied to any one integration. Shared `hazardKind` in `mapShared.ts` + 5 tests (62 total).
+- **The web map is unchanged:** it draws hazards inside an injected WebView, so the distinction can follow there later if needed — the native map (the one in use) is done. **JS — ships via metro.**
 
 ### [2.25.4] — 2026-11-16  (JS change — ships via metro) — **hazard details on tap**
 - **Tapping a hazard** (its map marker or its row in the alerts list) opens a detail card with: the hazard type, the **nearest family member or home + distance**, and the distance from you.
