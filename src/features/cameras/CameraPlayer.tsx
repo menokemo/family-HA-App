@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Image, PanResponder, StyleSheet, Text, View } from 'react-native';
+import { Animated, Image, PanResponder, PermissionsAndroid, Platform, StyleSheet, Text, View } from 'react-native';
+import RNFS from 'react-native-fs';
 import Orientation from 'react-native-orientation-locker';
 import { PressableScale } from '../../components/PressableScale';
+import { saveImageToGallery } from '../../native/AlarmMonitor';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { authHeaders, cameraSnapshotUrl, cameraHasPtz, ptzMove, ptzStop, type PtzDirection, type RegistryEntry } from '../../api/homeAssistant';
 import { colors } from '../../theme';
@@ -109,6 +111,8 @@ export function CameraPlayer({ camera, settings, states, registry, title, onClos
   const [isLandscape, setIsLandscape] = useState(false);
   const [hasAudio, setHasAudio] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<string>();
+  const savingRef = useRef(false);
   const { scale, translateX, translateY, panHandlers, zoomed, zoomIn, zoomOut } = useZoomPan(() => setChromeVisible(v => !v));
   const token = typeof camera.attributes.access_token === 'string' ? camera.attributes.access_token : undefined;
   const snapshotUrl = useMemo(
@@ -132,6 +136,32 @@ export function CameraPlayer({ camera, settings, states, registry, title, onClos
   const closeAndUnlock = () => {
     Orientation.lockToPortrait();
     onClose();
+  };
+
+  // حفظ لقطة للمعرض. بنجيب لقطة طازة من HA (شغّالة في الوضعين، بث مباشر أو لقطة —
+  // سحب إطار من فيديو WebRTC مش موثوق)، ننزّلها للكاش، وندّيها للـMediaStore النيتف.
+  const saveSnapshot = async () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaveMsg(i18n.t('saving'));
+    const path = `${RNFS.CachesDirectoryPath}/snap-${Date.now()}.jpg`;
+    try {
+      // أندرويد ≤ 9 محتاج إذن تخزين؛ من 10 MediaStore مش محتاج.
+      if (Platform.OS === 'android' && (Platform.Version as number) < 29) {
+        const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE);
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) { setSaveMsg(i18n.t('snapshotSaveFailed')); return; }
+      }
+      const url = cameraSnapshotUrl(settings, camera.entity_id, Date.now(), token);
+      const res = await RNFS.downloadFile({ fromUrl: url, toFile: path, headers: token ? {} : authHeaders(settings) }).promise;
+      const ok = res.statusCode >= 200 && res.statusCode < 300 && (await saveImageToGallery(path, `SecureFamily_${Date.now()}.jpg`));
+      setSaveMsg(i18n.t(ok ? 'snapshotSaved' : 'snapshotSaveFailed'));
+    } catch {
+      setSaveMsg(i18n.t('snapshotSaveFailed'));
+    } finally {
+      void RNFS.unlink(path).catch(() => undefined);
+      savingRef.current = false;
+      setTimeout(() => setSaveMsg(undefined), 2500);
+    }
   };
 
   const video = mode === 'webrtc' ? (
@@ -176,6 +206,9 @@ export function CameraPlayer({ camera, settings, states, registry, title, onClos
                 <Text style={styles.audioIcon}>{muted ? '🔇' : '🔊'}</Text>
               </PressableScale>
             ) : null}
+            <PressableScale style={styles.iconBtn} onPress={saveSnapshot}>
+              <Ionicons name="download-outline" size={17} color="#fff" />
+            </PressableScale>
             {hasPtz ? <PressableScale style={[styles.iconBtn, showPtz && styles.iconBtnActive]} onPress={() => setShowPtz(v => !v)}>
               <Ionicons name="videocam" size={17} color="#fff" />
             </PressableScale> : null}
@@ -192,6 +225,7 @@ export function CameraPlayer({ camera, settings, states, registry, title, onClos
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        {saveMsg ? <Text style={[styles.error, styles.saveMsg]}>{saveMsg}</Text> : null}
         <View style={styles.actions}>
           <PressableScale style={styles.button} onPress={() => { setError(undefined); setMode(mode === 'webrtc' ? 'snapshot' : 'webrtc'); }}>
             <Text style={styles.buttonText}>{mode === 'webrtc' ? i18n.t('useSnapshot') : i18n.t('retryLive')}</Text>
@@ -228,6 +262,7 @@ const styles = StyleSheet.create({
   iconBtnActive: { backgroundColor: colors.primary },
   audioIcon: { fontSize: 14 },
   error: { position: 'absolute', bottom: 90, alignSelf: 'center', color: colors.warning, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: 'rgba(0,0,0,.7)', borderRadius: 12 },
+  saveMsg: { bottom: 140, color: '#fff' },
   actions: { position: 'absolute', bottom: 24, left: 14, right: 14, flexDirection: 'row', gap: 10 },
   button: { flex: 1, borderWidth: 1, borderColor: 'rgba(255,255,255,.4)', backgroundColor: 'rgba(0,0,0,.5)', borderRadius: 13, padding: 12, alignItems: 'center' },
   buttonText: { color: '#fff', fontWeight: '800' },

@@ -115,6 +115,12 @@ export function setBeaconConfig(monitor: boolean, transmit: boolean, uuid: strin
   return n?.setBeaconConfig?.(monitor, transmit, uuid, BLE_MAJOR, BLE_MINOR) ?? Promise.resolve(false);
 }
 
+// حفظ لقطة كاميرا (ملف JPEG في الكاش) في معرض الصور عبر MediaStore النيتف.
+export function saveImageToGallery(sourcePath: string, displayName: string): Promise<boolean> {
+  const n = NativeModules.AlarmMonitor as (AlarmMonitorNative & { saveImageToGallery?: (p: string, name: string) => Promise<boolean> }) | undefined;
+  return n?.saveImageToGallery?.(sourcePath, displayName) ?? Promise.resolve(false);
+}
+
 export type PairedBtDevice = { address: string; name: string; connected: boolean };
 
 export function getPairedBluetoothDevices(): Promise<PairedBtDevice[]> {

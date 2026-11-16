@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.24.0] — 2026-11-16  (NATIVE + JS — محتاج بناء APK) — **حفظ لقطة الكاميرا للمعرض**
+- **زرار حفظ لقطة** في بلاير الكاميرا (أيقونة تنزيل). بيحفظ اللقطة الحالية في معرض الصور تحت ألبوم `Pictures/SecureFamily`، وبيطلع رسالة «اتحفظت في المعرض».
+- **بنجيب لقطة طازة من HA** عند الضغط (شغّالة في الوضعين — بث مباشر أو لقطة ثابتة) بدل ما نحاول نسحب إطار من فيديو WebRTC (مش موثوق على أندرويد). يعني الحفظ دايمًا بيشتغل مهما كان الوضع.
+- **ملف نيتف جديد `MediaStoreHelper.kt` — من غير مكتبة.** targetSdk 36 والتخزين مقيّد (scoped storage) فمينفعش نكتب في مجلد الصور مباشرة. من أندرويد 10 بنعدّي على MediaStore (من غير أي إذن)، وقبل كده بنكتب الملف ونفهرسه بالـMediaScanner. عملناه بإيدينا بدل مكتبة camera-roll عشان نفضل من غير تبعيّات زيادة — نفس أسلوب باقي الكود النيتف.
+- **إذن `WRITE_EXTERNAL_STORAGE` لأندرويد ≤ 9 فقط** (`maxSdkVersion="28"` في الـmanifest، وبيتطلب وقت الحفظ). من أندرويد 10 مفيش إذن أصلاً.
+- بكده أربع تحسينات الكاميرات اللي اتفقنا عليها خلصت كلها (التلاتة الأولانيين في 2.23.0 JS، وده الرابع). versionCode 115.
+
 ### [2.23.0] — 2026-11-16  (تعديل JS — بييجي من metro) — **تحسينات تبويب الكاميرات**
 تلات تحسينات، كلها JS:
 - **إصلاح: صور الشبكة كانت متجمّدة.** في إعداد «معدّل تحديث اللقطة» (افتراضي 10ث) بس `CameraTile` كان بيحمّل الصورة **مرة واحدة** وقت فتح التبويب ومفيش مؤقّت خالص — فالإعداد كان موجود ومش بيعمل حاجة. دلوقتي الشبكة بتتحدّث كل X ثانية فعلاً. المؤقّت **واحد للشبكة كلها** (مش واحد لكل مربّع)، وبيقف وانت فاتح كاميرا بملء الشاشة (البث المباشر شغّال تحتها) وبيقف لما التطبيق يروح الخلفية (مفيش هدر بيانات وبطارية على صور محدش بيشوفها)، وبيحدّث فورًا أول ما ترجع للتطبيق. كسر كاش الصورة بـ`?v=nonce` عشان الرسمة تتجدّد فعلاً مش تفضل من الكاش.
@@ -956,6 +963,13 @@
 ---
 
 ## English
+
+### [2.24.0] — 2026-11-16  (NATIVE + JS — requires APK build) — **save camera snapshot to gallery**
+- **A save-snapshot button** in the camera player (download icon). Saves the current frame to the gallery under a `Pictures/SecureFamily` album, with a "Saved to gallery" message.
+- **A fresh snapshot is fetched from HA** on press (works in both modes — live stream or static snapshot) rather than trying to grab a frame from the WebRTC video (unreliable on Android). So saving always works whatever the mode.
+- **New native file `MediaStoreHelper.kt` — no library.** targetSdk 36 with scoped storage means you can't write to the pictures folder directly. On Android 10+ it goes through MediaStore (no permission); below that it writes the file and indexes it with MediaScanner. Done by hand rather than a camera-roll library to stay dependency-free — the same style as the rest of the native code.
+- **`WRITE_EXTERNAL_STORAGE` for Android ≤ 9 only** (`maxSdkVersion="28"` in the manifest, requested at save time). Android 10+ needs no permission.
+- That completes all four agreed camera improvements (the first three in 2.23.0 as JS, this is the fourth). versionCode 115.
 
 ### [2.23.0] — 2026-11-16  (JS change — ships via metro) — **camera tab improvements**
 Three improvements, all JS:

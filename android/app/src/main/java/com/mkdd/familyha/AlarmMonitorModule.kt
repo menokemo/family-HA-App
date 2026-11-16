@@ -173,6 +173,17 @@ class AlarmMonitorModule(private val reactContext: ReactApplicationContext) :
     }
   }
 
+  // حفظ لقطة كاميرا (ملف JPEG اتحمّل في الكاش) في معرض الصور عبر MediaStore.
+  @ReactMethod
+  fun saveImageToGallery(sourcePath: String, displayName: String, promise: Promise) {
+    try {
+      val ok = MediaStoreHelper.saveJpeg(reactContext, sourcePath, displayName)
+      promise.resolve(ok)
+    } catch (e: Exception) {
+      promise.reject("save_failed", e.message, e)
+    }
+  }
+
   @ReactMethod
   fun stopMobileApp(promise: Promise) {
     try {
