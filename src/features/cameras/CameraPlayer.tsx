@@ -113,6 +113,9 @@ export function CameraPlayer({ camera, settings, states, registry, title, onClos
   const [muted, setMuted] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string>();
   const savingRef = useRef(false);
+  // زيادة ده بتعيد تركيب بلاير الـWebRTC = إعادة اتصال فعلية لزرار التحديث في
+  // البث المباشر (قبل كده كان بيعمل setMode('webrtc') وهو webrtc أصلاً = مفيش حاجة).
+  const [reloadLive, setReloadLive] = useState(0);
   const { scale, translateX, translateY, panHandlers, zoomed, zoomIn, zoomOut } = useZoomPan(() => setChromeVisible(v => !v));
   const token = typeof camera.attributes.access_token === 'string' ? camera.attributes.access_token : undefined;
   const snapshotUrl = useMemo(
@@ -166,6 +169,7 @@ export function CameraPlayer({ camera, settings, states, registry, title, onClos
 
   const video = mode === 'webrtc' ? (
     <WebRtcCameraPlayer
+      key={reloadLive}
       camera={camera}
       settings={settings}
       onUnavailable={reason => { setError(reason); setMode('snapshot'); }}
@@ -200,38 +204,42 @@ export function CameraPlayer({ camera, settings, states, registry, title, onClos
             <Text style={styles.badge} numberOfLines={1}>{title}</Text>
           </View>
           <View style={{ flex: 1 }} />
-          <View style={styles.toolbar}>
-            {mode === 'webrtc' && hasAudio ? (
-              <PressableScale style={[styles.iconBtn, muted && styles.iconBtnActive]} onPress={() => setMuted(m => !m)}>
-                <Text style={styles.audioIcon}>{muted ? '🔇' : '🔊'}</Text>
-              </PressableScale>
-            ) : null}
-            <PressableScale style={styles.iconBtn} onPress={saveSnapshot}>
-              <Ionicons name="download-outline" size={17} color="#fff" />
-            </PressableScale>
-            {hasPtz ? <PressableScale style={[styles.iconBtn, showPtz && styles.iconBtnActive]} onPress={() => setShowPtz(v => !v)}>
-              <Ionicons name="videocam" size={17} color="#fff" />
-            </PressableScale> : null}
-            <PressableScale style={styles.iconBtn} onPress={zoomOut}>
-              <Ionicons name="remove" size={17} color="#fff" />
-            </PressableScale>
-            <PressableScale style={[styles.iconBtn, zoomed && styles.iconBtnActive]} onPress={zoomIn}>
-              <Ionicons name="add" size={17} color="#fff" />
-            </PressableScale>
-            <PressableScale style={[styles.iconBtn, isLandscape && styles.iconBtnActive]} onPress={toggleLandscape}>
-              <Ionicons name="expand" size={17} color="#fff" />
-            </PressableScale>
-          </View>
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {saveMsg ? <Text style={[styles.error, styles.saveMsg]}>{saveMsg}</Text> : null}
-        <View style={styles.actions}>
-          <PressableScale style={styles.button} onPress={() => { setError(undefined); setMode(mode === 'webrtc' ? 'snapshot' : 'webrtc'); }}>
-            <Text style={styles.buttonText}>{mode === 'webrtc' ? i18n.t('useSnapshot') : i18n.t('retryLive')}</Text>
+
+        {/* كل أزرار التحكّم في فوتر واحد مدوّر بأيقونات. الأزرار المشروطة (كتم
+            الصوت، PTZ) بتظهر وتختفي، والباقي ثابت. الأيقونة بتتلوّن بلون أساسي
+            لما تكون شغّالة (مكبّر، أفقي، PTZ مفتوح). */}
+        <View style={styles.footer}>
+          {mode === 'webrtc' && hasAudio ? (
+            <PressableScale style={[styles.fBtn, muted && styles.fBtnActive]} onPress={() => setMuted(m => !m)}>
+              <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={20} color="#fff" />
+            </PressableScale>
+          ) : null}
+          <PressableScale style={styles.fBtn} onPress={saveSnapshot}>
+            <Ionicons name="download-outline" size={20} color="#fff" />
           </PressableScale>
-          <PressableScale style={styles.button} onPress={() => { setError(undefined); if (mode === 'snapshot') setNonce(Date.now()); else setMode('webrtc'); }}>
-            <Text style={styles.buttonText}>{i18n.t('refresh')}</Text>
+          {hasPtz ? (
+            <PressableScale style={[styles.fBtn, showPtz && styles.fBtnActive]} onPress={() => setShowPtz(v => !v)}>
+              <Ionicons name="game-controller-outline" size={20} color="#fff" />
+            </PressableScale>
+          ) : null}
+          <PressableScale style={styles.fBtn} onPress={zoomOut}>
+            <Ionicons name="remove" size={20} color="#fff" />
+          </PressableScale>
+          <PressableScale style={[styles.fBtn, zoomed && styles.fBtnActive]} onPress={zoomIn}>
+            <Ionicons name="add" size={20} color="#fff" />
+          </PressableScale>
+          <PressableScale style={[styles.fBtn, isLandscape && styles.fBtnActive]} onPress={toggleLandscape}>
+            <Ionicons name="phone-landscape-outline" size={20} color="#fff" />
+          </PressableScale>
+          <PressableScale style={styles.fBtn} onPress={() => { setError(undefined); setMode(mode === 'webrtc' ? 'snapshot' : 'webrtc'); }}>
+            <Ionicons name={mode === 'webrtc' ? 'image-outline' : 'videocam-outline'} size={20} color="#fff" />
+          </PressableScale>
+          <PressableScale style={styles.fBtn} onPress={() => { setError(undefined); if (mode === 'snapshot') setNonce(Date.now()); else setReloadLive(n => n + 1); }}>
+            <Ionicons name="refresh" size={20} color="#fff" />
           </PressableScale>
         </View>
       </>
@@ -257,13 +265,10 @@ const styles = StyleSheet.create({
   header: { flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,.58)', paddingHorizontal: 10, paddingVertical: 7, borderRadius: 16 },
   liveDot: { width: 7, height: 7, borderRadius: 3.5 },
   badge: { color: '#fff', fontSize: 11, fontWeight: '700', flexShrink: 1 },
-  toolbar: { flexDirection: 'row', gap: 6, backgroundColor: 'rgba(0,0,0,.58)', borderRadius: 16, padding: 3 },
   iconBtn: { width: 32, height: 32, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  iconBtnActive: { backgroundColor: colors.primary },
-  audioIcon: { fontSize: 14 },
-  error: { position: 'absolute', bottom: 90, alignSelf: 'center', color: colors.warning, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: 'rgba(0,0,0,.7)', borderRadius: 12 },
-  saveMsg: { bottom: 140, color: '#fff' },
-  actions: { position: 'absolute', bottom: 24, left: 14, right: 14, flexDirection: 'row', gap: 10 },
-  button: { flex: 1, borderWidth: 1, borderColor: 'rgba(255,255,255,.4)', backgroundColor: 'rgba(0,0,0,.5)', borderRadius: 13, padding: 12, alignItems: 'center' },
-  buttonText: { color: '#fff', fontWeight: '800' },
+  error: { position: 'absolute', bottom: 96, alignSelf: 'center', color: colors.warning, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: 'rgba(0,0,0,.7)', borderRadius: 12 },
+  saveMsg: { bottom: 150, color: '#fff' },
+  footer: { position: 'absolute', bottom: 24, left: 14, right: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', backgroundColor: 'rgba(0,0,0,.62)', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 6 },
+  fBtn: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  fBtnActive: { backgroundColor: colors.primary },
 });

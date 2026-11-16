@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.24.1] — 2026-11-16  (تعديل JS — بييجي من metro) — **لمّ أزرار الكاميرا في فوتر**
+- **كل أزرار التحكّم اتلمّت في فوتر واحد** (بار سفلي مدوّر) بأيقونات نضيفة بدل ما تكون متفرّقة فوق. فوق فضل زرار الإغلاق والعنوان ومؤشّر LIVE بس. الأزرار بالترتيب: كتم الصوت · حفظ لقطة · PTZ · تصغير · تكبير · تدوير · تبديل بث/لقطة · تحديث.
+- **الأيقونات بقت أوضح:** كتم الصوت (بدل إيموجي 🔊 بقى `volume-high`/`volume-mute`)، PTZ (`game-controller`)، التدوير (`phone-landscape`)، وتبديل الوضع بقى أيقونة (`image`/`videocam`) بدل زرار نصّي.
+- **الأزرار الشغّالة بتتلوّن** بلون أساسي (مكبّر، أفقي، PTZ مفتوح، صوت مكتوم).
+- **إصلاح جانبي:** زرار التحديث في البث المباشر كان `setMode('webrtc')` وهو webrtc أصلاً = **مكانش بيعمل حاجة**. دلوقتي بيعيد تركيب البلاير فعلاً = إعادة اتصال حقيقية.
+- **JS — من metro، من غير APK.**
+
 ### [2.24.0] — 2026-11-16  (NATIVE + JS — محتاج بناء APK) — **حفظ لقطة الكاميرا للمعرض**
 - **زرار حفظ لقطة** في بلاير الكاميرا (أيقونة تنزيل). بيحفظ اللقطة الحالية في معرض الصور تحت ألبوم `Pictures/SecureFamily`، وبيطلع رسالة «اتحفظت في المعرض».
 - **بنجيب لقطة طازة من HA** عند الضغط (شغّالة في الوضعين — بث مباشر أو لقطة ثابتة) بدل ما نحاول نسحب إطار من فيديو WebRTC (مش موثوق على أندرويد). يعني الحفظ دايمًا بيشتغل مهما كان الوضع.
@@ -963,6 +970,13 @@
 ---
 
 ## English
+
+### [2.24.1] — 2026-11-16  (JS change — ships via metro) — **camera controls collected into a footer**
+- **All control buttons are now in one footer** (a rounded bottom bar) with clean icons instead of being scattered up top. The top keeps only the close button, the title and the LIVE dot. Order: mute · save snapshot · PTZ · zoom out · zoom in · rotate · toggle live/snapshot · refresh.
+- **Clearer icons:** mute (now `volume-high`/`volume-mute` instead of a 🔊 emoji), PTZ (`game-controller`), rotate (`phone-landscape`), and the mode toggle is now an icon (`image`/`videocam`) instead of a text button.
+- **Active buttons are tinted** the primary colour (zoomed, landscape, PTZ open, muted).
+- **Side fix:** the refresh button in live mode was `setMode('webrtc')` while already webrtc — it **did nothing**. It now remounts the player for a real reconnect.
+- **JS — ships via metro, no APK needed.**
 
 ### [2.24.0] — 2026-11-16  (NATIVE + JS — requires APK build) — **save camera snapshot to gallery**
 - **A save-snapshot button** in the camera player (download icon). Saves the current frame to the gallery under a `Pictures/SecureFamily` album, with a "Saved to gallery" message.
