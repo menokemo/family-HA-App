@@ -6,12 +6,16 @@
 
 ## العربية
 
+### [2.25.2] — 2026-11-16  (تعديل JS — بييجي من metro) — **الجرس بقى جوّه إعدادات الكاميرات**
+- **إعدادات الجرس بقت جزء من أكورديون إعدادات الكاميرات** بدل ما تكون منفصلة — لأن الجرس كاميرا أصلاً. اختيارات الأدمن (الكيان + الكاميرا) ومفتاح «رنّ على الموبايل ده» الشخصي كلهم مع بعض تحت عنوان فرعي «جرس الباب».
+- أكورديون الكاميرات فضل للأدمن بس بالنسبة لأدوات الكاميرا (معدّل اللقطة، الإظهار)، بس **بقى يظهر كمان لغير الأدمن لو في جرس متظبّط** عشان كل فرد يوصل لمفتاح «رنّ عندي» بتاعه. أدوات الأدمن فاضلة متخفية جوّه. **JS — من metro.**
+
 ### [2.25.1] — 2026-11-16  (تعديل JS — بييجي من metro) — **إصلاح تداخل قايمة الجرس**
 - **قايمة كيانات الجرس كانت بتطفح وتتداخل** مع الأكورديونات اللي تحتها (Dashboard/الخريطة/معلومات التطبيق). السبب: `maxHeight` على `View` عادي بيحدّد الارتفاع بس مابيقصّش الزيادة. الحل: ScrollView داخلي محدود بـ260 (`nestedScrollEnabled`) فالقايمة بتتقصّ وتتسكرول جوّه صندوقها. **JS — من metro.**
 
 ### [2.25.0] — 2026-11-16  (NATIVE + JS — محتاج بناء APK) — **جرس الباب بالكاميرا (مرحلة ١: مشاهدة وسماع)**
 أول مرحلة من ميزة الجرس: لما يرن، تطلع شاشة "مكالمة واردة" فوق القفل ببث الكاميرا، تشوف وتسمع وترد أو تتجاهل. **كله محايد للبراند** — مفيش اسم جهاز في الكود.
-- **اختيار الجرس (الأدمن):** أي كيان `binary_sensor` أو `event` + كاميرته، في أكورديون «جرس الباب». كيان الجرس وكاميرته **بينتشروا للعيلة** (`FAMILY_CONFIG_FIELDS`)؛ مفتاح **«رنّ على الموبايل ده» شخصي** لكل فرد (مش كل حد عايز شاشة تاخد موبايله).
+- **اختيار الجرس (الأدمن):** أي كيان `binary_sensor` أو `event` + كاميرته (ضمن إعدادات الكاميرات من 2.25.2). كيان الجرس وكاميرته **بينتشروا للعيلة** (`FAMILY_CONFIG_FIELDS`)؛ مفتاح **«رنّ على الموبايل ده» شخصي** لكل فرد (مش كل حد عايز شاشة تاخد موبايله).
 - **كشف الرنّة (محايد، من تغيّر الحالة):** `binary_sensor` → بقى `on`؛ `event entity` → الـtimestamp اتغيّر. في نفس websocket مراقبة الإنذار الموجود (`AlarmMonitorService`)، مع debounce 6 ثواني عشان النبضة القصيرة ماتفتحش الشاشة مرتين.
 - **الظهور فوق القفل:** إعادة استخدام آلية `AlarmActivity` نفسها — إشعار full-screen يفتح `MainActivity` اللي بتعمل `setShowWhenLocked`+`setTurnScreenOn`+`requestDismissKeyguard` لما الـintent فيه جرس، فتصحّي الموبايل وتظهر وهو مقفول.
 - **جسر للـJS (`DoorbellBridge`):** التطبيق شغّال → حدث `doorbellRing` فوري؛ التطبيق كان مقفول (بدء بارد) → الكاميرا تتخزّن معلّقة والـJS يسألها أول ما يشتغل (`getPendingDoorbell`).
@@ -983,6 +987,10 @@
 ---
 
 ## English
+
+### [2.25.2] — 2026-11-16  (JS change — ships via metro) — **doorbell moved under Camera settings**
+- **The doorbell settings are now part of the Cameras settings accordion** instead of a separate one, since the doorbell is a camera. The admin pickers (entity + camera) and the personal "ring this phone" toggle live there together under a "Doorbell" sub-heading.
+- The Cameras accordion stays admin-only for the camera controls (snapshot rate, visibility), but **now also shows for a non-admin when a doorbell is configured**, so every member can still reach their personal "ring this phone" toggle. Admin-only controls stay gated inside. **JS — ships via metro.**
 
 ### [2.25.1] — 2026-11-16  (JS change — ships via metro) — **fix doorbell list overlap**
 - **The doorbell entity list overflowed and overlapped** the accordions below it (Dashboard/Map/App info). Cause: `maxHeight` on a plain `View` caps height but doesn't clip overflow. Fix: a bounded inner ScrollView (260, `nestedScrollEnabled`) so the list clips and scrolls inside its own box. **JS — ships via metro.**
