@@ -6,6 +6,9 @@
 
 ## العربية
 
+### [2.25.1] — 2026-11-16  (تعديل JS — بييجي من metro) — **إصلاح تداخل قايمة الجرس**
+- **قايمة كيانات الجرس كانت بتطفح وتتداخل** مع الأكورديونات اللي تحتها (Dashboard/الخريطة/معلومات التطبيق). السبب: `maxHeight` على `View` عادي بيحدّد الارتفاع بس مابيقصّش الزيادة. الحل: ScrollView داخلي محدود بـ260 (`nestedScrollEnabled`) فالقايمة بتتقصّ وتتسكرول جوّه صندوقها. **JS — من metro.**
+
 ### [2.25.0] — 2026-11-16  (NATIVE + JS — محتاج بناء APK) — **جرس الباب بالكاميرا (مرحلة ١: مشاهدة وسماع)**
 أول مرحلة من ميزة الجرس: لما يرن، تطلع شاشة "مكالمة واردة" فوق القفل ببث الكاميرا، تشوف وتسمع وترد أو تتجاهل. **كله محايد للبراند** — مفيش اسم جهاز في الكود.
 - **اختيار الجرس (الأدمن):** أي كيان `binary_sensor` أو `event` + كاميرته، في أكورديون «جرس الباب». كيان الجرس وكاميرته **بينتشروا للعيلة** (`FAMILY_CONFIG_FIELDS`)؛ مفتاح **«رنّ على الموبايل ده» شخصي** لكل فرد (مش كل حد عايز شاشة تاخد موبايله).
@@ -980,6 +983,9 @@
 ---
 
 ## English
+
+### [2.25.1] — 2026-11-16  (JS change — ships via metro) — **fix doorbell list overlap**
+- **The doorbell entity list overflowed and overlapped** the accordions below it (Dashboard/Map/App info). Cause: `maxHeight` on a plain `View` caps height but doesn't clip overflow. Fix: a bounded inner ScrollView (260, `nestedScrollEnabled`) so the list clips and scrolls inside its own box. **JS — ships via metro.**
 
 ### [2.25.0] — 2026-11-16  (NATIVE + JS — requires APK build) — **camera doorbell (phase 1: see & hear)**
 First phase of the doorbell feature: when it rings, a full-screen "incoming call" appears over the lock screen with the camera's stream — see, hear, answer or dismiss. **Entirely brand-neutral** — no device name in the code.
