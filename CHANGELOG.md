@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.26.0] — 2026-11-16  (تعديل JS — بييجي من metro) — **كوارث طبيعية + تلوين حسب الخطورة + نطاق منفصل**
+- **أنواع جديدة اتضافت للتصنيف:** حادث طريق 🚗، زلزال, فيضان 🌊، عاصفة/إعصار — جنب الإسعاف/المطافي/الشرطة. محايدة للبراند (كلمات بالهولندي/الإنجليزي/الألماني)، ونوع الحادثة بياخد أولوية على الخدمة (مثلاً «Ambulance ongeval» = حادث). دي بتشتغل مع مصادر زي **GDACS** و**USGS** لما تتضاف في HA.
+- **تلوين حسب الخطورة:** العلامة حشوها = **النوع**، وحدودها = **الخطورة** (أحمر/برتقالي/أخضر) من خصائص المصدر (GDACS `alertlevel`، USGS `magnitude`/`alert`). فتعرف النوع والخطورة من نظرة. كارت التفاصيل بيعرض شارة خطورة ملوّنة. البلاغات المحلية (بلا خطورة) حدودها تفضل بيضا.
+- **نطاق منفصل للكوارث:** الكوارث الطبيعية (زلزال/فيضان/عاصفة) ليها **نطاق أوسع** (افتراضي 100كم) غير نطاق البلاغات المحلية (10كم)، لأن زلزال على بعد 80كم مهم بس إسعاف لأ. الأدمن يتحكّم في الاتنين وينتشروا للعيلة. 0 في أي نوع = يخفيه.
+- `hazardKind` وسّعناه + `hazardSeverity` + `isDisasterKind` دوال مشتركة في `mapShared.ts`. +12 تست (المجموع 69).
+- **الخريطة الويب لسه** (بترسم جوّه WebView)، والنيتف اتعمل. **per-country التلقائي + صفحة المكوّن** شغل ريبو المكوّن. **JS — من metro.**
+
 ### [2.25.5] — 2026-11-16  (تعديل JS — بييجي من metro) — **تمييز أنواع البلاغات بأيقونة ولون**
 - كل بلاغ طوارئ بقى ليه **أيقونة ولون حسب نوعه**: إسعاف (أحمر 🏥)، مطافي (برتقالي 🔥)، شرطة (أزرق 🛡️)، وغيره (أصفر ⚠️). بيبان على الماركر في الخريطة، وفي لستة التنبيهات، وفي كارت التفاصيل.
 - **التصنيف محايد** — من كلمات في الاسم/المصدر (بيغطّي الهولندي والإنجليزي والألماني)، مش مربوط بتكامل معيّن. دالة `hazardKind` مشتركة في `mapShared.ts` + 5 تستات (المجموع 62).
@@ -1002,6 +1009,13 @@
 ---
 
 ## English
+
+### [2.26.0] — 2026-11-16  (JS change — ships via metro) — **natural disasters + severity colouring + separate radius**
+- **New classified types:** road accident 🚗, earthquake, flood 🌊, storm/cyclone — alongside ambulance/fire/police. Brand-neutral (Dutch/English/German keywords), and the incident type takes priority over the service (e.g. "Ambulance ongeval" = accident). These light up with sources like **GDACS** and **USGS** once added in HA.
+- **Severity colouring:** the marker's fill = **type**, its border = **severity** (red/orange/green) from the source's attributes (GDACS `alertlevel`, USGS `magnitude`/`alert`). You read type and severity at a glance. The detail card shows a coloured severity chip. Local dispatches (no severity) keep a white border.
+- **Separate disaster radius:** natural disasters (earthquake/flood/storm) use a **wider radius** (default 100 km) than local dispatches (10 km), because a quake 80 km away matters but an ambulance doesn't. The admin controls both and they publish to the family. 0 for either type hides it.
+- `hazardKind` extended + `hazardSeverity` + `isDisasterKind`, shared in `mapShared.ts`. +12 tests (69 total).
+- **The web map is still unchanged** (draws inside a WebView); native is done. **Per-country auto + the component page** are component-repo work. **JS — ships via metro.**
 
 ### [2.25.5] — 2026-11-16  (JS change — ships via metro) — **distinguish alert types by icon & colour**
 - Each emergency alert now has an **icon and colour by type**: ambulance (red 🏥), fire (orange 🔥), police (blue 🛡️), other (amber ⚠️). It shows on the map marker, in the alerts list, and in the detail card.

@@ -24,7 +24,10 @@ import {
   fetchRoute,
   filterNearbyHazards,
   hazardKind,
+  hazardSeverity,
+  isDisasterKind,
   type HazardKind,
+  type HazardSeverity,
   compassKey,
   bearing,
   haversine,
@@ -59,7 +62,7 @@ const ZONE_SPREAD_ZOOM = 17;
 type Props = { people: HaEntity[]; home?: HaEntity; states: HaEntity[]; selectedPersonId?: string; settings: ConnectionSettings };
 type Point = { id: string; name: string; lat: number; lng: number; uri?: string; color: string };
 type Zone = { id: string; name: string; lat: number; lng: number; radius: number };
-type Hazard = { id: string; name: string; lat: number; lng: number; source: string };
+type Hazard = { id: string; name: string; lat: number; lng: number; source: string; kind: HazardKind; severity?: HazardSeverity };
 
 // أيقونة ولون لكل نوع بلاغ. ألوان ثابتة (مش من الثيم) عشان تفضل مميّزة في
 // الوضعين الفاتح والغامق.
@@ -67,9 +70,16 @@ const HAZARD_STYLE: Record<HazardKind, { icon: string; color: string }> = {
   ambulance: { icon: 'medical', color: '#E53935' },
   fire: { icon: 'flame', color: '#F57C00' },
   police: { icon: 'shield', color: '#1E6FE0' },
+  accident: { icon: 'car-sport', color: '#8E5FE8' },
+  earthquake: { icon: 'pulse', color: '#9C6B1E' },
+  flood: { icon: 'water', color: '#1EA7C4' },
+  storm: { icon: 'thunderstorm', color: '#5A6B8C' },
   other: { icon: 'warning', color: '#E0A800' },
 };
-const hazStyle = (h: { name: string; source: string }) => HAZARD_STYLE[hazardKind(`${h.name} ${h.source}`)];
+// لون الخطورة للحدود (أحمر/برتقالي/أخضر). الحشو = النوع، الحدود = الخطورة، فتعرف
+// الاتنين من نظرة. لو مفيش خطورة (بلاغات محلية) الحدود تفضل بيضا.
+const SEVERITY_COLOR: Record<HazardSeverity, string> = { high: '#E53935', moderate: '#F57C00', low: '#2E9E5B' };
+const hazStyle = (h: Hazard) => HAZARD_STYLE[h.kind];
 type PresenceEvt = { id: string; person: string; kind: 'arrive' | 'leave'; place: string; ts: number };
 
 const num = (v: unknown) => Number(v);
@@ -255,7 +265,11 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
     () =>
       states
         .filter(e => e.entity_id.startsWith('geo_location.') && Number.isFinite(num(e.attributes.latitude)) && Number.isFinite(num(e.attributes.longitude)))
-        .map(h => ({ id: h.entity_id, name: String(h.attributes.friendly_name ?? h.attributes.title ?? h.entity_id.replace('geo_location.', '')), lat: num(h.attributes.latitude), lng: num(h.attributes.longitude), source: String(h.attributes.source ?? '') })),
+        .map(h => {
+          const name = String(h.attributes.friendly_name ?? h.attributes.title ?? h.entity_id.replace('geo_location.', ''));
+          const source = String(h.attributes.source ?? '');
+          return { id: h.entity_id, name, lat: num(h.attributes.latitude), lng: num(h.attributes.longitude), source, kind: hazardKind(`${name} ${source}`), severity: hazardSeverity(h.attributes) };
+        }),
     [states],
   );
   // HA بيجيب كل مخاطر البلد (عشرات الحوادث البعيدة). بنفلترها على 10كم من البيت
@@ -272,9 +286,16 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
     }
     return out;
   }, [zones, people]);
-  // نطاق المخاطر بيتحكّم فيه الأدمن (كيلومتر، بينتشر للعيلة). الافتراضي 10، و0 = قافل.
+  // نطاقين منفصلين بيتحكّم فيهم الأدمن (كم، بينتشروا): البلاغات المحلية
+  // (إسعاف/مطافي/شرطة/حادث) بنطاق قريب، والكوارث الطبيعية (زلزال/فيضان/عاصفة)
+  // بنطاق أوسع لأنها بتأثّر من مسافة أبعد. 0 في أي منهم = قافل نوعه.
   const hazardRadiusM = (Number.isFinite(settings.hazardRadiusKm) ? (settings.hazardRadiusKm as number) : 10) * 1000;
-  const hazards = useMemo(() => filterNearbyHazards(allHazards, hazardAnchors, hazardRadiusM), [allHazards, hazardAnchors, hazardRadiusM]);
+  const disasterRadiusM = (Number.isFinite(settings.disasterRadiusKm) ? (settings.disasterRadiusKm as number) : 100) * 1000;
+  const hazards = useMemo(() => {
+    const local = filterNearbyHazards(allHazards.filter(h => !isDisasterKind(h.kind)), hazardAnchors, hazardRadiusM);
+    const disaster = filterNearbyHazards(allHazards.filter(h => isDisasterKind(h.kind)), hazardAnchors, disasterRadiusM);
+    return [...disaster, ...local];
+  }, [allHazards, hazardAnchors, hazardRadiusM, disasterRadiusM]);
 
   // الأجهزة = device_tracker مش مربوط بأي شخص (تاجات/عربيات/تراكرات مستقلة).
   const personTrackers = useMemo(() => {
@@ -717,7 +738,7 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
           ? hazards.map(h => (
               <Marker key={h.id} id={`haz-${h.id}`} lngLat={[h.lng, h.lat]} anchor="center">
                 <PressableScale onPress={() => { setSelHazardId(h.id); focusAt(h.lng, h.lat, 14); }}>
-                  <View style={[styles.hazard, { backgroundColor: hazStyle(h).color }]}>
+                  <View style={[styles.hazard, { backgroundColor: hazStyle(h).color }, h.severity ? { borderColor: SEVERITY_COLOR[h.severity], borderWidth: 3 } : null]}>
                     <Ionicons name={hazStyle(h).icon} size={16} color="#fff" />
                   </View>
                 </PressableScale>
@@ -883,7 +904,10 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
                 <View style={[styles.hazCardIcon, { backgroundColor: hazStyle(h).color }]}><Ionicons name={hazStyle(h).icon} size={20} color="#fff" /></View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.hazCardTitle, { color: colors.text }]} numberOfLines={2}>{h.name}</Text>
-                  {h.source ? <Text style={[styles.hazCardSource, { color: colors.muted }]} numberOfLines={1}>{h.source}</Text> : null}
+                  <View style={styles.hazCardChips}>
+                    {h.severity ? <Text style={[styles.hazChip, { backgroundColor: SEVERITY_COLOR[h.severity] }]}>{i18n.t(`sev_${h.severity}`)}</Text> : null}
+                    {h.source ? <Text style={[styles.hazCardSource, { color: colors.muted }]} numberOfLines={1}>{h.source}</Text> : null}
+                  </View>
                 </View>
                 <PressableScale onPress={() => setSelHazardId(null)} hitSlop={8}>
                   <Ionicons name="close" size={22} color={colors.muted} />
@@ -922,7 +946,9 @@ const styles = StyleSheet.create({
   hazCardHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   hazCardIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   hazCardTitle: { fontSize: 15.5, fontWeight: '800' },
-  hazCardSource: { fontSize: 12.5, marginTop: 2 },
+  hazCardChips: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' },
+  hazChip: { color: '#fff', fontSize: 11, fontWeight: '800', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, overflow: 'hidden' },
+  hazCardSource: { fontSize: 12.5 },
   hazCardRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   hazCardMeta: { fontSize: 13.5, fontWeight: '600', flex: 1 },
   deviceMarker: { width: 32, height: 32, borderRadius: 9, borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },

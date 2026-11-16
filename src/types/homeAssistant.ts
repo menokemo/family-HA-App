@@ -50,6 +50,8 @@ export interface ConnectionSettings {
   doorbellRingThisPhone?: boolean;
   // نطاق فلترة مخاطر الخريطة بالكيلومتر (من البيت أو أي فرد). الأدمن يتحكّم، 0 = قافل.
   hazardRadiusKm?: number;
+  // نطاق الكوارث الطبيعية (زلزال/فيضان/عاصفة) بالكيلومتر — أوسع من البلاغات المحلية.
+  disasterRadiusKm?: number;
 }
 export interface AlarmoEvent {
   eventType: 'alarmo_failed_to_arm' | 'alarmo_command_success' | 'alarmo_ready_to_arm_modes_updated';

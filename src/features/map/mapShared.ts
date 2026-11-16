@@ -24,14 +24,53 @@ export const HAZARD_NEAR_M = 10000;
 
 // نوع بلاغ الطوارئ — بيتحدّد من كلمات في الاسم/المصدر (محايد: مش مربوط بتكامل
 // معيّن، وبيغطّي الهولندي والإنجليزي والألماني لأن مصادر geo_location بتختلف).
-export type HazardKind = 'ambulance' | 'fire' | 'police' | 'other';
+export type HazardKind = 'ambulance' | 'fire' | 'police' | 'accident' | 'earthquake' | 'flood' | 'storm' | 'other';
 
 export function hazardKind(text: string): HazardKind {
   const t = text.toLowerCase();
+  // نوع الحادثة أدق وأهم من نوع الخدمة، فبنفحصه الأول. مصادر الكوارث (GDACS/USGS)
+  // بتسمّي بالحدث، و112 بتسمّي بالخدمة — فالترتيب ده بيخدم الاتنين.
+  if (/earthquake|quake|aardbeving|seismic|erdbeben/.test(t)) return 'earthquake';
+  if (/flood|overstroming|hoogwater|wateroverlast|inondation|hochwasser/.test(t)) return 'flood';
+  if (/storm|cyclone|hurricane|typhoon|orkaan|cycloon|tornado|\bgale\b/.test(t)) return 'storm';
+  if (/ongeval|aanrijding|accident|collision|\bcrash\b/.test(t)) return 'accident';
   if (/ambulance|ambu|\bmmt\b|trauma|medic|rettung|ziekenwagen/.test(t)) return 'ambulance';
-  if (/brandweer|feuerwehr|pompier|\bfire\b|\bbrand\b/.test(t)) return 'fire';
+  if (/brandweer|feuerwehr|pompier|\bfire\b|\bbrand\b|wildfire|bosbrand|natuurbrand/.test(t)) return 'fire';
   if (/politie|police|polizei|\bcop\b|cops/.test(t)) return 'police';
   return 'other';
+}
+
+// الكوارث الطبيعية بتستاهل نطاق أوسع من البلاغات المحلية (زلزال على بعد 80كم
+// مهم، إسعاف لأ). دي اللي بتتفلتر بنطاق الكوارث بدل النطاق العادي.
+export const DISASTER_KINDS: HazardKind[] = ['earthquake', 'flood', 'storm'];
+export function isDisasterKind(k: HazardKind): boolean {
+  return DISASTER_KINDS.includes(k);
+}
+
+// خطورة البلاغ من خصائص الكيان. مصادر مختلفة بتعبّر عنها بطرق مختلفة:
+// GDACS (alertlevel أخضر/برتقالي/أحمر)، USGS (alert للـPAGER أو magnitude للزلزال).
+export type HazardSeverity = 'low' | 'moderate' | 'high';
+
+export function hazardSeverity(attrs: Record<string, unknown>): HazardSeverity | undefined {
+  const level = String(attrs.alertlevel ?? attrs.alert_level ?? '').toLowerCase();
+  if (level === 'red') return 'high';
+  if (level === 'orange') return 'moderate';
+  if (level === 'green') return 'low';
+  const alert = String(attrs.alert ?? '').toLowerCase();
+  if (alert === 'red' || alert === 'orange') return 'high';
+  if (alert === 'yellow') return 'moderate';
+  if (alert === 'green') return 'low';
+  const mag = Number(attrs.magnitude ?? attrs.mag);
+  if (Number.isFinite(mag)) {
+    if (mag >= 5) return 'high';
+    if (mag >= 3) return 'moderate';
+    return 'low';
+  }
+  const sev = String(attrs.severity ?? '').toLowerCase();
+  if (/extreme|severe|\bhigh\b|\bred\b/.test(sev)) return 'high';
+  if (/moderate|orange|yellow/.test(sev)) return 'moderate';
+  if (/minor|\blow\b|\bgreen\b/.test(sev)) return 'low';
+  return undefined;
 }
 
 /** يرجّع المخاطر القريبة من أي "مرساة" (البيت أو أي فرد). من غير مراسي = مفيش
