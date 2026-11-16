@@ -6,7 +6,9 @@ import { i18n } from '../../i18n';
 import { findCalendarEntities, findTodoEntities, getCalendarEvents, getTodoItems } from '../../api/homeAssistant';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { CalendarView } from './CalendarView';
+import { MemberCalendarView } from './MemberCalendarView';
 import { ListsView } from './ListsView';
+import { MemberAvatar } from './MemberAvatar';
 import { PressableScale } from '../../components/PressableScale';
 import { Card } from '../../components/Card';
 
@@ -17,6 +19,7 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const [screen, setScreen] = useState<Screen>('hub');
+  const [calMode, setCalMode] = useState<'members' | 'list'>('members');
   const [showCalendarSettings, setShowCalendarSettings] = useState(false);
   const [showListSettings, setShowListSettings] = useState(false);
   const allCalendars = findCalendarEntities(states);
@@ -58,7 +61,16 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
     return (
       <View style={{ flex: 1 }}>
         <BackHeader title={i18n.t('calendar')} onBack={() => setScreen('hub')} onSettings={() => setShowCalendarSettings(true)} />
-        <ScrollView contentContainerStyle={s.content}><CalendarView calendars={calendars} settings={settings} /></ScrollView>
+        <View style={s.segment}>
+          {(['members', 'list'] as const).map(m => (
+            <PressableScale key={m} style={[s.segBtn, calMode === m && s.segBtnOn]} onPress={() => setCalMode(m)}>
+              <Text style={[s.segText, calMode === m && s.segTextOn]}>{i18n.t(m === 'members' ? 'byMember' : 'listView')}</Text>
+            </PressableScale>
+          ))}
+        </View>
+        {calMode === 'members'
+          ? <MemberCalendarView calendars={calendars} states={states} settings={settings} />
+          : <ScrollView contentContainerStyle={s.content}><CalendarView calendars={calendars} settings={settings} /></ScrollView>}
         <EntityPickerModal
           visible={showCalendarSettings}
           title={i18n.t('calendarSettings')}
@@ -89,9 +101,21 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
     );
   }
 
+  const persons = states.filter(e => e.entity_id.startsWith('person.'));
+
   return (
     <ScrollView contentContainerStyle={s.hub}>
       <Text style={s.hubTitle}>{i18n.t('family')}</Text>
+      {persons.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.avatarRow}>
+          {persons.map(p => (
+            <View key={p.entity_id} style={s.avatarItem}>
+              <MemberAvatar person={p} settings={settings} size={46} ring />
+              <Text style={s.avatarName} numberOfLines={1}>{String(p.attributes.friendly_name ?? p.entity_id).split(' ')[0]}</Text>
+            </View>
+          ))}
+        </ScrollView>
+      ) : null}
       <View style={s.tileGrid}>
         <Tile
           icon="calendar"
@@ -189,6 +213,14 @@ function Tile({ icon, color, title, subtitle, onPress }: { icon: string; color: 
 function makeStyles(colors: Palette) { return StyleSheet.create({
   hub: { padding: 16, gap: 16 },
   hubTitle: { color: colors.text, fontSize: 26, fontWeight: '800' },
+  avatarRow: { gap: 14, paddingVertical: 2, paddingRight: 8 },
+  avatarItem: { alignItems: 'center', gap: 5, width: 58 },
+  avatarName: { color: colors.muted, fontSize: 11, fontWeight: '600' },
+  segment: { flexDirection: 'row', gap: 6, paddingHorizontal: 12, paddingBottom: 6 },
+  segBtn: { flex: 1, paddingVertical: 8, borderRadius: 11, alignItems: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  segBtnOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  segText: { color: colors.muted, fontSize: 13, fontWeight: '700' },
+  segTextOn: { color: colors.black },
   tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   tile: { width: '47.5%', backgroundColor: colors.surface, borderRadius: 20, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 10 },
   tileIcon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },

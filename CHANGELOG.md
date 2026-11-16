@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.27.0] — 2026-11-16  (تعديل JS — بييجي من metro) — **تبويب العائلة: هَب بصور الأفراد + تقويم متعدد الأفراد**
+- **الهَب:** صف أفقي بصور أفراد العيلة (من كيانات `person`، صورة أو أول حرف ملوّن) فوق كروت الأقسام.
+- **التقويم متعدد الأفراد (قلب الاستايل):** عمود لكل فرد بصورته ولونه، وأحداثه بنفس اللون — بيقرا **التقاويم الشخصية** اللي المكوّن بيعملها (عن طريق attribute `person_entity_id`، فمفيش اعتماد على اسم/entity_id متغيّر)، وعمود «العيلة» للتقاويم المشتركة (أعياد ميلاد/مناسبات/مواعيد). زر «+» في كل عمود بيضيف حدث للفرد ده.
+- **تبديل «بالأفراد / قائمة»** في شاشة التقويم — العرض القديم (تصنيفات + أحداث متكررة + إضافة كاملة) لسه موجود تحت «قائمة» فمفيش خسارة وظائف.
+- **الأداء:** تحميل كل التقاويم **بالتوازي في نافذة واحدة واسعة** (أسبوع للوراء → 6 أسابيع قدام) مع تجميع memoized حسب اليوم/التقويم — مفيش إعادة تحميل مع كل يوم.
+- مكوّن `MemberAvatar` مشترك + ألوان ثابتة لكل فرد (من entity_id) — نفس لون الفرد في كل مكان.
+
 ### [2.26.7] — 2026-11-16  (⚠️ تعديل native — محتاج build APK) — **إصلاح فشل build (Kotlin)**
 - `DoorbellRingerModule` كان بيستعمل `currentActivity` كـproperty، لكن في RN 0.83 بقت دالة Kotlin → فشل الـcompile. اتظبطت لـ`reactContext.currentActivity`. (مفيش تغيير سلوك — بس عشان الـAPK يتبني.)
 
@@ -1039,6 +1046,13 @@
 ---
 
 ## English
+
+### [2.27.0] — 2026-11-16  (JS change — ships via metro) — **Family tab: hub with member avatars + multi-member calendar**
+- **Hub:** a horizontal row of family member avatars (from `person` entities — photo or coloured initial) above the section cards.
+- **Multi-member calendar (the core of the style):** a column per member in their colour, their events in the same colour — it reads the **per-person calendars** the component creates (via the `person_entity_id` attribute, so no dependency on a changing name/entity_id), plus a "Family" column for the shared calendars (birthdays/events/appointments). A "+" on each column adds an event for that member.
+- **"By member / List" toggle** on the calendar screen — the old view (categories + recurring events + full add) is still there under "List", so nothing is lost.
+- **Performance:** all calendars load **in parallel in one wide window** (a week back → 6 weeks ahead) with memoized grouping by day/calendar — no reload per day.
+- Shared `MemberAvatar` component + stable per-person colours (from entity_id) — each member's colour is the same everywhere.
 
 ### [2.26.7] — 2026-11-16  (⚠️ native change — needs APK build) — **fix APK build failure (Kotlin)**
 - `DoorbellRingerModule` used `currentActivity` as a property, but in RN 0.83 it became a Kotlin function → compile failure. Changed to `reactContext.currentActivity`. (No behaviour change — just so the APK compiles.)
