@@ -6,6 +6,7 @@ import {
   RTCIceCandidate,
   RTCSessionDescription,
   RTCView,
+  mediaDevices,
 } from 'react-native-webrtc';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { ensureFreshToken } from '../../api/homeAssistant';
@@ -19,6 +20,15 @@ type Props = {
   onUnavailable: (reason: string) => void;
   onAudioChange?: (hasAudio: boolean) => void;
   muted?: boolean;
+  /** وضع الكلام الثنائي: بنبعت مايك الموبايل للكاميرا (go2rtc backchannel). للجرس. */
+  talk?: boolean;
+  /** كتم المايك المحلي (في وضع الكلام). */
+  micMuted?: boolean;
+  /** بيتبلّغ لما المايك يشتغل فعلاً (نجح getUserMedia وانضاف المسار). */
+  onTalkChange?: (talking: boolean) => void;
+  /** يدير وضع صوت المكالمة (InCallManager). نخلّيه false وقت المعاينة تحت
+   *  رنين الجرس عشان نغمة الرنين ماتتقطعش. افتراضي true (الكاميرا العادية). */
+  manageAudio?: boolean;
 };
 
 // قبل ما نقع على اللقطة الثابتة، بنحاول نرجّع البث المباشر كذا مرة بفاصل متزايد.
@@ -51,7 +61,7 @@ type ClientConfiguration = {
 const websocketUrl = (baseUrl: string) =>
   `${baseUrl.trim().replace(/\/+$/, '').replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:')}/api/websocket`;
 
-export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onAudioChange, muted = false }: Props) {
+export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onAudioChange, muted = false, talk = false, micMuted = false, onTalkChange, manageAudio = true }: Props) {
   const [streamUrl, setStreamUrl] = useState<string>();
   const [status, setStatus] = useState(i18n.t('connecting'));
   const [reconnectNonce, setReconnectNonce] = useState(0);
@@ -65,6 +75,20 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onAudioCha
   const audioTrackRef = useRef<{ enabled: boolean } | null>(null);
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
+  // مسار المايك المحلي (وضع الكلام) + حالة الكتم، عشان نكتمه ونوقفه عند الإغلاق.
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const micMutedRef = useRef(micMuted);
+  micMutedRef.current = micMuted;
+  const talkRef = useRef(talk);
+  talkRef.current = talk;
+  const onTalkChangeRef = useRef(onTalkChange);
+  onTalkChangeRef.current = onTalkChange;
+
+  // كتم/تشغيل المايك المحلي في وضع الكلام.
+  useEffect(() => {
+    const tracks = localStreamRef.current?.getAudioTracks?.() ?? [];
+    for (const t of tracks) (t as unknown as { enabled: boolean }).enabled = !micMuted;
+  }, [micMuted]);
 
   // كتم/تشغيل الصوت على المسار الحالي. بيشتغل كمان بعد إعادة الاتصال لأن
   // كل مسار جديد بيتظبّط من `mutedRef` وقت ما يوصل.
@@ -77,8 +101,10 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onAudioCha
     // بتستجيب لزرار الصوت العادي بتاع الموبايل - مشكلة معروفة في
     // react-native-webrtc. media:'video' بيوجّه الصوت للسماعة بمستوى
     // صوت الوسائط العادي (بيستجيب لزرار الصوت زي أي فيديو تاني).
-    InCallManager.start({ media: 'video' });
-    InCallManager.setForceSpeakerphoneOn(true);
+    if (manageAudio) {
+      InCallManager.start({ media: 'video' });
+      InCallManager.setForceSpeakerphoneOn(true);
+    }
     let disposed = false;
     let socket: WebSocket | undefined;
     let peer: RTCPeerConnection | undefined;
@@ -215,7 +241,26 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onAudioCha
         remoteStream = new MediaStream();
         if (clientConfig.dataChannel) peer.createDataChannel(clientConfig.dataChannel);
 
-        peer.addTransceiver('audio', { direction: 'recvonly' });
+        // وضع الكلام: نجيب مايك الموبايل ونبعته للكاميرا (sendrecv) عشان
+        // الـbackchannel (go2rtc) يوصّل صوتنا للباب. لو فشل المايك، نرجع
+        // لاستقبال فقط عشان الصوت الوارد والصورة يفضلوا شغّالين.
+        let micAdded = false;
+        if (talkRef.current) {
+          try {
+            const localStream = (await mediaDevices.getUserMedia({ audio: true, video: false })) as unknown as MediaStream;
+            localStreamRef.current = localStream;
+            const micTrack = localStream.getAudioTracks?.()[0];
+            if (micTrack) {
+              (micTrack as unknown as { enabled: boolean }).enabled = !micMutedRef.current;
+              (peer as unknown as { addTrack: (t: unknown, s: unknown) => void }).addTrack(micTrack, localStream);
+              micAdded = true;
+              onTalkChangeRef.current?.(true);
+            }
+          } catch (e) {
+            log(`⚠️ تعذّر فتح المايك، هنكمل استقبال فقط: ${e instanceof Error ? e.message : String(e)}`);
+          }
+        }
+        if (!micAdded) peer.addTransceiver('audio', { direction: 'recvonly' });
         peer.addTransceiver('video', { direction: 'recvonly' });
         const peerEvents = peer as unknown as {
           ontrack?: (event: { track: { stop: () => void } }) => void;
@@ -344,10 +389,14 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onAudioCha
 
     return () => {
       disposed = true;
-      InCallManager.stop();
+      if (manageAudio) InCallManager.stop();
       pending.forEach(request => request.reject(new Error('WebRTC player closed')));
       pending.clear();
       audioTrackRef.current = null;
+      // نوقف مايكنا المحلي عشان مايفضلش شغّال بعد قفل المكالمة.
+      localStreamRef.current?.getTracks?.().forEach(t => (t as unknown as { stop: () => void }).stop());
+      localStreamRef.current = null;
+      onTalkChangeRef.current?.(false);
       remoteStream?.getTracks().forEach(track => track.stop());
       peer?.close();
       socket?.close();

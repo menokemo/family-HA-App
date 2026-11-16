@@ -6,7 +6,14 @@
 
 ## العربية
 
-### [2.26.3] — 2026-11-16  (تعديل JS — بييجي من metro) — **متابعة الشخص المختار + خط المسار عند الطلب**
+### [2.26.4] — 2026-11-16  (تعديل JS — بييجي من metro) — **الجرس: كاميرا لايف فورًا + كلام ثنائي + شكل موديرن**
+- **الكاميرا بتظهر لايف على طول لما الجرس يرنّ** — من غير انتظار قبول/رفض (كانت لقطة مموّهة قبل كده). النغمة بترنّ وإنت شايف الباب.
+- **القبول/الرفض بقوا للمحادثة:** القبول بيفتح **كلام ثنائي** — بنبعت مايك الموبايل للكاميرا عبر `go2rtc backchannel` (بنضيف مسار المايك بـ`getUserMedia` + `sendrecv`؛ لو المايك فشل نكمّل استقبال فقط). الرفض بيقفل.
+- **شاشة الرد موديرن** فيها ٣ أزرار: **كتم المايك · كتم الصوت الوارد · إنهاء المكالمة**. زر مفعّل بيتعلّم.
+- السلوك ده ماغيّرش الكاميرات العادية (المايك/وضع الكلام off افتراضيًا، وإدارة صوت المكالمة بتتفصل وقت المعاينة بـ`manageAudio`).
+- **لسه:** نغمات جرس جديدة يختارها الأدمن — بتحتاج build APK (ملفات صوت) وهتيجي في خطوة جاية.
+
+> ملاحظة: الصوت الثنائي محتاج تجربة على الجهاز وكاميرا بتدعم backchannel (Reolink بتدعمه).
 - **الكاميرا بتفضل متابعة الشخص المختار** ومترجعش للبيت لوحدها. السبب كان إن الكاميرا كانت متحكَّم فيها بـ`center` المربوط بموقعي، وموقعي بيتحدّث كل كام ثانية فكانت ترجع للبيت. دلوقتي الكاميرا `initialViewState` (غير متحكَّم فيها) وكل الحركة imperative؛ ولما تدوس على شخص بتتفعّل المتابعة (`follow`) فتفضل عليه وهو بيتحرّك.
 - **خط المسار الأزرق مايظهرش إلا لما تدوس على «From me» أو «of home».** قبل كده كان بيظهر بمجرد اختيار الشخص. دلوقتي اختيار الشخص = زوم ومتابعة بس (من غير خط)؛ والضغط على «From me» بيرسم مسار موقعي→الفرد، و«of home» بيرسم مسار البيت→الفرد، ويظبط الكاميرا على الخط كامل. ضغطة تانية بتخفي الخط وترجّع المتابعة. الخانة المضغوطة بتتعلّم.
 - **«of home» و«From me» بقوا مسافات طريق فعلية (مش مستقيمة).** «From me» = مسار موقعي→الفرد (زي ما كان)، و«of home» بقى **مسار جديد البيت→الفرد** بنفس وضع المسار. فالاتنين يتساووا وإنت في البيت (كلهم على الطريق)، بدل ما «of home» كانت مستقيمة (17.3كم) و«From me» طريق (26.5كم) فيبانوا مختلفين وإنت في مكان واحد. الاتجاه (شمال/شرق...) بيفضل جنب مسافة «of home». لو تعذّر حساب المسار، بيرجع للمسافة المستقيمة.
@@ -1018,7 +1025,14 @@
 
 ## English
 
-### [2.26.3] — 2026-11-16  (JS change — ships via metro) — **follow the selected person + route line on demand**
+### [2.26.4] — 2026-11-16  (JS change — ships via metro) — **doorbell: live camera instantly + two-way talk + modern UI**
+- **The camera goes live immediately when the doorbell rings** — no waiting for accept/reject (it was a blurred snapshot before). The ringtone plays while you see the door.
+- **Accept/reject are now for the conversation:** accept opens **two-way talk** — the phone mic is sent to the camera via `go2rtc backchannel` (we add the mic track with `getUserMedia` + `sendrecv`; if the mic fails we fall back to receive-only). Reject dismisses.
+- **Modern answer screen** with three buttons: **mute mic · mute incoming sound · end call**. Active button is highlighted.
+- Regular cameras are unaffected (mic/talk off by default, and call-audio management is split out via `manageAudio` during preview).
+- **Still to do:** new admin-selectable doorbell ringtones — needs an APK build (audio assets), coming next.
+
+> Note: two-way audio needs on-device testing and a camera that supports backchannel (Reolink does).
 - **The camera now keeps following the selected person** instead of drifting back home on its own. Cause: the camera was controlled by `center`, which is bound to my location, and my location updates every few seconds — so it kept snapping back home. The camera is now `initialViewState` (uncontrolled) with all movement imperative; tapping a person turns on `follow` so it tracks them as they move.
 - **The blue route line no longer appears just from selecting a person** — only when you tap "From me" or "of home". Selecting a person is now zoom + follow only (no line). Tapping "From me" draws the my-location→person route, "of home" draws the home→person route, and the camera fits the whole line. Tapping again hides the line and resumes following. The tapped box is highlighted.
 - **"of home" and "From me" are now real road distances (not straight-line).** "From me" = route from my location to the person (as before); "of home" is now a **new route from home to the person** using the same travel mode. So both match when you're home (both by road), instead of "of home" being straight-line (17.3 km) while "From me" was road (26.5 km) for one place. The compass direction stays next to the "of home" distance. Falls back to straight-line if the route can't be computed.
