@@ -6,6 +6,9 @@
 
 ## العربية
 
+### [2.27.1] — 2026-11-16  (تعديل JS) — **إصلاح شكل التقويم متعدد الأفراد**
+- شريط الأيام كان بيتمدّد ويطوّل جدًا (مالوش ارتفاع ثابت) فيزيح الأعمدة ويبوّظ الشكل. دلوقتي ارتفاع ثابت للشريط، والأعمدة بتترتّب من فوق وتاخد باقي الشاشة. وعرض الأحداث بقى View بسيط بدل ScrollView متداخل.
+
 ### [2.27.0] — 2026-11-16  (تعديل JS — بييجي من metro) — **تبويب العائلة: هَب بصور الأفراد + تقويم متعدد الأفراد**
 - **الهَب:** صف أفقي بصور أفراد العيلة (من كيانات `person`، صورة أو أول حرف ملوّن) فوق كروت الأقسام.
 - **التقويم متعدد الأفراد (قلب الاستايل):** عمود لكل فرد بصورته ولونه، وأحداثه بنفس اللون — بيقرا **التقاويم الشخصية** اللي المكوّن بيعملها (عن طريق attribute `person_entity_id`، فمفيش اعتماد على اسم/entity_id متغيّر)، وعمود «العيلة» للتقاويم المشتركة (أعياد ميلاد/مناسبات/مواعيد). زر «+» في كل عمود بيضيف حدث للفرد ده.
@@ -1046,6 +1049,9 @@
 ---
 
 ## English
+
+### [2.27.1] — 2026-11-16  (JS change) — **fix multi-member calendar layout**
+- The day strip had no fixed height so it stretched huge, pushing the columns down and breaking the layout. The strip now has a fixed height, columns top-align and take the rest of the screen, and events render in a plain View instead of a nested ScrollView.
 
 ### [2.27.0] — 2026-11-16  (JS change — ships via metro) — **Family tab: hub with member avatars + multi-member calendar**
 - **Hub:** a horizontal row of family member avatars (from `person` entities — photo or coloured initial) above the section cards.

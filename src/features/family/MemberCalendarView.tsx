@@ -109,49 +109,53 @@ export function MemberCalendarView({ calendars, states, settings }: Props) {
 
   return (
     <View style={{ flex: 1 }}>
-      {/* شريط الأيام */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.strip}>
-        {strip.map(d => {
-          const sel = dayKey(d) === dayKeyStr;
-          return (
-            <PressableScale key={dayKey(d)} style={[s.dayCell, sel && s.dayCellSel]} onPress={() => setSelectedDay(d)}>
-              <Text style={[s.dayDow, sel && s.daySelText]}>{d.toLocaleDateString(i18n.locale || 'en', { weekday: 'short' })}</Text>
-              <Text style={[s.dayNum, sel && s.daySelText]}>{d.getDate()}</Text>
-            </PressableScale>
-          );
-        })}
-      </ScrollView>
-
-      {loading ? (
-        <View style={s.center}><ActivityIndicator color={colors.primary} /></View>
-      ) : columns.length === 0 ? (
-        <View style={s.center}><Text style={s.empty}>{i18n.t('noCalendars')}</Text></View>
-      ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.columns}>
-          {columns.map(col => {
-            const evs = col.calendars.flatMap(c => byCalendar[c.entity_id] ?? []);
+      {/* شريط الأيام — ارتفاع ثابت عشان مايتمدّدش */}
+      <View style={s.stripOuter}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.strip}>
+          {strip.map(d => {
+            const sel = dayKey(d) === dayKeyStr;
             return (
-              <View key={col.key} style={s.column}>
-                <View style={s.colHeader}>
-                  {col.person ? <MemberAvatar person={col.person} settings={settings} size={26} /> : <View style={[s.familyDot, { backgroundColor: col.color }]}><Ionicons name="home" size={14} color="#fff" /></View>}
-                  <Text style={s.colName} numberOfLines={1}>{col.label}</Text>
-                </View>
-                <PressableScale style={[s.addBtn, { borderColor: col.color }]} onPress={() => setAddFor(col)}>
-                  <Ionicons name="add" size={18} color={col.color} />
-                </PressableScale>
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: 12 }}>
-                  {evs.length === 0 ? <Text style={s.colEmpty}>—</Text> : evs.map((e, i) => (
-                    <View key={(e.uid ?? '') + i} style={[s.event, { backgroundColor: col.color + '22', borderLeftColor: col.color }]}>
-                      <Text style={[s.eventTitle, { color: col.color }]} numberOfLines={2}>{e.summary || i18n.t('untitled')}</Text>
-                      <Text style={[s.eventTime, { color: col.color }]}>{timeLabel(e.start)}</Text>
-                    </View>
-                  ))}
-                </ScrollView>
-              </View>
+              <PressableScale key={dayKey(d)} style={[s.dayCell, sel && s.dayCellSel]} onPress={() => setSelectedDay(d)}>
+                <Text style={[s.dayDow, sel && s.daySelText]}>{d.toLocaleDateString(i18n.locale || 'en', { weekday: 'short' })}</Text>
+                <Text style={[s.dayNum, sel && s.daySelText]}>{d.getDate()}</Text>
+              </PressableScale>
             );
           })}
         </ScrollView>
-      )}
+      </View>
+
+      <View style={{ flex: 1 }}>
+        {loading ? (
+          <View style={s.center}><ActivityIndicator color={colors.primary} /></View>
+        ) : columns.length === 0 ? (
+          <View style={s.center}><Text style={s.empty}>{i18n.t('noCalendars')}</Text></View>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.columns}>
+            {columns.map(col => {
+              const evs = col.calendars.flatMap(c => byCalendar[c.entity_id] ?? []);
+              return (
+                <View key={col.key} style={s.column}>
+                  <View style={s.colHeader}>
+                    {col.person ? <MemberAvatar person={col.person} settings={settings} size={26} /> : <View style={[s.familyDot, { backgroundColor: col.color }]}><Ionicons name="home" size={14} color="#fff" /></View>}
+                    <Text style={s.colName} numberOfLines={1}>{col.label}</Text>
+                  </View>
+                  <PressableScale style={[s.addBtn, { borderColor: col.color }]} onPress={() => setAddFor(col)}>
+                    <Ionicons name="add" size={18} color={col.color} />
+                  </PressableScale>
+                  <View style={{ gap: 6, paddingBottom: 12 }}>
+                    {evs.map((e, i) => (
+                      <View key={(e.uid ?? '') + i} style={[s.event, { backgroundColor: col.color + '22', borderLeftColor: col.color }]}>
+                        <Text style={[s.eventTitle, { color: col.color }]} numberOfLines={2}>{e.summary || i18n.t('untitled')}</Text>
+                        <Text style={[s.eventTime, { color: col.color }]}>{timeLabel(e.start)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              );
+            })}
+          </ScrollView>
+        )}
+      </View>
 
       {addFor ? (
         <AddEventModal
@@ -230,7 +234,8 @@ function AddEventModal({ column, day, settings, onClose, onSaved }: { column: Co
 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
-    strip: { gap: 8, paddingHorizontal: 12, paddingVertical: 10 },
+    stripOuter: { height: 72, flexGrow: 0, flexShrink: 0 },
+    strip: { gap: 8, paddingHorizontal: 12, alignItems: 'center' },
     dayCell: { width: 48, paddingVertical: 8, borderRadius: 14, alignItems: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
     dayCellSel: { backgroundColor: colors.primary, borderColor: colors.primary },
     dayDow: { color: colors.muted, fontSize: 11, fontWeight: '600' },
@@ -238,7 +243,7 @@ function makeStyles(colors: Palette) {
     daySelText: { color: colors.black },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30 },
     empty: { color: colors.muted, fontSize: 14 },
-    columns: { gap: 10, paddingHorizontal: 12, paddingBottom: 12 },
+    columns: { gap: 10, paddingHorizontal: 12, paddingBottom: 16, alignItems: 'flex-start' },
     column: { width: 150, backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 8 },
     colHeader: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 4 },
     familyDot: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
