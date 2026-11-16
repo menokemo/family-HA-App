@@ -87,6 +87,7 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
   const { colors, resolvedMode } = useTheme();
   const cameraRef = useRef<CameraRef>(null);
   const [showHazards, setShowHazards] = useState(true);
+  const [selHazardId, setSelHazardId] = useState<string | null>(null);
   const [satelliteOn, setSatelliteOn] = useState(false);
   const [buildings3D, setBuildings3D] = useState(false);
   const [liveLocation, setLiveLocation] = useState<LiveLocation | null>(null);
@@ -427,6 +428,20 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
 
   const fromMeText = (lat: number, lng: number) => (myCoord ? distance(haversine({ latitude: myCoord[1], longitude: myCoord[0] }, { latitude: lat, longitude: lng })) : undefined);
 
+  // أقرب مرساة (البيت أو أي فرد) لنقطة خطر — بنفس مجموعة المراسي اللي بنفلتر بيها.
+  const nearestAnchor = (lat: number, lng: number): { name: string; d: number } | undefined => {
+    const cands: { name: string; d: number }[] = [];
+    const home = zones.find(z => z.id === 'zone.home');
+    if (home && Number.isFinite(home.lat) && Number.isFinite(home.lng)) cands.push({ name: home.name, d: haversine({ latitude: lat, longitude: lng }, { latitude: home.lat, longitude: home.lng }) });
+    for (const p of people) {
+      const plat = num(p.attributes.latitude);
+      const plng = num(p.attributes.longitude);
+      if (Number.isFinite(plat) && Number.isFinite(plng)) cands.push({ name: String(p.attributes.friendly_name ?? p.entity_id), d: haversine({ latitude: lat, longitude: lng }, { latitude: plat, longitude: plng }) });
+    }
+    if (!cands.length) return undefined;
+    return cands.reduce((a, b) => (b.d < a.d ? b : a));
+  };
+
   // عناصر التبويبات البسيطة (أجهزة / مناطق / تنبيهات).
   const deviceItems = useMemo<SimpleItem[]>(
     () =>
@@ -689,9 +704,11 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
         {showHazards
           ? hazards.map(h => (
               <Marker key={h.id} id={`haz-${h.id}`} lngLat={[h.lng, h.lat]} anchor="center">
-                <View style={styles.hazard}>
-                  <Ionicons name="warning" size={16} color="#fff" />
-                </View>
+                <PressableScale onPress={() => { setSelHazardId(h.id); focusAt(h.lng, h.lat, 14); }}>
+                  <View style={styles.hazard}>
+                    <Ionicons name="warning" size={16} color="#fff" />
+                  </View>
+                </PressableScale>
               </Marker>
             ))
           : null}
@@ -837,9 +854,45 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
         }}
         onPickAlert={id => {
           const h = hazards.find(x => x.id === id);
-          if (h) focusAt(h.lng, h.lat, 13);
+          if (h) { focusAt(h.lng, h.lat, 13); setSelHazardId(h.id); }
         }}
       />
+
+      {/* تفاصيل الخطر عند الضغط: نوعه + أقرب فرد/البيت والمسافة + المسافة مني. */}
+      {(() => {
+        const h = selHazardId ? hazards.find(x => x.id === selHazardId) : undefined;
+        if (!h) return null;
+        const near = nearestAnchor(h.lat, h.lng);
+        const mine = fromMeText(h.lat, h.lng);
+        return (
+          <View style={styles.hazCard} pointerEvents="box-none">
+            <View style={[styles.hazCardInner, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+              <View style={styles.hazCardHead}>
+                <View style={[styles.hazCardIcon, { backgroundColor: colors.danger }]}><Ionicons name="warning" size={20} color="#fff" /></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.hazCardTitle, { color: colors.text }]} numberOfLines={2}>{h.name}</Text>
+                  {h.source ? <Text style={[styles.hazCardSource, { color: colors.muted }]} numberOfLines={1}>{h.source}</Text> : null}
+                </View>
+                <PressableScale onPress={() => setSelHazardId(null)} hitSlop={8}>
+                  <Ionicons name="close" size={22} color={colors.muted} />
+                </PressableScale>
+              </View>
+              {near ? (
+                <View style={styles.hazCardRow}>
+                  <Ionicons name="navigate-circle-outline" size={18} color={colors.primary} />
+                  <Text style={[styles.hazCardMeta,{color:colors.text}]}>{i18n.t('near')} {near.name} · {distance(near.d)}</Text>
+                </View>
+              ) : null}
+              {mine ? (
+                <View style={styles.hazCardRow}>
+                  <Ionicons name="person-outline" size={18} color={colors.muted} />
+                  <Text style={[styles.hazCardMeta,{color:colors.muted}]}>{i18n.t('fromYou')} {mine}</Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+        );
+      })()}
     </View>
   );
 }
@@ -852,6 +905,14 @@ const styles = StyleSheet.create({
   pin: { width: 10, height: 10, borderRadius: 5, marginTop: -3, transform: [{ rotate: '45deg' }] },
   zoneChip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12, borderWidth: 1 },
   hazard: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#E53935', borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  hazCard: { position: 'absolute', top: 96, left: 14, right: 14, alignItems: 'center' },
+  hazCardInner: { width: '100%', maxWidth: 440, borderRadius: 18, borderWidth: 1, padding: 14, gap: 10, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
+  hazCardHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  hazCardIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  hazCardTitle: { fontSize: 15.5, fontWeight: '800' },
+  hazCardSource: { fontSize: 12.5, marginTop: 2 },
+  hazCardRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  hazCardMeta: { fontSize: 13.5, fontWeight: '600', flex: 1 },
   deviceMarker: { width: 32, height: 32, borderRadius: 9, borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   playhead: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#FF9F0A', borderWidth: 3, borderColor: '#fff', elevation: 4 },
   bannerLow: { top: 54 },

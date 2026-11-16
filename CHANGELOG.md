@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.25.4] — 2026-11-16  (تعديل JS — بييجي من metro) — **تفاصيل الخطر عند الضغط**
+- **الضغط على خطر** (من الماركر على الخريطة أو من لستة التنبيهات) بيفتح كارت تفاصيل فيه: نوع الخطر، و**أقرب فرد من العيلة أو البيت + المسافة**، والمسافة منك انت.
+- أقرب مرساة بتتحسب من **نفس مجموعة المراسي** اللي بنفلتر بيها (البيت + كل فرد)، فالنتيجة متسقة مع الفلترة.
+- الماركر بقى قابل للضغط (كان مجرد أيقونة)، والكارت بيتقفل من X. **JS — من metro.**
+
 ### [2.25.3] — 2026-11-16  (تعديل JS — بييجي من metro) — **الأدمن يتحكّم في نطاق مخاطر الخريطة**
 - **نطاق فلترة المخاطر بقى إعداد** بدل رقم مثبّت (كان 10كم ثابت من 2.21.1). الأدمن يظبطه بالكيلومتر في إعدادات «الموقع والخريطة» تحت «تنبيهات الخريطة»، و**ينتشر للعيلة** (سياسة مشتركة، في `FAMILY_CONFIG_FIELDS`).
 - المخاطر بتتفلتر في حدود النطاق ده من **البيت أو أي فرد** (نفس المنطق). **0 = قافل المخاطر خالص.** الافتراضي 10كم زي ما كان.
@@ -992,6 +997,11 @@
 ---
 
 ## English
+
+### [2.25.4] — 2026-11-16  (JS change — ships via metro) — **hazard details on tap**
+- **Tapping a hazard** (its map marker or its row in the alerts list) opens a detail card with: the hazard type, the **nearest family member or home + distance**, and the distance from you.
+- The nearest anchor is computed from the **same set** used for filtering (home + each person), so it's consistent with the filter.
+- The marker is now tappable (it was just an icon), and the card closes with X. **JS — ships via metro.**
 
 ### [2.25.3] — 2026-11-16  (JS change — ships via metro) — **admin controls the map hazard radius**
 - **The hazard filter radius is now a setting** instead of a hardcoded number (it was a fixed 10 km since 2.21.1). The admin sets it in km under Location & Map → "Map alerts", and it **publishes to the family** (a shared policy, in `FAMILY_CONFIG_FIELDS`).
