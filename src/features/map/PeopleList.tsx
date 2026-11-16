@@ -51,6 +51,10 @@ export type PeopleListProps = {
   homeDir?: Record<string, string>;
   /** مسار الطريق من البيت للفرد المختار — "of home" بتستخدم مسافته الفعلية. */
   homeRouteInfo?: RouteResult | null;
+  /** أي خط مسار معروض حاليًا — عشان نميّز الخانة المضغوطة. */
+  routeView?: 'none' | 'me' | 'home';
+  /** ضغط على «From me» (me) أو «of home» (home) لعرض/إخفاء خط المسار. */
+  onShowRoute?: (which: 'me' | 'home') => void;
   trips?: Trip[];
   onPickTrip?: (trip: Trip) => void;
 };
@@ -82,6 +86,8 @@ export function PeopleList({
   playing,
   homeDir,
   homeRouteInfo,
+  routeView,
+  onShowRoute,
   trips,
   onPickTrip,
 }: PeopleListProps) {
@@ -157,6 +163,8 @@ export function PeopleList({
                       label={i18n.t('ofHome')}
                       // مسافة الطريق الفعلية من البيت (لو اتحسبت) + الاتجاه، وإلا المستقيمة.
                       value={homeRouteInfo ? `${distance(homeRouteInfo.distanceMeters)} ${homeDir[p.entity_id].split(' ').pop()}` : homeDir[p.entity_id]}
+                      onPress={!isMe && onShowRoute ? () => onShowRoute('home') : undefined}
+                      active={routeView === 'home'}
                     />
                   ) : null}
                   {isMe ? (
@@ -167,7 +175,13 @@ export function PeopleList({
                     />
                   ) : (
                     <>
-                      <Box s={s} label={i18n.t('fromMe')} value={routeInfo ? distance(routeInfo.distanceMeters) : fromMe(p)} />
+                      <Box
+                        s={s}
+                        label={i18n.t('fromMe')}
+                        value={routeInfo ? distance(routeInfo.distanceMeters) : fromMe(p)}
+                        onPress={onShowRoute ? () => onShowRoute('me') : undefined}
+                        active={routeView === 'me'}
+                      />
                       {mo?.moving ? (
                         <Box s={s} label={i18n.t('speed')} value={`${Math.round(mo.speed)} km/h`} />
                       ) : (
@@ -255,15 +269,24 @@ export function PeopleList({
   );
 }
 
-function Box({ s, label, value }: { s: ReturnType<typeof makeStyles>; label: string; value: string }) {
-  return (
-    <View style={s.box}>
-      <Text style={s.boxLabel}>{label}</Text>
+function Box({ s, label, value, onPress, active }: { s: ReturnType<typeof makeStyles>; label: string; value: string; onPress?: () => void; active?: boolean }) {
+  const inner = (
+    <>
+      <Text style={s.boxLabel} numberOfLines={1}>{label}</Text>
       <Text style={s.boxValue} numberOfLines={1}>
         {value}
       </Text>
-    </View>
+    </>
   );
+  // خانة قابلة للضغط (مسافة البيت/مني) بتعرض خط المسار؛ بتتعلّم لما تكون مفعّلة.
+  if (onPress) {
+    return (
+      <PressableScale style={[s.box, active && s.boxActive]} onPress={onPress}>
+        {inner}
+      </PressableScale>
+    );
+  }
+  return <View style={s.box}>{inner}</View>;
 }
 
 const makeStyles = (c: Palette) =>
@@ -285,6 +308,7 @@ const makeStyles = (c: Palette) =>
     rowBatteryText: { color: c.muted, fontSize: 11, fontWeight: '600' },
     details: { flexDirection: 'row', gap: 8, paddingHorizontal: 10, paddingBottom: 12, paddingTop: 2 },
     box: { flex: 1, backgroundColor: c.surface, borderRadius: 12, borderWidth: 1, borderColor: c.border, paddingVertical: 8, paddingHorizontal: 10 },
+    boxActive: { borderColor: c.primary, backgroundColor: c.primary + '1A' },
     boxLabel: { color: c.muted, fontSize: 10.5, fontWeight: '600' },
     boxValue: { color: c.text, fontSize: 13.5, fontWeight: '700', marginTop: 3 },
     actions: { flexDirection: 'row', gap: 8, paddingHorizontal: 10, paddingBottom: 12 },

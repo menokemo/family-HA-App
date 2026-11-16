@@ -6,7 +6,9 @@
 
 ## العربية
 
-### [2.26.2] — 2026-11-16  (تعديل JS — بييجي من metro) — **مسافات الطريق الفعلية في الخريطة + إصلاح الحركة**
+### [2.26.3] — 2026-11-16  (تعديل JS — بييجي من metro) — **متابعة الشخص المختار + خط المسار عند الطلب**
+- **الكاميرا بتفضل متابعة الشخص المختار** ومترجعش للبيت لوحدها. السبب كان إن الكاميرا كانت متحكَّم فيها بـ`center` المربوط بموقعي، وموقعي بيتحدّث كل كام ثانية فكانت ترجع للبيت. دلوقتي الكاميرا `initialViewState` (غير متحكَّم فيها) وكل الحركة imperative؛ ولما تدوس على شخص بتتفعّل المتابعة (`follow`) فتفضل عليه وهو بيتحرّك.
+- **خط المسار الأزرق مايظهرش إلا لما تدوس على «From me» أو «of home».** قبل كده كان بيظهر بمجرد اختيار الشخص. دلوقتي اختيار الشخص = زوم ومتابعة بس (من غير خط)؛ والضغط على «From me» بيرسم مسار موقعي→الفرد، و«of home» بيرسم مسار البيت→الفرد، ويظبط الكاميرا على الخط كامل. ضغطة تانية بتخفي الخط وترجّع المتابعة. الخانة المضغوطة بتتعلّم.
 - **«of home» و«From me» بقوا مسافات طريق فعلية (مش مستقيمة).** «From me» = مسار موقعي→الفرد (زي ما كان)، و«of home» بقى **مسار جديد البيت→الفرد** بنفس وضع المسار. فالاتنين يتساووا وإنت في البيت (كلهم على الطريق)، بدل ما «of home» كانت مستقيمة (17.3كم) و«From me» طريق (26.5كم) فيبانوا مختلفين وإنت في مكان واحد. الاتجاه (شمال/شرق...) بيفضل جنب مسافة «of home». لو تعذّر حساب المسار، بيرجع للمسافة المستقيمة.
 - **ماعادش يقول «بيتحرك» وإنت جوّه منطقة.** `readMotion` كان بيعتبر أي سرعة ≥ 6كم/س حركة، حتى لو الشخص في البيت — والـGPS جوّه المباني بيطلّع سرعة وهمية (6-8كم/س وهو واقف). دلوقتي لو حالة الشخص منطقة (البيت/أي zone) → مش بيتحرك، فبتظهر «Home» بدل «Moving 7 km/h».
 
@@ -1016,7 +1018,9 @@
 
 ## English
 
-### [2.26.2] — 2026-11-16  (JS change — ships via metro) — **real road distances on the map + motion fix**
+### [2.26.3] — 2026-11-16  (JS change — ships via metro) — **follow the selected person + route line on demand**
+- **The camera now keeps following the selected person** instead of drifting back home on its own. Cause: the camera was controlled by `center`, which is bound to my location, and my location updates every few seconds — so it kept snapping back home. The camera is now `initialViewState` (uncontrolled) with all movement imperative; tapping a person turns on `follow` so it tracks them as they move.
+- **The blue route line no longer appears just from selecting a person** — only when you tap "From me" or "of home". Selecting a person is now zoom + follow only (no line). Tapping "From me" draws the my-location→person route, "of home" draws the home→person route, and the camera fits the whole line. Tapping again hides the line and resumes following. The tapped box is highlighted.
 - **"of home" and "From me" are now real road distances (not straight-line).** "From me" = route from my location to the person (as before); "of home" is now a **new route from home to the person** using the same travel mode. So both match when you're home (both by road), instead of "of home" being straight-line (17.3 km) while "From me" was road (26.5 km) for one place. The compass direction stays next to the "of home" distance. Falls back to straight-line if the route can't be computed.
 - **No longer says "moving" while you're inside a zone.** `readMotion` treated any speed ≥ 6 km/h as moving, even at home — and indoor GPS reports phantom speeds (6-8 km/h while stationary). Now if the person's state is a zone (home/any zone) they're not moving, so it shows "Home" instead of "Moving 7 km/h".
 

@@ -13,6 +13,15 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**الكاميرا بترجع للبيت لوحدها بعد ثواني من اختيار شخص (2.26.3)** — المستخدم بيدوس
+على فرد فالكاميرا تطير ليه، وبعد كام ثانية ترجع للبيت. السبب: `<Camera center={center}>`
+كانت **متحكَّم فيها** و`center = myCoord ?? home`، وموقعي (`myCoord`) بيتحدّث من HA كل
+كام ثانية → `center` يتغيّر → الكاميرا تعيد التمركز على موقعي/البيت وتلغي الـ`flyTo` اللي
+عملناه للفرد. **الحل:** الكاميرا بقت `initialViewState` (غير متحكَّم فيها — بتتمركز مرة
+واحدة بس)، وكل الحركة بقت imperative (`flyTo`/`fitBounds`)، مع تمركز أولي مرة واحدة لو
+البيانات اتأخرت. واختيار الفرد بيشغّل `follow` فتفضل متابعاه. **الدرس:** كاميرا متحكَّم
+فيها بقيمة بتتغيّر دوريًا = إعادة تمركز مستمرة؛ استخدم uncontrolled + حركة imperative.
+
 **«From me» كانت مسافة طريق و«of home» مستقيمة — فمختلفين وإنت في البيت (2.26.2)** —
 المستخدم في البيت ويشوف فرد تاني بره: «of home» = 17.3كم و«From me» = 26.5كم.
 المفروض يتساووا لأن «أنا» = البيت. السبب: `myCoord` صح (إحداثيات HA)، لكن «From me»
@@ -666,6 +675,16 @@ build قديم جوه الحزمة مش موجود. الحل: `blockList` في `
 ## English
 
 ### ✅ Resolved
+
+**Camera drifts back home a few seconds after selecting a person (2.26.3)** — user taps a
+member, camera flies to them, then a few seconds later it snaps back home. Cause:
+`<Camera center={center}>` was **controlled** and `center = myCoord ?? home`; my location
+(`myCoord`) updates from HA every few seconds → `center` changes → the camera re-centers on
+me/home, cancelling the `flyTo` we did to the person. **Fix:** the camera is now
+`initialViewState` (uncontrolled — positioned once), all movement is imperative
+(`flyTo`/`fitBounds`), with a one-time initial recenter if data arrives late. Selecting a
+person enables `follow` so it tracks them. **Lesson:** a controlled camera bound to a value
+that changes periodically re-centers forever; use uncontrolled + imperative movement.
 
 **"From me" was road distance while "of home" was straight-line — mismatched when home (2.26.2)** —
 user at home sees another member outside: "of home" = 17.3 km, "From me" = 26.5 km.

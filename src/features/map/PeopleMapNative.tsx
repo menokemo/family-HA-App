@@ -126,6 +126,8 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
   const prevStateRef = useRef<Record<string, string>>({});
   const presenceInitRef = useRef(false);
   const [follow, setFollow] = useState(false);
+  // أي مسار نرسمه كخط أزرق: 'none' (مفيش)، 'me' (موقعي→الفرد)، 'home' (البيت→الفرد).
+  const [routeView, setRouteView] = useState<'none' | 'me' | 'home'>('none');
   // وضع الملاحة: الخريطة بتلف مع اتجاه مواجهة الموبايل بدل ما الشمال ثابت
   // لفوق. MapLibre عنده الوضع ده جاهز (trackUserLocation="heading") وبيقرا
   // بوصلة الجهاز نيتف — من غير مكتبة زيادة ولا كود نيتف عندنا.
@@ -368,12 +370,15 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [picked, pickedCoordKey, myCoordKey, routeMode, mePerson?.entity_id]);
 
+  // خط المسار الأزرق مايظهرش بمجرد اختيار شخص — بس لما المستخدم يدوس على
+  // «From me» (مسار موقعي) أو «of home» (مسار البيت). 'none' = مفيش خط.
+  const activeRoute = routeView === 'me' ? routeInfo : routeView === 'home' ? homeRouteInfo : null;
   const routeFC = useMemo(
     () =>
-      routeInfo
-        ? { type: 'FeatureCollection' as const, features: [{ type: 'Feature' as const, properties: {}, geometry: routeInfo.geometry }] }
+      activeRoute
+        ? { type: 'FeatureCollection' as const, features: [{ type: 'Feature' as const, properties: {}, geometry: activeRoute.geometry }] }
         : { type: 'FeatureCollection' as const, features: [] },
-    [routeInfo],
+    [activeRoute],
   );
 
   // ====== تجميع سكان الزون في فقاعة واحدة (زي خريطة HA الرسمية) ======
@@ -431,6 +436,18 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
 
   const homeZone = zones.find(z => z.id === 'zone.home') ?? zones[0];
   const center: [number, number] = myCoord ?? (homeZone ? [homeZone.lng, homeZone.lat] : points[0] ? [points[0].lng, points[0].lat] : [0, 0]);
+
+  // الكاميرا uncontrolled (initialViewState) عشان متترجعش للبيت مع كل تحديث.
+  // بس لو البيانات لسه ماجتش وقت الإنشاء (center = 0,0)، نتمركز مرة واحدة أول
+  // ما يبقى في مركز صالح — من غير ما نعيدها بعد كده (علشان المتابعة تشتغل).
+  const didInitCam = useRef(false);
+  const centerKey = `${center[0].toFixed(4)},${center[1].toFixed(4)}`;
+  useEffect(() => {
+    if (didInitCam.current || (center[0] === 0 && center[1] === 0)) return;
+    didInitCam.current = true;
+    cameraRef.current?.jumpTo({ center, zoom: 15 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [centerKey]);
 
   // فتح خرائط الموبايل للتوجيه لموقع الفرد.
   const navigateTo = (id: string) => {
@@ -674,9 +691,36 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
   // اختيار فرد من اللستة: نركّز الكاميرا عليه ونحدّده (highlight في اللستة).
   const focusPerson = (id: string) => {
     setPicked(id);
+    setRouteView('none'); // اختيار شخص مايرسمش خط — بس زوم ومتابعة
+    setFollow(true); // يفضل متابع الشخص المختار لحد ما تلغي الاختيار أو تطفّي المتابعة
     const pt = points.find(p => p.id === id);
     const target: [number, number] | undefined = pt ? [pt.lng, pt.lat] : id === mePerson?.entity_id ? myCoord : undefined;
     if (target) cameraRef.current?.flyTo({ center: target, zoom: 16, duration: 600 });
+  };
+
+  // ضبط الكاميرا على حدود مسار (عشان المستخدم يشوف الخط كامل عند الضغط على المسافة).
+  const fitToRoute = (r: RouteResult | null) => {
+    const cs = r?.geometry?.coordinates;
+    if (!cs || !cs.length || !cameraRef.current) return;
+    let w = cs[0][0], e = cs[0][0], s = cs[0][1], n = cs[0][1];
+    for (const [lng, lat] of cs) {
+      w = Math.min(w, lng); e = Math.max(e, lng);
+      s = Math.min(s, lat); n = Math.max(n, lat);
+    }
+    cameraRef.current.fitBounds([w, s, e, n], { padding: { top: 90, bottom: MAP_SHEET_PEEK + 40, left: 50, right: 50 }, duration: 600 });
+  };
+
+  // ضغط على «From me»/«of home»: يعرض/يخفي خط المسار المناسب. وقت العرض بنوقف
+  // المتابعة ونضبط الكاميرا على الخط كامل؛ وقت الإخفاء نرجّع المتابعة للشخص.
+  const showRoute = (which: 'me' | 'home') => {
+    if (routeView === which) {
+      setRouteView('none');
+      setFollow(true);
+      return;
+    }
+    setRouteView(which);
+    setFollow(false);
+    fitToRoute(which === 'me' ? routeInfo : homeRouteInfo);
   };
 
   return (
@@ -691,8 +735,9 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
       >
         <Camera
           ref={cameraRef}
-          center={center}
-          zoom={15}
+          // غير متحكَّم فيه: center/zoom للعرض الأول بس، وبعدها كل الحركة imperative
+          // (flyTo/fitBounds). ده بيمنع رجوع الكاميرا للبيت كل ما myCoord يتحدّث.
+          initialViewState={{ center, zoom: 15 }}
           pitch={pitch}
           trackUserLocation={headingUp ? 'heading' : undefined}
           // لو المستخدم حرّك الخريطة بإيده، MapLibre بيوقف التتبّع — بنطفّي
@@ -892,6 +937,8 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
           trips,
           homeDir: homeDirFor,
           homeRouteInfo,
+          routeView,
+          onShowRoute: showRoute,
           onPickTrip: focusTrip,
         }}
         devices={deviceItems}
