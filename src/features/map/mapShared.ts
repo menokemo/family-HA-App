@@ -165,7 +165,13 @@ export function readMotion(p: HaEntity, states: HaEntity[]): Motion | undefined 
   if (!Number.isFinite(raw) || raw < 0) return undefined;
   const kmh = raw * 3.6;
   const course = Number(tracker?.attributes.course ?? p.attributes.course);
-  return { speed: kmh, heading: Number.isFinite(course) ? course : 0, moving: kmh >= MOVING_KMH };
+  // لو الشخص جوّه منطقة (البيت أو أي zone) فهو في مكان مش في رحلة — نتجاهل أي
+  // سرعة وهمية بيطلّعها GPS جوّه المباني (بتوصل 6-8 كم/س وهو واقف). حالة الشخص
+  // بتبقى اسم المنطقة لما يكون جواها، و"not_home" لما يكون بره كل المناطق.
+  const st = String(p.state ?? '').toLowerCase();
+  const inZone = st !== '' && st !== 'not_home' && st !== 'unknown' && st !== 'unavailable';
+  const moving = !inZone && kmh >= MOVING_KMH;
+  return { speed: kmh, heading: Number.isFinite(course) ? course : 0, moving };
 }
 
 // نسبة البطارية كنص — من الشخص، أو من الـ device_tracker المصدر، أو من sensor رقمي

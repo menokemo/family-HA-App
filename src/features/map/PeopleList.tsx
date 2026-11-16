@@ -157,7 +157,7 @@ export function PeopleList({
                     />
                   ) : (
                     <>
-                      <Box s={s} label={i18n.t('fromMe')} value={routeInfo ? distance(routeInfo.distanceMeters) : fromMe(p)} />
+                      <Box s={s} label={i18n.t('fromMe')} value={fromMe(p)} />
                       {mo?.moving ? (
                         <Box s={s} label={i18n.t('speed')} value={`${Math.round(mo.speed)} km/h`} />
                       ) : (

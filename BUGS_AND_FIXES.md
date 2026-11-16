@@ -13,6 +13,21 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**«From me» كانت مسافة طريق و«of home» مستقيمة — فمختلفين وإنت في البيت (2.26.1)** —
+المستخدم في البيت ويشوف فرد تاني بره: «of home» = 17.3كم و«From me» = 26.5كم.
+المفروض يتساووا لأن «أنا» = البيت. السبب: `myCoord` صح (إحداثيات HA)، لكن العرض كان
+بيبدّل «From me» لمسافة **الطريق** (`routeInfo.distanceMeters`) أول ما يتحسب مسار
+(ETA ظاهر)، فبيقارن طريق (26.5) بمستقيمة (17.3). **الحل:** «From me» مستقيمة دايمًا
+في `PeopleList.tsx` و`PeopleMapWeb.tsx` (زي «of home»)، ووقت الطريق يفضل في الـETA.
+**الدرس:** متحطّش نوعين مسافة مختلفين (طريق/مستقيمة) في خانتين جنب بعض بنفس
+المعنى الظاهري — المستخدم بيتوقّع إنهم نفس القياس.
+
+**بيقول «بيتحرك 7كم/س» وهو واقف في البيت (2.26.1)** — `readMotion` كان بيعتبر أي
+سرعة ≥ `MOVING_KMH` (6) حركة. جوّه المباني الـGPS بيطلّع سرعة وهمية 6-8كم/س وهو
+ثابت، فيظهر «Moving» وشخصه في البيت. **الحل:** لو حالة الشخص منطقة (مش
+`not_home`/`unknown`/`unavailable`) يبقى في مكان مش في رحلة → `moving=false` مهما كانت
+السرعة. **الدرس:** الحضور (حالة الـperson) أوثق من سرعة GPS لحظية جوّه المباني.
+
 **درس: الإذن بيتحاسب بنص النظام مش بنية المطوّر (2.21.2)** — ضفنا
 `READ_PHONE_STATE` عشان `phone_state` و`sim_1_signal_strength`. نيّتنا كانت قراية
 حالة المكالمة وقوة الشبكة، لكن **أندرويد بيعرض الإذن للمستخدم بنص المجموعة
@@ -649,6 +664,22 @@ build قديم جوه الحزمة مش موجود. الحل: `blockList` في `
 ## English
 
 ### ✅ Resolved
+
+**"From me" was road distance while "of home" was straight-line — mismatched when home (2.26.1)** —
+user at home sees another member outside: "of home" = 17.3 km, "From me" = 26.5 km.
+They should match since "me" = home. Cause: `myCoord` is correct (HA coords), but the
+view swapped "From me" to the **road** distance (`routeInfo.distanceMeters`) once a
+route was computed (ETA shown), comparing road (26.5) with straight-line (17.3).
+**Fix:** "From me" is always straight-line in `PeopleList.tsx` and `PeopleMapWeb.tsx`
+(like "of home"); route time stays in the ETA. **Lesson:** don't put two different
+distance types (road/straight-line) in adjacent boxes that read as the same thing.
+
+**Said "moving 7 km/h" while standing still at home (2.26.1)** — `readMotion` treated
+any speed ≥ `MOVING_KMH` (6) as moving. Indoors, GPS reports phantom speeds of
+6-8 km/h while stationary, so it showed "Moving" with the person at home. **Fix:** if
+the person's state is a zone (not `not_home`/`unknown`/`unavailable`) they're at a
+place, not on a trip → `moving=false` regardless of speed. **Lesson:** presence (person
+state) is more reliable than instantaneous GPS speed indoors.
 
 **Location our app sends to Home Assistant is inaccurate indoors (marker outside
 the zone while home)** — the native `MobileAppService` obtained location from raw

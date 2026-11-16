@@ -519,13 +519,13 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
       </View>
     );
 
+  // مسافة مستقيمة دايمًا (عشان تساوي "of home" وإنت في البيت). مسافة الطريق
+  // بتظهر في الـETA مش هنا، عشان مانخلطش نوعين مسافة في نفس السياق.
   const detailFromMe = (person: HaEntity) =>
     !myCoord
       ? '—'
       : me && person.entity_id === me.entity_id
       ? distance(0)
-      : routeInfo && selected?.entity_id === person.entity_id
-      ? distance(routeInfo.distanceMeters)
       : distance(haversine(posFor(person), myCoord));
 
   const RANGES: { h: number; label: string }[] = [
