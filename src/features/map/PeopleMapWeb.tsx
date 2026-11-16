@@ -426,7 +426,8 @@ export function PeopleMapWeb({ people, home, states, selectedPersonId, settings 
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zonesKey, pointsKey]);
-  const hazards = useMemo(() => filterNearbyHazards(allHazards, hazardAnchors), [allHazards, hazardAnchors]);
+  const hazardRadiusM = (Number.isFinite(settings.hazardRadiusKm) ? (settings.hazardRadiusKm as number) : 10) * 1000;
+  const hazards = useMemo(() => filterNearbyHazards(allHazards, hazardAnchors, hazardRadiusM), [allHazards, hazardAnchors, hazardRadiusM]);
   const nearbyHazards = hazards;
   useEffect(() => {
     webRef.current?.injectJavaScript(`window.setHazards && window.setHazards(${JSON.stringify(JSON.stringify(hazards))}, ${showHazards}); true;`);

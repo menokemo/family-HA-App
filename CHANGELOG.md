@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.25.3] — 2026-11-16  (تعديل JS — بييجي من metro) — **الأدمن يتحكّم في نطاق مخاطر الخريطة**
+- **نطاق فلترة المخاطر بقى إعداد** بدل رقم مثبّت (كان 10كم ثابت من 2.21.1). الأدمن يظبطه بالكيلومتر في إعدادات «الموقع والخريطة» تحت «تنبيهات الخريطة»، و**ينتشر للعيلة** (سياسة مشتركة، في `FAMILY_CONFIG_FIELDS`).
+- المخاطر بتتفلتر في حدود النطاق ده من **البيت أو أي فرد** (نفس المنطق). **0 = قافل المخاطر خالص.** الافتراضي 10كم زي ما كان.
+- متحكّم فيه **الأدمن بس** (متخفي عن غير الأدمن)، والخريطتين النيتف والويب بيقراه من نفس الإعداد. +2 تست (المجموع 57). **JS — من metro.**
+
 ### [2.25.2] — 2026-11-16  (تعديل JS — بييجي من metro) — **الجرس بقى جوّه إعدادات الكاميرات**
 - **إعدادات الجرس بقت جزء من أكورديون إعدادات الكاميرات** بدل ما تكون منفصلة — لأن الجرس كاميرا أصلاً. اختيارات الأدمن (الكيان + الكاميرا) ومفتاح «رنّ على الموبايل ده» الشخصي كلهم مع بعض تحت عنوان فرعي «جرس الباب».
 - أكورديون الكاميرات فضل للأدمن بس بالنسبة لأدوات الكاميرا (معدّل اللقطة، الإظهار)، بس **بقى يظهر كمان لغير الأدمن لو في جرس متظبّط** عشان كل فرد يوصل لمفتاح «رنّ عندي» بتاعه. أدوات الأدمن فاضلة متخفية جوّه. **JS — من metro.**
@@ -987,6 +992,11 @@
 ---
 
 ## English
+
+### [2.25.3] — 2026-11-16  (JS change — ships via metro) — **admin controls the map hazard radius**
+- **The hazard filter radius is now a setting** instead of a hardcoded number (it was a fixed 10 km since 2.21.1). The admin sets it in km under Location & Map → "Map alerts", and it **publishes to the family** (a shared policy, in `FAMILY_CONFIG_FIELDS`).
+- Hazards are filtered to within that radius of **home or any family member** (same logic). **0 = hide all hazards.** Default stays 10 km.
+- **Admin-only** (hidden from non-admins), and both the native and web maps read the same setting. +2 tests (57 total). **JS — ships via metro.**
 
 ### [2.25.2] — 2026-11-16  (JS change — ships via metro) — **doorbell moved under Camera settings**
 - **The doorbell settings are now part of the Cameras settings accordion** instead of a separate one, since the doorbell is a camera. The admin pickers (entity + camera) and the personal "ring this phone" toggle live there together under a "Doorbell" sub-heading.

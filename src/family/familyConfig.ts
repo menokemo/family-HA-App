@@ -21,6 +21,8 @@ export const FAMILY_CONFIG_FIELDS = [
   // كيان الجرس وكاميرته مركزيين — نفسهم لكل العيلة. "رنّ عندي" بيفضل شخصي (تحت).
   'doorbellEntity',
   'doorbellCamera',
+  // نطاق مخاطر الخريطة سياسة مشتركة للعيلة كلها، فالأدمن يظبطها وتنتشر للكل.
+  'hazardRadiusKm',
   'selectedCalendarIds',
   'selectedTodoIds',
   'backgroundMonitoringEnabled',

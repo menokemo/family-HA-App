@@ -33,4 +33,8 @@ describe('filterNearbyHazards', () => {
   it('النطاق الافتراضي 10كم', () => {
     expect(HAZARD_NEAR_M).toBe(10000);
   });
+
+  it('نطاق صفر = قافل، مايعرضش حاجة حتى لو في مراسي', () => {
+    expect(filterNearbyHazards([NEAR_HOME], [HOME], 0)).toEqual([]);
+  });
 });

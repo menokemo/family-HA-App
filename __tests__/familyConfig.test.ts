@@ -9,6 +9,7 @@ const settings = {
   doorbellEntity: 'event.front_doorbell',
   doorbellCamera: 'camera.front_door',
   doorbellRingThisPhone: true,
+  hazardRadiusKm: 5,
   // إعدادات خاصة بالجهاز — مالهاش أي لزمة تتنشر.
   bleUuid: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
   homeBtDevices: ['AA:BB:CC:DD:EE:FF'],
@@ -33,6 +34,10 @@ describe('pickFamilyConfig', () => {
   it('عمره ما ينشر "رنّ عندي" (قرار شخصي لكل جهاز)', () => {
     const out = pickFamilyConfig(settings) as Record<string, unknown>;
     expect(out.doorbellRingThisPhone).toBeUndefined();
+  });
+
+  it('بينشر نطاق المخاطر (سياسة مشتركة)', () => {
+    expect(pickFamilyConfig(settings).hazardRadiusKm).toBe(5);
   });
 
   it('عمره ما ينشر حاجة خاصة بالجهاز', () => {

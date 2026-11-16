@@ -259,7 +259,9 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
     }
     return out;
   }, [zones, people]);
-  const hazards = useMemo(() => filterNearbyHazards(allHazards, hazardAnchors), [allHazards, hazardAnchors]);
+  // نطاق المخاطر بيتحكّم فيه الأدمن (كيلومتر، بينتشر للعيلة). الافتراضي 10، و0 = قافل.
+  const hazardRadiusM = (Number.isFinite(settings.hazardRadiusKm) ? (settings.hazardRadiusKm as number) : 10) * 1000;
+  const hazards = useMemo(() => filterNearbyHazards(allHazards, hazardAnchors, hazardRadiusM), [allHazards, hazardAnchors, hazardRadiusM]);
 
   // الأجهزة = device_tracker مش مربوط بأي شخص (تاجات/عربيات/تراكرات مستقلة).
   const personTrackers = useMemo(() => {

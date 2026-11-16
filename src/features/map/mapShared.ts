@@ -30,6 +30,8 @@ export function filterNearbyHazards<T extends { lat: number; lng: number }>(
   withinM: number = HAZARD_NEAR_M,
 ): T[] {
   if (anchors.length === 0) return [];
+  // نطاق صفر (أو أقل) = الأدمن قافل المخاطر خالص.
+  if (withinM <= 0) return [];
   return hazards.filter(h =>
     anchors.some(a => haversine({ latitude: h.lat, longitude: h.lng }, { latitude: a.lat, longitude: a.lng }) <= withinM),
   );
