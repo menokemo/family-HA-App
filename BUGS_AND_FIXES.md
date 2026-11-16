@@ -13,6 +13,15 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**فشل build الـAPK: `compileDebugKotlin` — unresolved `currentActivity` (2.26.7)** —
+`DoorbellRingerModule.dismissCall()` استعمل `currentActivity` كـproperty. في RN 0.83
+`ReactContextBaseJavaModule` بقى **Kotlin** و`getCurrentActivity()` بقت **دالة** (مش
+Java getter)، فـKotlin مابيعملهاش property → "unresolved reference: currentActivity"
+ووقف الـcompile. **الحل:** استعمال `reactContext.currentActivity` — لأن `ReactContext`
+نفسها لسه **جافا** (`public Activity getCurrentActivity()`) فالـproperty بتشتغل عليها.
+**الدرس:** في RN 0.83 كذا كلاس اتحوّل لـKotlin؛ الدوال الـKotlin مابتطلّعش properties.
+استعمل `reactApplicationContext.currentActivity` بدل `currentActivity` المباشرة في الموديول.
+
 **الكاميرا بترجع للبيت لوحدها بعد ثواني من اختيار شخص (2.26.3)** — المستخدم بيدوس
 على فرد فالكاميرا تطير ليه، وبعد كام ثانية ترجع للبيت. السبب: `<Camera center={center}>`
 كانت **متحكَّم فيها** و`center = myCoord ?? home`، وموقعي (`myCoord`) بيتحدّث من HA كل

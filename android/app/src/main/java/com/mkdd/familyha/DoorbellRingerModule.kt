@@ -110,7 +110,9 @@ class DoorbellRingerModule(private val reactContext: ReactApplicationContext) :
    */
   @ReactMethod
   fun dismissCall() {
-    val act = currentActivity ?: return
+    // RN 0.83: getCurrentActivity() في الموديول بقى دالة Kotlin (مش property)،
+    // فبنستعمل ReactContext.getCurrentActivity() (جافا → property) بدلها.
+    val act = reactContext.currentActivity ?: return
     act.runOnUiThread {
       try {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {

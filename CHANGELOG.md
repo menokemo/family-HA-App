@@ -6,6 +6,9 @@
 
 ## العربية
 
+### [2.26.7] — 2026-11-16  (⚠️ تعديل native — محتاج build APK) — **إصلاح فشل build (Kotlin)**
+- `DoorbellRingerModule` كان بيستعمل `currentActivity` كـproperty، لكن في RN 0.83 بقت دالة Kotlin → فشل الـcompile. اتظبطت لـ`reactContext.currentActivity`. (مفيش تغيير سلوك — بس عشان الـAPK يتبني.)
+
 ### [2.26.6] — 2026-11-16  (⚠️ تعديل native — محتاج build APK) — **إغلاق مكالمة الجرس يرجّع التطبيق للخلفية**
 - بعد إنهاء مكالمة الجرس، التطبيق كان بيفضل مفتوح على آخر شاشة كنت فيها (لأن الجرس بيصحّي التطبيق فوق القفل). دلوقتي: لو الجرس هو اللي صحّى التطبيق (كان في الخلفية/القفل)، الإنهاء بيرجّع التطبيق للخلفية — فترجع للقفل أو اللي كان ظاهر قبل الرنّة. لو كنت فاتح التطبيق أصلاً وقت الرنّة، الإنهاء بيسيبك في التطبيق عادي.
 - التفاصيل: `MainActivity` بيتابع لو التطبيق في المقدمة وقت الرنّة ويخزّن `wokeApp` في `DoorbellBridge`؛ `DoorbellRinger.dismissCall()` (بينادى عند الإغلاق) بيعمل `moveTaskToBack` لو الجرس صحّى التطبيق، ويشيل "إظهار فوق القفل".
@@ -1036,6 +1039,9 @@
 ---
 
 ## English
+
+### [2.26.7] — 2026-11-16  (⚠️ native change — needs APK build) — **fix APK build failure (Kotlin)**
+- `DoorbellRingerModule` used `currentActivity` as a property, but in RN 0.83 it became a Kotlin function → compile failure. Changed to `reactContext.currentActivity`. (No behaviour change — just so the APK compiles.)
 
 ### [2.26.6] — 2026-11-16  (⚠️ native change — needs APK build) — **ending a doorbell call sends the app to the background**
 - After ending a doorbell call, the app used to stay open on whatever screen you were last on (because the doorbell wakes the app over the lock screen). Now: if the doorbell woke the app (it was in the background/locked), ending the call sends the app back — so you return to the lock screen or whatever was showing before the ring. If you already had the app open when it rang, ending leaves you in the app as normal.
