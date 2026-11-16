@@ -35,7 +35,8 @@
 | الخريطة: طبقة المخاطر/الكوارث | ✅ | بتقرا `geo_location.*` من HA (GDACS/USGS/GeoJSON) وترسمها ⚠️ + بانر "قريب من العيلة" |
 | الخريطة: قيادة/سرعة + اتجاه | ✅ | محسوبة من فرق المواقع؛ على الكارت + سهم اتجاه على العلامة |
 | الخريطة: Timeline متطور | ✅ | مدة (يوم/٣ أيام/أسبوع) + تشغيل يحرّك نقطة على المسار |
-| الخريطة: أوضاع مسار + متابعة + تنبيه بطارية | ✅ | قيادة/مشي/دراجة، الكاميرا تلاحق المتحرك، بانر بطارية <15% |
+| الخريطة: أوضاع مسار + متابعة + تنبيه بطارية | ✅ | قيادة/مشي/دراجة، بانر بطارية <15%. **(2.26.3)** اختيار شخص = الكاميرا تفضل متابعاه (uncontrolled `initialViewState`، مترجعش للبيت)، وخط المسار الأزرق مايظهرش إلا عند الضغط على «From me»/«of home». **(2.26.2)** «of home» و«From me» بقوا مسافات **طريق** فعلية، وماعادش يقول «بيتحرك» وإنت جوّه منطقة |
+| 🔔 جرس الباب بالكاميرا (مكالمة واردة) | ✅ | مرحلة ١+٢ (2.25.0 → 2.26.6): كاميرا لايف فورًا + كلام ثنائي (مايك عبر go2rtc backchannel) + شاشة رد موديرن (كتم مايك/صوت/إنهاء) + نغمات جرس يختارها الأدمن (native) + إنهاء المكالمة يرجّع التطبيق للخلفية لو الجرس صحّاه (native). تفاصيل في القسم المخصّص تحت |
 | الخريطة: أماكن من التطبيق (Places CRUD) | ⏳ | الموجة 2 — إضافة/تعديل/حذف zones في HA من التطبيق (لسه) |
 | الخريطة: ستايل بيحترم الثيم | ✅ | فاتح (positron) نهاري / غامق (dark) ليلي — OpenFreeMap مجاني |
 | الخريطة: المناطق كدوائر (Places) | ✅ | `zone.*` من HA بتترسم كدوائر ملونة بأسمائها |
@@ -214,7 +215,8 @@ it ourselves.**
 | Map: hazard/disaster layer | ✅ | Reads HA `geo_location.*` (GDACS/USGS/GeoJSON), plots ⚠️ + "near family" banner |
 | Map: driving/speed + heading | ✅ | Computed from consecutive positions; on the card + heading arrow on the marker |
 | Map: advanced timeline | ✅ | Range (today/3 days/week) + Play animates a dot along the trail |
-| Map: route modes + follow + battery alert | ✅ | Driving/walking/cycling, camera follows the mover, banner when battery <15% |
+| Map: route modes + follow + battery alert | ✅ | Driving/walking/cycling, banner when battery <15%. **(2.26.3)** selecting a person keeps the camera following them (uncontrolled `initialViewState`, no drift back home); the blue route line only shows when you tap "From me"/"of home". **(2.26.2)** "of home" and "From me" are real **road** distances, and it no longer says "moving" while you're inside a zone |
+| 🔔 Doorbell-with-camera (incoming call) | ✅ | Phase 1+2 (2.25.0 → 2.26.6): live camera instantly + two-way talk (mic via go2rtc backchannel) + modern answer screen (mute mic/sound/end) + admin-selectable ringtones (native) + ending the call sends the app to background if the doorbell woke it (native). See the dedicated section below |
 | Map: Places from app (CRUD) | ⏳ | Wave 2 — add/edit/delete HA zones from the app (pending) |
 | Map: theme-aware style | ✅ | Light (positron) by day / dark by night — free OpenFreeMap |
 | Map: zones as Places circles | ✅ | HA `zone.*` drawn as labeled colored circles |
@@ -495,7 +497,7 @@ latest = latest_connected or latest_legacy_home or latest_gps or latest_not_home
 الموبايل، Fused مابيقدرش يستخدم الواي‑فاي والشبكة أصلًا والدقة بتبوظ لوحدها —
 يستحق فحصة قبل أي تعديل في الكود.
 
-### 🔔 جرس الباب بالكاميرا — "مكالمة واردة" (مرحلة ١ اتعملت 2.25.0 · مرحلة ٢ لسه)
+### 🔔 جرس الباب بالكاميرا — "مكالمة واردة" (مرحلة ١+٢ اتعملتا · 2.25.0 → 2.26.6)
 **الفكرة:** المستخدم يحدّد كيان جرس الباب؛ لما يرن، تطلع شاشة فوري فوق القفل فيها
 بث الكاميرا المباشر، تقدر ترد وتشوف وتكلّم الزائر — زي مكالمة فيديو واردة.
 
@@ -519,12 +521,21 @@ latest = latest_connected or latest_legacy_home or latest_gps or latest_not_home
   شغّال أصلاً؛ الكلام محتاج مسار ميكروفون `sendrecv` (إذن `RECORD_AUDIO` بنطلبه أصلاً).
 
 **المراحل:**
-- **✅ مرحلة ١ (اتعملت — 2.25.0):** اختيار الجرس → كشف الرنّة → شاشة مكالمة
-  واردة فوق القفل (نغمة + اهتزاز + رد/تجاهل) → مشاهدة + سماع + مهلة 45ث.
-  `DoorbellScreen`/`DoorbellBridge.kt` + تعديلات الخدمة وMainActivity. الكيان
-  والكاميرا بينتشروا، و"رنّ عندي" شخصي.
-- **⏳ مرحلة ٢ (لسه):** مسار الميكروفون للكلام — الزرار يظهر بس لو تفاوض
-  go2rtc أكّد الـbackchannel.
+- **✅ مرحلة ١ (2.25.0):** اختيار الجرس → كشف الرنّة → شاشة مكالمة واردة فوق القفل
+  (نغمة + اهتزاز + رد/تجاهل) → مشاهدة + سماع + مهلة 45ث. الكيان والكاميرا بينتشروا،
+  و"رنّ عندي" شخصي.
+- **✅ مرحلة ٢ — الكلام الثنائي والتلميع (2.26.4 → 2.26.6):**
+  - **كاميرا لايف فورًا عند الرنين** (مش لقطة) — من غير انتظار قبول/رفض.
+  - **كلام ثنائي:** `WebRtcCameraPlayer` بقى ليه props `talk/micMuted/manageAudio`؛ وضع
+    الكلام بيضيف مسار مايك (`getUserMedia` + `addTrack` = `sendrecv`) فيوصل صوتنا للباب
+    عبر go2rtc backchannel، مع fallback لاستقبال فقط لو المايك فشل. (المستخدم جرّب — شغّال.)
+  - **شاشة رد موديرن:** كتم مايك · كتم صوت وارد · إنهاء مكالمة.
+  - **نغمات جرس (native, APK):** ٣ نغمات مولّدة في `res/raw` (ding-dong/chime/bell) +
+    موديول `DoorbellRinger` (MediaPlayer + اهتزاز) + اختيار الأدمن مع معاينة، بينتشر
+    للعيلة عبر `doorbellRingtone`.
+  - **إصلاح الإغلاق (native, APK):** لو الجرس صحّى التطبيق من الخلفية/القفل، إنهاء
+    المكالمة بيرجّع التطبيق للخلفية (`moveTaskToBack` عبر `DoorbellBridge.wokeApp` +
+    `dismissCall`) بدل ما يفضل مفتوح على آخر شاشة.
 
 **توزيع الإعداد (زي نمط zoneWatch):** الأدمن يحدّد كيان الجرس + كاميرته مركزيًا
 (ينتشر للعيلة في `FAMILY_CONFIG_FIELDS`)، وكل فرد يفعّل "رنّ عندي" على موبايله
@@ -537,7 +548,7 @@ latest = latest_connected or latest_legacy_home or latest_gps or latest_not_home
 **جرس المستخدم الحالي:** Reolink (بيدعم backchannel عبر go2rtc، فمرحلة ٢ هتشتغل
 معاه تلقائيًا) — **لكن مش مكتوب في الكود، التطبيق بيكتشفه بالتفاوض.**
 
-### 🧩 صفحة إعداد داخل المكوّن (Custom Panel) — متّفق على التصميم (شغل ريبو المكوّن)
+### 🧩 صفحة إعداد داخل المكوّن (Custom Panel) — ✅ اتبنت (ريبو `secure_family` v0.4 → v0.6.2)
 **الفكرة (طلب المستخدم):** المكوّن `secure_family` يعرض **صفحة خاصة بيه جوّه Home Assistant**
 (Custom Panel في الشريط الجانبي، زي صفحة HACS) فيها فحص إعداد وchecklist بالناقص —
 **مش في التطبيق** (عشان التطبيق يفضل نضيف للعيلة) و**مش بس في Repairs** (المستخدم عايز
@@ -554,12 +565,28 @@ latest = latest_connected or latest_legacy_home or latest_gps or latest_not_home
 **اللي ماينفعش:** تثبيت تكامل تاني بصمت (نموذج أمان HA + المصادر محتاجة إعدادات) —
 أقصى حاجة نبدأ الـflow والمستخدم يكمّل.
 
-**القرار:** الشكل = **Custom Panel** (صفحة كاملة بتصميمنا) مش Options flow. محتاجة كود
-واجهة (web component/JS) يتحزّم مع المكوّن. **ده شغل ريبو `secure_family` (Python+JS)،
-منفصل عن ريبو التطبيق — لسه مابدأناش فيه.**
+**القرار:** الشكل = **Custom Panel** (صفحة كاملة بتصميمنا) مش Options flow. اتبنى في
+ريبو `secure_family` (Python + web component خام من غير build).
+
+**اللي اتعمل فعليًا في المكوّن (v0.4 → v0.6.2):**
+- **v0.4:** فحص المتطلبات (checklist + أزرار إضافة) + توصيات حسب الدولة.
+- **v0.5:** محرّر إعدادات العيلة داخل الصفحة (عرض + تعديل كامل، أدمن بس) عبر
+  websocket + خدمة `set_config`.
+- **v0.6:** إعادة تنظيم احترافية — الصفحة بتتبع **لغة واجهة HA** (عربي/هولندي/إنجليزي
+  + RTL، الترجمة كلها في الـJS مش السيرفر)، الإعدادات مقسّمة **أقسام قابلة للطيّ** زي
+  أدمن التطبيق، حسّاسات الإنذار **مفلترة** بـdevice_class (مش كل binary_sensor)،
+  `geo_location` **عرض منفصل**، وقسم **إضافات اختيارية** عالمية + لكل دولة.
+- **v0.6.1 — تقاويم العائلة:** المكوّن بيعمل ٣ تقاويم محلية مملوكة ليه بـentity_id
+  ثابتة (`calendar.secure_family_birthdays/_events/_appointments`) — unique_id ثابت =
+  **مفيش تكرار** عبر إعادة التشغيل، التكرار (yearly...) في موديول نقي متختبر. هتُربط
+  بتبويب العائلة في التطبيق لاحقًا.
+- **v0.6.2:** cache-busting لرابط البانل (`?v=الإصدار`) — لأن المتصفح كان بيكاش نسخة JS
+  قديمة فتفضل "Loading…".
 
 **الجزء اللي اتعمل في ريبو التطبيق (2.26.0):** تصنيف الكوارث + التلوين حسب الخطورة +
-نطاق كوارث منفصل. الباقي (الصفحة + per-country التلقائي) في المكوّن.
+نطاق كوارث منفصل.
+
+**لسه:** ربط تبويب العائلة في التطبيق بالتقاويم الـ٣، وأتمتة per-country disaster radius.
 
 ### تبعة مفتوحة — الأفراد غير الأدمن مش بيستقبلوا الأحداث المخصّصة (من 2.17.4)
 Home Assistant بيسمح لغير الأدمن بالاشتراك في `state_changed` **بس**؛ أي اشتراك
