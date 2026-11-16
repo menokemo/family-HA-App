@@ -7,7 +7,7 @@ import com.facebook.react.uimanager.ViewManager
 
 class AlarmMonitorPackage : ReactPackage {
   override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
-    return listOf(AlarmMonitorModule(reactContext))
+    return listOf(AlarmMonitorModule(reactContext), DoorbellRingerModule(reactContext))
   }
 
   override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {

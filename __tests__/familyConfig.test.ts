@@ -8,6 +8,7 @@ const settings = {
   zoneWatchPersonIds: ['person.mena'],
   doorbellEntity: 'event.front_doorbell',
   doorbellCamera: 'camera.front_door',
+  doorbellRingtone: 'chime',
   doorbellRingThisPhone: true,
   hazardRadiusKm: 5,
   disasterRadiusKm: 120,
@@ -30,6 +31,7 @@ describe('pickFamilyConfig', () => {
     const out = pickFamilyConfig(settings);
     expect(out.doorbellEntity).toBe('event.front_doorbell');
     expect(out.doorbellCamera).toBe('camera.front_door');
+    expect(out.doorbellRingtone).toBe('chime');
   });
 
   it('عمره ما ينشر "رنّ عندي" (قرار شخصي لكل جهاز)', () => {

@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.26.5] — 2026-11-16  (⚠️ تعديل native — محتاج build APK) — **نغمات جرس جديدة يختارها الأدمن**
+- **٣ نغمات جرس جديدة** (ding-dong · chime · bell) مولّدة كملفات صوت في `res/raw` — عشان الجرس مايرنّش بنغمة الموبايل الافتراضية.
+- **موديول native `DoorbellRinger`** بيشغّل النغمة المختارة من ملفات التطبيق (MediaPlayer + اهتزاز، على قناة النغمة) مع `startRinging/stopRinging/preview`.
+- **الأدمن يختار النغمة** من إعدادات الكاميرات → الجرس، مع **معاينة** عند الضغط. الاختيار بينتشر للعيلة (`doorbellRingtone` في family config).
+- شاشة الجرس بتستخدم نغمة التطبيق، ولو الموديول الـnative مش متاح (APK قديم) بترجع لنغمة InCallManager القديمة تلقائيًا.
+- **مهم:** الجزء ده native (ملفات صوت + موديول) فـ**لازم build APK جديد** على ويندوز عشان يشتغل — مش بيتوزّع عبر metro.
+
 ### [2.26.4] — 2026-11-16  (تعديل JS — بييجي من metro) — **الجرس: كاميرا لايف فورًا + كلام ثنائي + شكل موديرن**
 - **الكاميرا بتظهر لايف على طول لما الجرس يرنّ** — من غير انتظار قبول/رفض (كانت لقطة مموّهة قبل كده). النغمة بترنّ وإنت شايف الباب.
 - **القبول/الرفض بقوا للمحادثة:** القبول بيفتح **كلام ثنائي** — بنبعت مايك الموبايل للكاميرا عبر `go2rtc backchannel` (بنضيف مسار المايك بـ`getUserMedia` + `sendrecv`؛ لو المايك فشل نكمّل استقبال فقط). الرفض بيقفل.
@@ -1024,6 +1031,13 @@
 ---
 
 ## English
+
+### [2.26.5] — 2026-11-16  (⚠️ native change — needs APK build) — **new admin-selectable doorbell ringtones**
+- **3 new doorbell tones** (ding-dong · chime · bell) generated as audio files in `res/raw` — so the doorbell doesn't ring with the phone's default tone.
+- **Native `DoorbellRinger` module** plays the chosen tone from the app's own files (MediaPlayer + vibration, on the ringtone channel) with `startRinging/stopRinging/preview`.
+- **Admin picks the tone** in Camera settings → Doorbell, with a **preview** on tap. The choice is published to the family (`doorbellRingtone` in family config).
+- The doorbell screen uses the app tone; if the native module isn't present (old APK) it falls back to the old InCallManager ringtone automatically.
+- **Important:** this part is native (audio assets + module), so it **needs a fresh APK build** on Windows — it does not ship via metro.
 
 ### [2.26.4] — 2026-11-16  (JS change — ships via metro) — **doorbell: live camera instantly + two-way talk + modern UI**
 - **The camera goes live immediately when the doorbell rings** — no waiting for accept/reject (it was a blurred snapshot before). The ringtone plays while you see the door.

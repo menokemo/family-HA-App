@@ -8,6 +8,7 @@ import { authHeaders, cameraSnapshotUrl } from '../../api/homeAssistant';
 import { colors } from '../../theme';
 import { i18n } from '../../i18n';
 import { WebRtcCameraPlayer } from './WebRtcCameraPlayer';
+import { startDoorbellRinging, stopDoorbellRinging, doorbellRingerAvailable, type DoorbellTone } from '../../native/DoorbellRinger';
 
 type Props = { camera: HaEntity; settings: ConnectionSettings; states: HaEntity[]; onClose: () => void };
 
@@ -31,15 +32,20 @@ export function DoorbellScreen({ camera, settings, states, onClose }: Props) {
 
   // نغمة + اهتزاز وهي بترنّ فقط. بعد الرد صوت المكالمة (السبيكر) بيتدار جوّه
   // WebRtcCameraPlayer عبر manageAudio، فمابنلمسش InCallManager.start هنا.
+  // بنفضّل نغمة التطبيق اللي الأدمن اختارها (native)؛ لو الموديول مش متاح (APK
+  // قديم) بنرجع لنغمة InCallManager القديمة.
   useEffect(() => {
     if (answered) return;
-    InCallManager.startRingtone('_BUNDLE_', [0, 1000, 800], 'default', 30);
+    const tone = (settings.doorbellRingtone as DoorbellTone | undefined) ?? 'ding_dong';
+    if (doorbellRingerAvailable) startDoorbellRinging(tone);
+    else InCallManager.startRingtone('_BUNDLE_', [0, 1000, 800], 'default', 30);
     const timeout = setTimeout(onClose, RING_TIMEOUT_MS);
     return () => {
-      InCallManager.stopRingtone();
+      if (doorbellRingerAvailable) stopDoorbellRinging();
+      else InCallManager.stopRingtone();
       clearTimeout(timeout);
     };
-  }, [answered, onClose]);
+  }, [answered, onClose, settings.doorbellRingtone]);
 
   // البث المباشر: وهي بترنّ = استقبال فقط وصوت مكتوم (عشان النغمة تبان)؛ بعد الرد
   // = كلام ثنائي وصوت وارد. تغيير الـ key بيعيد تركيب الاتصال (peer جديد بالمايك).

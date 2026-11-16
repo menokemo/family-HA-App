@@ -48,6 +48,7 @@ export interface ConnectionSettings {
   doorbellEntity?: string;
   doorbellCamera?: string;
   doorbellRingThisPhone?: boolean;
+  doorbellRingtone?: 'ding_dong' | 'chime' | 'bell'; // نغمة الجرس (يختارها الأدمن، تنتشر للعيلة)
   // نطاق فلترة مخاطر الخريطة بالكيلومتر (من البيت أو أي فرد). الأدمن يتحكّم، 0 = قافل.
   hazardRadiusKm?: number;
   // نطاق الكوارث الطبيعية (زلزال/فيضان/عاصفة) بالكيلومتر — أوسع من البلاغات المحلية.
