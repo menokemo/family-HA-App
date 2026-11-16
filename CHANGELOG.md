@@ -6,6 +6,15 @@
 
 ## العربية
 
+### [2.22.1] — 2026-11-16  (تعديل JS — بييجي من metro) — **محرّك الخريطة في إعداد العيلة**
+- **`mapEngine` اتضاف لـ`FAMILY_CONFIG_FIELDS`** — الأدمن يدوس «انشر إعداد العيلة» فكل الأفراد يتوحّدوا على نفس محرّك الخريطة (نيتف/ويب). قبل كده كان `zoneWatchPersonIds` هو الوحيد من إعدادات الخريطة اللي بينتشر.
+- **إعدادات خريطة اتستبعدت عن قصد من النشر** (والسبب متكتوب جنبها في الكود عشان محدش يضيفها بالغلط بعدين):
+  - **`bleUuid`** — كل موبايل لازم UUID **مختلف**. لو اتنشر، كل موبايلات العيلة هتبث نفس المعرّف والراصد (ESP32) مش هيعرف يفرّق بينهم خالص. ده مش إعداد، ده **هوية الجهاز**.
+  - **`homeBtDevices` و`highAccuracyBtDevices`** — عناوين MAC لأجهزة مقترنة بموبايل واحد بعينه؛ مالهاش أي معنى على موبايل تاني.
+  - **`shareLocation` و`beaconMonitor` و`bleEmitter` و`highAccuracyMode`** — دي بتشغّل خدمات وبتاكل بطارية على جهاز الفرد نفسه، فبتفضل بإيده هو.
+- **+9 تستات** لـ`familyConfig` (كانت من غير تستات خالص): بتثبّت إن المحرّك بينتشر، وإن **ولا واحد** من الحقول الخاصة بالجهاز بينتشر، وإن التوكن والرابط عمرهم ما يخرجوا، وإن `readFamilyConfig` بيلاقي الكيان حتى لو HA غيّر اسمه. المجموع 53.
+- **JS — من metro، من غير APK.**
+
 ### [2.22.0] — 2026-11-15  (تعديل JS — بييجي من metro) — **الاتجاهات الأربعة في الخريطة**
 تلات حاجات، كلها JS:
 - **الخريطة بتلف مع اتجاه الموبايل** (وضع ملاحة). زرار بوصلة جديد في عمود التحكّم: لما تشغّله الخريطة بتدور حسب اتجاه مواجهة الموبايل بدل ما الشمال ثابت لفوق. **من غير أي مكتبة ولا كود نيتف** — MapLibre عنده الوضع ده جاهز (`trackUserLocation="heading"`) وبيقرا بوصلة الجهاز نيتف. ولو المستخدم حرّك الخريطة بإيده MapLibre بيوقف التتبّع، فبنطفّي الزرار كمان (`onTrackUserLocationChange`) عشان الواجهة تقول الحقيقة مش تفضل مولّعة وهي مش شغّالة.
@@ -939,6 +948,15 @@
 ---
 
 ## English
+
+### [2.22.1] — 2026-11-16  (JS change — ships via metro) — **map engine in the family config**
+- **`mapEngine` added to `FAMILY_CONFIG_FIELDS`** — the admin hits "publish family config" and everyone lands on the same map engine (native/web). Until now `zoneWatchPersonIds` was the only map setting that travelled.
+- **Map settings deliberately excluded from publishing** (each with its reason written next to it in the code, so nobody adds them back by mistake):
+  - **`bleUuid`** — every phone needs a **different** UUID. Published, every phone in the family would broadcast the same identifier and the detector (ESP32) could not tell them apart at all. This is not a setting, it is the device's **identity**.
+  - **`homeBtDevices` and `highAccuracyBtDevices`** — MAC addresses of devices paired to one specific phone; meaningless on another.
+  - **`shareLocation`, `beaconMonitor`, `bleEmitter`, `highAccuracyMode`** — these start services and cost battery on the member's own device, so they stay in their hands.
+- **+9 tests** for `familyConfig` (which had none): they pin down that the engine publishes, that **not one** device-specific field does, that the token and URL never leave, and that `readFamilyConfig` still finds the entity when HA renames it. 53 total.
+- **JS — ships via metro, no APK needed.**
 
 ### [2.22.0] — 2026-11-15  (JS change — ships via metro) — **the four directions on the map**
 Three things, all JS:

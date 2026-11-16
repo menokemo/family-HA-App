@@ -17,10 +17,19 @@ export const FAMILY_CONFIG_FIELDS = [
   'cameraColumns',
   'selectedDashboardPath',
   'zoneWatchPersonIds',
+  'mapEngine',
   'selectedCalendarIds',
   'selectedTodoIds',
   'backgroundMonitoringEnabled',
 ] as const;
+
+// إعدادات خريطة **مستبعدة عن قصد** من النشر — لو اتنشرت هتبوّظ مش هتنفع:
+//  • bleUuid: كل موبايل لازم UUID مختلف، وإلا كل الموبايلات هتبث نفس المعرّف
+//    والراصد (ESP32) مش هيعرف يفرّق بينهم.
+//  • homeBtDevices / highAccuracyBtDevices: عناوين MAC لأجهزة مقترنة بموبايل
+//    واحد بعينه — مالهاش أي معنى على موبايل تاني.
+//  • shareLocation / beaconMonitor / bleEmitter / highAccuracyMode: قرارات
+//    بتشغّل خدمات وبتاكل بطارية على جهاز الفرد، فبتفضل بإيده هو.
 
 export type FamilyConfig = Partial<Pick<ConnectionSettings, (typeof FAMILY_CONFIG_FIELDS)[number]>>;
 
