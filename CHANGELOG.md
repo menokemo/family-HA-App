@@ -6,6 +6,14 @@
 
 ## العربية
 
+### [2.33.0] — 2026-11-17  (تعديل JS — بييجي من metro) — **منظّم «لمّتنا» — مرحلة ١: الشِل الجديد + الداشبورد**
+بداية التحوّل لمنظّم عائلي مُهيكل بنفس شكل الـPDF (بألوان تطبيقنا، فاتح وداكن).
+- **شريط أقسام فوق** (بدل بار سفلي تاني يتعارض مع بار التطبيق): **رئيسية · تقويم · مهام · مشتريات · المزيد**.
+- **الداشبورد الرئيسي:** بانر تحية + صور الأفراد + ٣ إحصائيات (متبقية/مواعيد اليوم/مكتملة) + مهام اليوم + مواعيد اليوم + **ويدجت الحائط** (آخر إعلان) — هجين بيحتفظ بروح FamilyWall.
+- **«المزيد»:** الأكل والحائط (جاهزين) + الأفراد/الميزانية/الملاحظات/الروتينات/المستندات (قريبًا). الشات زرار في الهيدر.
+- **مشتريات** شاشة «قريبًا» (مرحلة جاية).
+- القادم: مطابقة الفورمات للـPDF + أدوار/صلاحيات، وبعدها الميزانية/التسوّق/الملاحظات/الروتينات.
+
 ### [2.32.0] — 2026-11-17  (تعديل JS + **المكوّن v0.9.3**) — **تبويب العائلة بقى «شبكة عيلة» (FamilyWall): حائط + شات + مهام موزّعة**
 إعادة تصميم من الأساس — محور التبويب بقى **الحائط** (feed) بدل التقويم.
 - **الحائط (Home):** خانة كتابة بوست + كارت «النهاردة» بمواعيد العيلة + فيد البوستات (بصورة صاحبها ولونه ووقته). ضغطة مطوّلة = مسح.
@@ -1106,6 +1114,14 @@
 ---
 
 ## English
+
+### [2.33.0] — 2026-11-17  (JS change — comes from metro) — **"لمّتنا" organizer — Phase 1: new shell + dashboard**
+The start of the move to a structured family organizer matching the PDF look (in our app's colours, light and dark).
+- **Top section bar** (instead of a second bottom bar that would clash with the app's own): **Home · Calendar · Tasks · Shopping · More**.
+- **Dashboard home:** greeting banner + member avatars + 3 stats (to-do / today's appointments / done) + today's tasks + today's appointments + a **wall widget** (latest post) — a hybrid that keeps the FamilyWall spirit.
+- **"More":** Meals and Wall (ready) + Members/Budget/Notes/Routines/Documents (coming soon). Chat stays a header button.
+- **Shopping** is a "coming soon" screen (next phase).
+- Next: match the PDF forms + roles/permissions, then budget/shopping/notes/routines.
 
 ### [2.32.0] — 2026-11-17  (JS change + **component v0.9.3**) — **Family tab is now a family network (FamilyWall): wall + chat + chores**
 A ground-up redesign — the tab now centres on the **wall** (a feed) instead of the calendar.

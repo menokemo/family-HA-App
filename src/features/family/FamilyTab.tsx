@@ -6,6 +6,7 @@ import { i18n } from '../../i18n';
 import { findCalendarEntities, findTodoEntities } from '../../api/homeAssistant';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { AgendaView } from './AgendaView';
+import { FamilyDashboard } from './FamilyDashboard';
 import { MealsView } from './MealsView';
 import { WallView } from './WallView';
 import { ChatView } from './ChatView';
@@ -14,15 +15,24 @@ import { PressableScale } from '../../components/PressableScale';
 import { Card } from '../../components/Card';
 
 type Props = { states: HaEntity[]; settings: ConnectionSettings; onSettingsChange: (patch: Partial<ConnectionSettings>) => void };
-type Tab = 'wall' | 'calendar' | 'chores' | 'meals';
+type Section = 'home' | 'calendar' | 'tasks' | 'shopping' | 'more';
+type Module = 'meals' | 'wall' | 'members' | 'budget' | 'notes' | 'routines' | 'documents';
+
+function moduleTitle(m: Module): string {
+  const map: Record<Module, string> = {
+    meals: 'meals', wall: 'wall', members: 'members', budget: 'budget',
+    notes: 'notes', routines: 'routines', documents: 'documents',
+  };
+  return i18n.t(map[m]);
+}
 
 export function FamilyTab({ states, settings, onSettingsChange }: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
-  const [tab, setTab] = useState<Tab>('wall');
+  const [tab, setTab] = useState<Section>('home');
   const [showCalendarSettings, setShowCalendarSettings] = useState(false);
-  const [showListSettings, setShowListSettings] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [moduleOpen, setModuleOpen] = useState<Module | null>(null);
 
   const allCalendars = findCalendarEntities(states);
   const filteredCalendars = settings.selectedCalendarIds?.length ? allCalendars.filter(c => settings.selectedCalendarIds!.includes(c.entity_id)) : allCalendars;
@@ -34,18 +44,14 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
   const allLists = findTodoEntities(states);
   const filteredLists = settings.selectedTodoIds?.length ? allLists.filter(l => settings.selectedTodoIds!.includes(l.entity_id)) : allLists;
   const lists = filteredLists.length > 0 || allLists.length === 0 ? filteredLists : allLists;
-  // لو تبويب الأكل مش متاح (المكوّن القديم) ما نسيبش المستخدم واقف عليه.
-  useEffect(() => { if (tab === 'meals' && !mealsCalendar) setTab('wall'); }, [tab, mealsCalendar]);
 
-  const TABS: { key: Tab; label: string; icon: string }[] = [
-    { key: 'wall', label: i18n.t('wall'), icon: 'newspaper' },
+  const TABS: { key: Section; label: string; icon: string }[] = [
+    { key: 'home', label: i18n.t('home'), icon: 'home' },
     { key: 'calendar', label: i18n.t('calendar'), icon: 'calendar' },
-    { key: 'chores', label: i18n.t('chores'), icon: 'checkbox' },
-    ...(mealsCalendar ? [{ key: 'meals' as Tab, label: i18n.t('meals'), icon: 'restaurant' }] : []),
+    { key: 'tasks', label: i18n.t('chores'), icon: 'checkbox' },
+    { key: 'shopping', label: i18n.t('shopping'), icon: 'cart' },
+    { key: 'more', label: i18n.t('more'), icon: 'ellipsis-horizontal' },
   ];
-
-  const hasSettings = tab === 'calendar' || tab === 'meals';
-  const openSettings = () => { if (tab === 'calendar') setShowCalendarSettings(true); else if (tab === 'meals') setShowListSettings(true); };
 
   return (
     <View style={{ flex: 1 }}>
@@ -55,8 +61,8 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
           <PressableScale onPress={() => setShowChat(true)} style={s.settingsBtn}>
             <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
           </PressableScale>
-          {hasSettings ? (
-            <PressableScale onPress={openSettings} style={s.settingsBtn}>
+          {tab === 'calendar' ? (
+            <PressableScale onPress={() => setShowCalendarSettings(true)} style={s.settingsBtn}>
               <Ionicons name="options-outline" size={20} color={colors.text} />
             </PressableScale>
           ) : null}
@@ -68,24 +74,44 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
           const on = tab === t.key;
           return (
             <PressableScale key={t.key} style={[s.tab, on && s.tabOn]} onPress={() => setTab(t.key)}>
-              <Ionicons name={on ? t.icon : (t.icon + '-outline')} size={15} color={on ? colors.black : colors.muted} />
-              <Text style={[s.tabText, on && s.tabTextOn]}>{t.label}</Text>
+              <Ionicons name={on ? t.icon : (t.icon + '-outline')} size={16} color={on ? colors.black : colors.muted} />
+              <Text style={[s.tabText, on && s.tabTextOn]} numberOfLines={1}>{t.label}</Text>
             </PressableScale>
           );
         })}
       </View>
 
       <View style={{ flex: 1 }}>
-        {tab === 'wall' ? (
-          <WallView calendars={calendars} states={states} settings={settings} />
+        {tab === 'home' ? (
+          <FamilyDashboard calendars={calendars} states={states} settings={settings} onOpenSection={setTab} />
         ) : tab === 'calendar' ? (
           <AgendaView calendars={calendars} states={states} settings={settings} />
-        ) : tab === 'chores' ? (
+        ) : tab === 'tasks' ? (
           <ChoresView states={states} settings={settings} />
-        ) : mealsCalendar ? (
-          <MealsView mealsCalendar={mealsCalendar} lists={lists} settings={settings} />
-        ) : null}
+        ) : tab === 'shopping' ? (
+          <ComingSoon icon="cart-outline" label={i18n.t('shopping')} />
+        ) : (
+          <MoreMenu hasMeals={!!mealsCalendar} onOpen={setModuleOpen} />
+        )}
       </View>
+
+      <Modal visible={moduleOpen !== null} animationType="slide" onRequestClose={() => setModuleOpen(null)}>
+        <View style={s.chatModal}>
+          <View style={s.chatHeader}>
+            <Text style={s.chatTitle}>{moduleOpen ? moduleTitle(moduleOpen) : ''}</Text>
+            <PressableScale onPress={() => setModuleOpen(null)}><Ionicons name="close" size={24} color={colors.text} /></PressableScale>
+          </View>
+          <View style={{ flex: 1 }}>
+            {moduleOpen === 'meals' && mealsCalendar ? (
+              <MealsView mealsCalendar={mealsCalendar} lists={lists} settings={settings} />
+            ) : moduleOpen === 'wall' ? (
+              <WallView calendars={calendars} states={states} settings={settings} />
+            ) : moduleOpen ? (
+              <ComingSoon icon="construct-outline" label={moduleTitle(moduleOpen)} />
+            ) : null}
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={showChat} animationType="slide" onRequestClose={() => setShowChat(false)}>
         <View style={s.chatModal}>
@@ -106,16 +132,48 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
         onClose={() => setShowCalendarSettings(false)}
         onSave={ids => { onSettingsChange({ selectedCalendarIds: ids }); setShowCalendarSettings(false); }}
       />
-      <EntityPickerModal
-        visible={showListSettings}
-        title={i18n.t('listSettings')}
-        hint={i18n.t('listSettingsHint')}
-        entities={allLists}
-        selectedIds={settings.selectedTodoIds?.length ? settings.selectedTodoIds : allLists.map(l => l.entity_id)}
-        onClose={() => setShowListSettings(false)}
-        onSave={ids => { onSettingsChange({ selectedTodoIds: ids }); setShowListSettings(false); }}
-      />
     </View>
+  );
+}
+
+// شاشة «قريبًا» لموديول لسه ماتعملش (مرحلة جاية).
+function ComingSoon({ icon, label }: { icon: string; label: string }) {
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
+  return (
+    <View style={s.comingWrap}>
+      <Ionicons name={icon} size={46} color={colors.muted} />
+      <Text style={s.comingTitle}>{label}</Text>
+      <Text style={s.comingText}>{i18n.t('comingSoon')}</Text>
+    </View>
+  );
+}
+
+// قسم «المزيد»: باقي موديولات المنظّم. الجاهز بيفتح، والباقي «قريبًا».
+function MoreMenu({ hasMeals, onOpen }: { hasMeals: boolean; onOpen: (m: Module) => void }) {
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
+  const items: { key: Module; icon: string; label: string; soon: boolean }[] = [];
+  if (hasMeals) items.push({ key: 'meals', icon: 'restaurant-outline', label: i18n.t('meals'), soon: false });
+  items.push(
+    { key: 'wall', icon: 'newspaper-outline', label: i18n.t('wall'), soon: false },
+    { key: 'members', icon: 'people-outline', label: i18n.t('members'), soon: true },
+    { key: 'budget', icon: 'wallet-outline', label: i18n.t('budget'), soon: true },
+    { key: 'notes', icon: 'document-text-outline', label: i18n.t('notes'), soon: true },
+    { key: 'routines', icon: 'repeat-outline', label: i18n.t('routines'), soon: true },
+    { key: 'documents', icon: 'folder-outline', label: i18n.t('documents'), soon: true },
+  );
+  return (
+    <ScrollView contentContainerStyle={s.moreList}>
+      {items.map(it => (
+        <PressableScale key={it.key} style={s.moreRow} onPress={() => onOpen(it.key)}>
+          <View style={[s.moreIcon, { backgroundColor: colors.primary + '18' }]}><Ionicons name={it.icon} size={20} color={colors.primary} /></View>
+          <Text style={s.moreLabel}>{it.label}</Text>
+          {it.soon ? <Text style={s.soonBadge}>{i18n.t('comingSoon')}</Text> : <Ionicons name="chevron-forward" size={18} color={colors.muted} />}
+        </PressableScale>
+      ))}
+      <View style={{ height: 24 }} />
+    </ScrollView>
   );
 }
 
@@ -169,11 +227,19 @@ function makeStyles(colors: Palette) { return StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 },
   title: { color: colors.text, fontSize: 26, fontWeight: '800' },
   settingsBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  tabBar: { flexDirection: 'row', gap: 7, paddingHorizontal: 14, paddingBottom: 8 },
-  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 9, borderRadius: 13, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  tabBar: { flexDirection: 'row', gap: 5, paddingHorizontal: 12, paddingBottom: 8 },
+  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, paddingVertical: 7, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   tabOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  tabText: { color: colors.muted, fontSize: 12.5, fontWeight: '700' },
+  tabText: { color: colors.muted, fontSize: 10.5, fontWeight: '700' },
   tabTextOn: { color: colors.black },
+  comingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 30 },
+  comingTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
+  comingText: { color: colors.muted, fontSize: 14 },
+  moreList: { padding: 14, gap: 8 },
+  moreRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, borderRadius: 14, padding: 12 },
+  moreIcon: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  moreLabel: { flex: 1, color: colors.text, fontSize: 15, fontWeight: '600' },
+  soonBadge: { fontSize: 11, color: colors.muted, backgroundColor: colors.surfaceElevated, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, overflow: 'hidden' },
   chatModal: { flex: 1, backgroundColor: colors.background },
   chatHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 10, borderBottomWidth: 0.5, borderBottomColor: colors.border },
   chatTitle: { color: colors.text, fontSize: 20, fontWeight: '800' },
