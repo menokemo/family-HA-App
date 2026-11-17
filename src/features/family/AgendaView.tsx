@@ -8,6 +8,7 @@ import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { PressableScale } from '../../components/PressableScale';
 import { MemberAvatar, personColor } from './MemberAvatar';
 import { joinEventMeta, splitEventMeta } from './creator';
+import { profileColor, readProfiles, type Profiles } from './profiles';
 
 type Props = { calendars: HaEntity[]; states: HaEntity[]; settings: ConnectionSettings };
 type Ev = CalendarEvent & { calendarId: string };
@@ -57,11 +58,13 @@ export function AgendaView({ calendars, states, settings }: Props) {
   const myName = me ? String(me.attributes.friendly_name ?? me.entity_id) : undefined;
   const personByName = useMemo(() => new Map(persons.map(p => [String(p.attributes.friendly_name ?? p.entity_id), p])), [persons]);
   const kindById = useMemo(() => Object.fromEntries(calendars.map(c => [c.entity_id, calKindOf(c)])), [calendars]);
+  const profiles = useMemo(() => readProfiles(states), [states]);
 
   const ident = (name?: string): Ident | undefined => {
     if (!name) return undefined;
     const person = personByName.get(name);
-    return { person, name, color: personColor(person?.entity_id ?? name) };
+    const color = profileColor(person?.entity_id, profiles) ?? personColor(person?.entity_id ?? name);
+    return { person, name, color };
   };
   // مين الحدث: عطلة رسمية؟ وإلا المنشئ (·by:) و«خاص بمين» (·for:) من الوصف.
   const resolveWho = (ev: Ev): Who => {
@@ -147,7 +150,7 @@ export function AgendaView({ calendars, states, settings }: Props) {
           <View style={[s.holidayBadge, { backgroundColor: HOLIDAY_COLOR + '22' }]}><Ionicons name="flag" size={15} color={HOLIDAY_COLOR} /></View>
         ) : right ? (
           <View style={s.by}>
-            <MemberAvatar person={right.person} name={right.name} settings={settings} size={26} />
+            <MemberAvatar person={right.person} name={right.name} settings={settings} size={26} color={right.color} />
             <Text style={s.byName} numberOfLines={1}>{right.name.split(' ')[0]}</Text>
           </View>
         ) : null}
@@ -222,7 +225,7 @@ export function AgendaView({ calendars, states, settings }: Props) {
         </PressableScale>
       ) : null}
 
-      {adding ? <AddEventSheet targets={targets} persons={persons} settings={settings} initialDay={selectedDay} myName={myName} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); void load(); }} /> : null}
+      {adding ? <AddEventSheet targets={targets} persons={persons} profiles={profiles} settings={settings} initialDay={selectedDay} myName={myName} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); void load(); }} /> : null}
     </View>
   );
 }
@@ -279,7 +282,7 @@ function MonthView({ anchor, selectedDay, byDay, colorOf, onPrev, onNext, onSele
   );
 }
 
-function AddEventSheet({ targets, persons, settings, initialDay, myName, onClose, onSaved }: { targets: Target[]; persons: HaEntity[]; settings: ConnectionSettings; initialDay: Date; myName?: string; onClose: () => void; onSaved: () => void }) {
+function AddEventSheet({ targets, persons, profiles, settings, initialDay, myName, onClose, onSaved }: { targets: Target[]; persons: HaEntity[]; profiles: Profiles; settings: ConnectionSettings; initialDay: Date; myName?: string; onClose: () => void; onSaved: () => void }) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const [title, setTitle] = useState('');
@@ -347,10 +350,10 @@ function AddEventSheet({ targets, persons, settings, initialDay, myName, onClose
             </PressableScale>
             {persons.map(p => {
               const sel = subject?.entity_id === p.entity_id;
-              const c = personColor(p.entity_id);
+              const c = profileColor(p.entity_id, profiles) ?? personColor(p.entity_id);
               return (
                 <PressableScale key={p.entity_id} style={[s.who2, sel && { borderColor: c, backgroundColor: c + '18' }]} onPress={() => setSubject(p)}>
-                  <MemberAvatar person={p} settings={settings} size={28} />
+                  <MemberAvatar person={p} settings={settings} size={28} color={c} />
                   <Text style={[s.whoName, sel && { color: c }]} numberOfLines={1}>{String(p.attributes.friendly_name ?? p.entity_id).split(' ')[0]}</Text>
                 </PressableScale>
               );

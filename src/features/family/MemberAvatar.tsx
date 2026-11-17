@@ -17,16 +17,18 @@ function initial(name: string): string {
   return t ? t.charAt(0).toUpperCase() : '?';
 }
 
-/** صورة الفرد (entity_picture) أو دايرة ملوّنة بأول حرف من اسمه. */
-export function MemberAvatar({ person, name, settings, size = 28, ring }: {
+/** صورة الفرد (entity_picture) أو دايرة ملوّنة بأول حرف من اسمه.
+ * `color` بيستبدل اللون التلقائي (مثلًا لون البروفايل اللي الأدمن اختاره). */
+export function MemberAvatar({ person, name, settings, size = 28, ring, color: colorOverride }: {
   person?: HaEntity;
   name?: string;
   settings: ConnectionSettings;
   size?: number;
   ring?: boolean;
+  color?: string;
 }) {
   const label = String(person?.attributes.friendly_name ?? name ?? person?.entity_id ?? '?');
-  const color = personColor(person?.entity_id ?? label);
+  const color = colorOverride ?? personColor(person?.entity_id ?? label);
   const pic = person?.attributes.entity_picture as string | undefined;
   const uri = pic ? (pic.startsWith('http') ? pic : absoluteHaUrl(settings, pic)) : undefined;
   const r = size / 2;

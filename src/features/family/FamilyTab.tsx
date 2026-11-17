@@ -8,6 +8,7 @@ import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { AgendaView } from './AgendaView';
 import { ListsView } from './ListsView';
 import { MealsView } from './MealsView';
+import { readProfiles } from './profiles';
 import { PressableScale } from '../../components/PressableScale';
 import { Card } from '../../components/Card';
 
@@ -32,6 +33,7 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
   const filteredLists = settings.selectedTodoIds?.length ? allLists.filter(l => settings.selectedTodoIds!.includes(l.entity_id)) : allLists;
   const lists = filteredLists.length > 0 || allLists.length === 0 ? filteredLists : allLists;
   const persons = states.filter(e => e.entity_id.startsWith('person.'));
+  const profiles = readProfiles(states);
 
   // لو تبويب الأكل مش متاح (المكوّن القديم) ما نسيبش المستخدم واقف عليه.
   useEffect(() => { if (tab === 'meals' && !mealsCalendar) setTab('agenda'); }, [tab, mealsCalendar]);
@@ -69,7 +71,7 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
         {tab === 'agenda' ? (
           <AgendaView calendars={calendars} states={states} settings={settings} />
         ) : tab === 'tasks' ? (
-          <ListsView lists={lists} settings={settings} persons={persons} myName={persons.find(p => p.entity_id === settings.selectedPersonId)?.attributes.friendly_name as string | undefined} />
+          <ListsView lists={lists} settings={settings} persons={persons} profiles={profiles} myName={persons.find(p => p.entity_id === settings.selectedPersonId)?.attributes.friendly_name as string | undefined} />
         ) : mealsCalendar ? (
           <MealsView mealsCalendar={mealsCalendar} lists={lists} settings={settings} />
         ) : null}

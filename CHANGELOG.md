@@ -6,6 +6,11 @@
 
 ## العربية
 
+### [2.31.2] — 2026-11-17  (تعديل JS — بييجي من metro) — **تطبيق لون البروفايل بصريًا**
+- **لون البروفايل** (اللي الأدمن بيختاره في اللوحة) بقى بيتطبّق على **صور الأفراد وشرائط الأحداث** في الأجندة، وعلى صورة «مين ضاف» في المهام، وفي اختيار «خاص بمين». لو مفيش لون مخصص بيرجع للّون التلقائي الثابت.
+- موديول `profiles.ts` بيقرا البروفايلات من كونفيج العيلة المنشور + تست (3).
+- **لسه:** عرض **الصفة (role)** في الواجهة (متخزّنة بس)، وتطبيق اللون في الخريطة.
+
 ### [2.31.1] — 2026-11-17  (تعديل JS + **المكوّن v0.9.1**) — **بروفايل لكل فرد + توليد أعياد الميلاد تلقائيًا**
 - **بروفايل لكل فرد (في لوحة المكوّن، أدمن):** قسم «بروفايلات العيلة» — لكل `person`: **تاريخ ميلاد** + **صفة** (أب/أم/ابن…) + **لون** اختياري. بتتخزّن في كونفيج العيلة.
 - **توليد عيد الميلاد تلقائيًا:** المكوّن بيعمل من تاريخ ميلاد كل فرد **حدث سنوي** (يوم كامل، يتكرر) في «مناسبات سنوية»، بـid ثابت (مفيش تكرار، ويتحدّث لو التاريخ اتغيّر)، ومتعلّم باسم الفرد فالتطبيق بيعرض صورته جمبه.
@@ -1089,6 +1094,11 @@
 ---
 
 ## English
+
+### [2.31.2] — 2026-11-17  (JS change — comes from metro) — **Apply the profile colour visually**
+- The **profile colour** (set by the admin in the panel) is now applied to **member avatars and event bars** in the agenda, to the "added by" avatar in Tasks, and in the "for whom" picker. Falls back to the stable auto colour when none is set.
+- New `profiles.ts` module reads profiles from the published family config + a test (3).
+- **Still to do:** showing the **role** in the UI (stored only), and applying the colour on the map.
 
 ### [2.31.1] — 2026-11-17  (JS change + **component v0.9.1**) — **Per-member profiles + automatic birthdays**
 - **Profile per member (component panel, admin):** a "Family profiles" section — for each `person`: a **birthday** + optional **role** (Dad/Mom/Son…) + optional **colour**. Stored in the family config.

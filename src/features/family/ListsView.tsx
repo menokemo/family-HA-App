@@ -10,13 +10,14 @@ import { PressableScale } from '../../components/PressableScale';
 import { CATEGORIES, categoryLabel, detectCategory, stripCategoryEmoji } from './categories';
 import { MemberAvatar } from './MemberAvatar';
 import { joinCreator, splitCreator } from './creator';
+import { profileColor, type Profiles } from './profiles';
 
-type Props = { lists: HaEntity[]; settings: ConnectionSettings; myName?: string; persons?: HaEntity[] };
+type Props = { lists: HaEntity[]; settings: ConnectionSettings; myName?: string; persons?: HaEntity[]; profiles?: Profiles };
 type Row = { kind: 'item'; item: TodoItem } | { kind: 'header'; count: number };
 
 // بيانات إنشاء التذكير (اسم اللي عمله) بتتخزن كسطر مخفي في نهاية
 
-export function ListsView({ lists, settings, myName, persons }: Props) {
+export function ListsView({ lists, settings, myName, persons, profiles }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const [activeId, setActiveId] = useState(lists[0]?.entity_id);
@@ -136,7 +137,8 @@ export function ListsView({ lists, settings, myName, persons }: Props) {
                 const by = splitCreator(row.item.description).createdBy;
                 if (!by) return null;
                 const person = persons?.find(p => String(p.attributes.friendly_name) === by);
-                return <MemberAvatar person={person} name={by} settings={settings} size={26} />;
+                const color = profiles ? profileColor(person?.entity_id, profiles) : undefined;
+                return <MemberAvatar person={person} name={by} settings={settings} size={26} color={color} />;
               })()}
               <PressableScale onPress={() => void remove(row.item)} hitSlop={10}>
                 <Ionicons name="close" size={18} color={row.item.status === 'completed' ? colors.muted : 'rgba(255,255,255,.85)'} />
