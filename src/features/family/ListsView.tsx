@@ -9,21 +9,12 @@ import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { PressableScale } from '../../components/PressableScale';
 import { CATEGORIES, categoryLabel, detectCategory, stripCategoryEmoji } from './categories';
 import { MemberAvatar } from './MemberAvatar';
+import { joinCreator, splitCreator } from './creator';
 
 type Props = { lists: HaEntity[]; settings: ConnectionSettings; myName?: string; persons?: HaEntity[] };
 type Row = { kind: 'item'; item: TodoItem } | { kind: 'header'; count: number };
 
 // بيانات إنشاء التذكير (اسم اللي عمله) بتتخزن كسطر مخفي في نهاية
-// description بتاعة عنصر الـ todo نفسه في HA - أبسط طريقة تتوافق مع
-// HA بالكامل من غير أي حقل إضافي. بنفصلها عن الملاحظات الحقيقية
-// بمحدد ثابت (·by:) وقت العرض والتعديل.
-const CREATOR_MARKER = '\n·by:';
-function splitCreator(description?: string): { notes: string; createdBy?: string } {
-  if (!description) return { notes: '' };
-  const idx = description.indexOf(CREATOR_MARKER);
-  if (idx === -1) return { notes: description };
-  return { notes: description.slice(0, idx), createdBy: description.slice(idx + CREATOR_MARKER.length).trim() };
-}
 
 export function ListsView({ lists, settings, myName, persons }: Props) {
   const { colors } = useTheme();
@@ -223,10 +214,10 @@ function AddReminderModal({
         // نحافظ على علامة "أضافه فلان" الأصلية زي ما هي وقت التعديل -
         // مش هي اللي بتتعدّل، بس الملاحظات الحقيقية بس
         const existingCreator = splitCreator(editItem.description).createdBy;
-        const description = notes.trim() + (existingCreator ? `${CREATOR_MARKER}${existingCreator}` : '');
+        const description = joinCreator(notes, existingCreator);
         await updateTodoItemDetails(settings, listEntityId, editItem.uid, { summary, dueDate: dueDate.trim(), dueDateTime, description });
       } else {
-        const description = notes.trim() + (myName ? `${CREATOR_MARKER}${myName}` : '');
+        const description = joinCreator(notes, myName);
         await addTodoItem(settings, listEntityId, summary, dueDate.trim() || undefined, description || undefined, dueDateTime);
       }
       onCreated();

@@ -228,7 +228,8 @@ it ourselves.**
 | Map: arrival/departure alerts | ✅ | Work even if the app is fully closed (same architecture as the alarm background service) |
 | Map: nearby places (Overpass API) | ✅ | Free, no API key |
 | Map: live-GPS distance | ✅ | `@react-native-community/geolocation` |
-| Family tab: agenda (Cozi-style) | ✅ | Single agenda across all calendars — "Today" hero card + upcoming days, each event = member-colored bar + title + time + member avatar; FAB add sheet (title + who + 14-day strip + time), long-press to delete. Replaced the rejected multi-member columns (2.29.0). Edit/recurring add still to come |
+| Family tab: agenda (Cozi-style) | ✅ | Single agenda across all calendars — "Today" hero card + upcoming days, each event = **creator-colored bar + title + time + creator avatar & name** (stored via the `·by:` marker, like Tasks; falls back to the calendar owner for component/old events). FAB add sheet (title + who + 14-day strip + time, stores the creator), long-press to delete. Replaced the rejected multi-member columns (2.29.0). Edit/recurring add still to come |
+| Family tab: agenda — week strip + month view | ✅ | A top week strip (4 weeks, dot on days with events) scrolls the agenda to a day; a top button toggles a **month grid** (coloured event dots, prev/next, tap a day to list its events) — 2.30.0 |
 | Family tab: 3-tab shell | ✅ | Pill tabs Agenda · Tasks · Meals; `⋮` settings picks which calendars/lists show |
 | Family tab: reminders | ✅ | Add/edit dialog: title + notes + date and time + category, and who added it (member avatar); still the same HA `todo.*` |
 | Decentralized per-tab settings | ✅ | `⋮` button next to the LIVE indicator (Alarmo, Cameras, Dashboard, Map) |
@@ -625,6 +626,12 @@ todo · البناء mockup الأول ثم مراحل.
   ضغطة مطوّلة على الحدث = مسح. والشِل بقى **3 تبويبات بسيطة (Agenda · Tasks · Meals)**
   بأزرار pill. **اتشال الكود الميّت:** `MemberCalendarView` (الأعمدة المرفوضة) و
   `CalendarView` (العرض القديم) اتمسحوا — محفوظين في git لو احتجنا نرجّع منطق التكرار.
+
+- **التطبيق 2.30.0 — الأجندة اتحسّنت (بطلب المستخدم):** (١) كل حدث بيظهر جمبه **صورة
+  واسم اللي أنشأه** (بيتخزّن في الوصف بعلامة `·by:` زي المهام، هيلبر مشترك `creator.ts`)
+  — لون الشريط كمان بلون المنشئ. (٢) **شريط أسبوع** (٤ أسابيع) فوق بيلفّ الأجندة لليوم
+  المختار. (٣) **زر فيو شهري** بيبدّل لشبكة الشهر بنقاط ملوّنة للأحداث + أسهم + لمس اليوم
+  يعرض أحداثه.
 
 **لسه (تحسينات اختيارية):** **تعديل حدث + أحداث متكررة** في شيت الإضافة (دلوقتي إضافة/مسح
 بس، من غير تكرار — أعياد الميلاد السنوية بتتعمل من المكوّن أو مؤجّلة لحد ما نرجّع منطق

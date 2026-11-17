@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.30.0] — 2026-11-17  (تعديل JS — بييجي من metro) — **الأجندة: منشئ الحدث + شريط أسبوع + فيو شهري**
+- **مين أنشأ الحدث:** كل حدث بيضيفه المستخدم بيتخزّن معاه اسمه (بنفس علامة المهام `·by:` في الوصف)، وبيظهر جمب الحدث **صورة واسم اللي أنشأه** (بيتربط بكيان `person` من الاسم؛ لو مفيش صورة يبان أول حرف ملوّن). لون شريط الحدث كمان بقى بلون المنشئ. الأحداث القديمة/اللي من المكوّن بترجع لصاحب التقويم.
+- **شريط أسبوع من فوق:** صف أفقي بأيام (٤ أسابيع) تحت العنوان — نقطة تحت اليوم اللي عليه أحداث، ولمس أي يوم بيلفّ الأجندة لليوم ده (أو أقرب يوم بعده).
+- **زر فيو شهري:** زر فوق بيبدّل بين **الأجندة** و**شبكة الشهر** — الشهر فيه نقاط ملوّنة للأحداث (بلون المنشئ)، أسهم للشهر السابق/التالي، ولمس أي يوم بيعرض أحداثه تحت الشبكة.
+- شيت الإضافة بيبدأ باليوم المحدّد حاليًا، وبيخزّن المنشئ تلقائيًا.
+- هيلبر مشترك `creator.ts` (`splitCreator`/`joinCreator`) اتشال من المهام واتشارك مع الأجندة — من غير تكرار.
+
 ### [2.29.0] — 2026-11-16  (تعديل JS — بييجي من metro) — **تبويب العائلة: الأجندة بستايل Cozi بدل الأعمدة**
 - **رفض الأعمدة:** المستخدم قال التقويم متعدد الأفراد (الأعمدة) «مش حلو ومش عملي ومليان تشتت»، وطلب UI سهل وبسيط وواضح بس بستايل كروت/ألوان/علامات Cozi.
 - **`AgendaView` الجديدة:** قايمة أجندة واحدة من كل التقاويم — كارت **«النهاردة»** ملوّن فوق، وتحته الأيام الجاية (لحد 30 يوم). كل حدث = **شريط بلون الفرد** + العنوان + الوقت + **صورة الفرد** (نفس ألوان الأفراد الثابتة في كل مكان).
@@ -1064,6 +1071,13 @@
 ---
 
 ## English
+
+### [2.30.0] — 2026-11-17  (JS change — comes from metro) — **Agenda: event creator + week strip + month view**
+- **Who created the event:** every event the user adds now stores their name (same `·by:` marker as Tasks, in the description) and shows the **creator's avatar + name** next to it (resolved from the name to a `person` entity; coloured initial if no photo). The event bar takes the creator's colour too. Old/component events fall back to the calendar owner.
+- **Week strip on top:** a horizontal row of days (4 weeks) under the header — a dot marks days with events, tapping a day scrolls the agenda to it (or the nearest day after).
+- **Month view button:** a top button toggles between **Agenda** and a **month grid** — the month shows coloured event dots (creator colour), prev/next arrows, and tapping a day lists its events below the grid.
+- The add sheet now opens on the currently selected day and stores the creator automatically.
+- Shared `creator.ts` helper (`splitCreator`/`joinCreator`) extracted from Tasks and shared with the Agenda — no duplication.
 
 ### [2.29.0] — 2026-11-16  (JS change — comes from metro) — **Family tab: Cozi-style agenda instead of columns**
 - **Columns rejected:** the user found the multi-member column calendar "not nice, not practical, cluttered" and asked for an easy, simple, clear UI but with Cozi's card/colour/badge **style** ("the style, not the function").
