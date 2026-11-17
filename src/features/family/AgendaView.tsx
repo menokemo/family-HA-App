@@ -10,7 +10,7 @@ import { MemberAvatar, personColor } from './MemberAvatar';
 import { joinEventMeta, splitEventMeta } from './creator';
 import { profileColor, readProfiles, type Profiles } from './profiles';
 
-type Props = { calendars: HaEntity[]; states: HaEntity[]; settings: ConnectionSettings };
+type Props = { calendars: HaEntity[]; states: HaEntity[]; settings: ConnectionSettings; canManage?: boolean };
 type Ev = CalendarEvent & { calendarId: string };
 type Ident = { person?: HaEntity; name: string; color: string };
 type Who = { holiday?: boolean; creator?: Ident; subject?: Ident };
@@ -43,7 +43,7 @@ function calKindOf(cal: HaEntity): string {
   return 'other';
 }
 
-export function AgendaView({ calendars, states, settings }: Props) {
+export function AgendaView({ calendars, states, settings, canManage = true }: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const [events, setEvents] = useState<Ev[]>([]);
@@ -128,7 +128,7 @@ export function AgendaView({ calendars, states, settings }: Props) {
   };
 
   const onDelete = (e: Ev) => {
-    if (!e.uid || kindById[e.calendarId] === 'holidays') return; // الأعياد عرض-فقط
+    if (!canManage || !e.uid || kindById[e.calendarId] === 'holidays') return; // الطفل/الأعياد: مفيش حذف
     Alert.alert(e.summary || i18n.t('untitled'), i18n.t('deleteEventConfirm'), [
       { text: i18n.t('cancel'), style: 'cancel' },
       { text: i18n.t('delete'), style: 'destructive', onPress: () => { void deleteCalendarEvent(settings, e.calendarId, e.uid!).then(load).catch(() => {}); } },

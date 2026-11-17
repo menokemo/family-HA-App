@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.33.1] — 2026-11-17  (تعديل JS + **المكوّن v0.9.4**) — **منظّم «لمّتنا» — مرحلة ٢أ: الأدوار والصلاحيات**
+- **البروفايل:** حقل الدور في لوحة المكوّن بقى **قائمة محدّدة** (مدير/بالغ/طفل) بدل نص حر.
+- **الصلاحيات:** **الطفل مايحذفش** — متخفي عنه حذف أحداث التقويم وبوستات الحائط والمهام (في التطبيق)، و**المكوّن كمان بيرفض** حذف الحائط/الشات/المهام لو الداعي دوره «طفل» (مايتحايلش من برّا التطبيق). مفيش دور متحدّد = نفس السلوك القديم (الكل يقدر).
+- `roles.ts` (قراية الدور + `canManage`) + تست (2).
+- القادم: مطابقة فورمات الإدخال للـPDF (مواعيد/مهام بكل الحقول) + باقي الصلاحيات (ميزانية/أفراد).
+
 ### [2.33.0] — 2026-11-17  (تعديل JS — بييجي من metro) — **منظّم «لمّتنا» — مرحلة ١: الشِل الجديد + الداشبورد**
 بداية التحوّل لمنظّم عائلي مُهيكل بنفس شكل الـPDF (بألوان تطبيقنا، فاتح وداكن).
 - **شريط أقسام فوق** (بدل بار سفلي تاني يتعارض مع بار التطبيق): **رئيسية · تقويم · مهام · مشتريات · المزيد**.
@@ -1114,6 +1120,12 @@
 ---
 
 ## English
+
+### [2.33.1] — 2026-11-17  (JS change + **component v0.9.4**) — **"لمّتنا" organizer — Phase 2a: roles & permissions**
+- **Profile:** the role field in the component panel is now a **fixed select** (manager/adult/child) instead of free text.
+- **Permissions:** **a child can't delete** — deleting calendar events, wall posts, and chores is hidden from them (app), and the **component also refuses** wall/chat/chore deletion when the caller's role is "child" (can't be bypassed outside the app). No role set = same as before (everyone can).
+- `roles.ts` (role read + `canManage`) + a test (2).
+- Next: match the PDF input forms (appointments/tasks with all fields) + the rest of permissions (budget/members).
 
 ### [2.33.0] — 2026-11-17  (JS change — comes from metro) — **"لمّتنا" organizer — Phase 1: new shell + dashboard**
 The start of the move to a structured family organizer matching the PDF look (in our app's colours, light and dark).

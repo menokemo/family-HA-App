@@ -10,7 +10,7 @@ import { MemberAvatar } from './MemberAvatar';
 import { readProfiles } from './profiles';
 import { readSocial, resolvePoster, type SocialPost } from './social';
 
-type Props = { calendars: HaEntity[]; states: HaEntity[]; settings: ConnectionSettings };
+type Props = { calendars: HaEntity[]; states: HaEntity[]; settings: ConnectionSettings; canManage?: boolean };
 
 function ago(ts: number): string {
   const s = Math.max(0, Date.now() / 1000 - ts);
@@ -22,7 +22,7 @@ function ago(ts: number): string {
 function isAllDay(start: string) { return /^\d{4}-\d{2}-\d{2}$/.test(start); }
 function evTime(start: string) { if (isAllDay(start)) return i18n.t('allDay'); const d = new Date(start); return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString(i18n.locale || 'en', { hour: '2-digit', minute: '2-digit' }); }
 
-export function WallView({ calendars, states, settings }: Props) {
+export function WallView({ calendars, states, settings, canManage = true }: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const persons = useMemo(() => states.filter(e => e.entity_id.startsWith('person.')), [states]);
@@ -55,6 +55,7 @@ export function WallView({ calendars, states, settings }: Props) {
   };
 
   const onDelete = (p: SocialPost) => {
+    if (!canManage) return; // الطفل مايحذفش
     Alert.alert(i18n.t('deletePost'), '', [
       { text: i18n.t('cancel'), style: 'cancel' },
       { text: i18n.t('delete'), style: 'destructive', onPress: () => { void socialDelete(settings, 'wall', p.id).catch(() => {}); } },

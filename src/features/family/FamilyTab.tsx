@@ -13,6 +13,7 @@ import { ChatView } from './ChatView';
 import { ChoresView } from './ChoresView';
 import { PressableScale } from '../../components/PressableScale';
 import { Card } from '../../components/Card';
+import { canManage, myRole } from './roles';
 
 type Props = { states: HaEntity[]; settings: ConnectionSettings; onSettingsChange: (patch: Partial<ConnectionSettings>) => void };
 type Section = 'home' | 'calendar' | 'tasks' | 'shopping' | 'more';
@@ -44,6 +45,7 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
   const allLists = findTodoEntities(states);
   const filteredLists = settings.selectedTodoIds?.length ? allLists.filter(l => settings.selectedTodoIds!.includes(l.entity_id)) : allLists;
   const lists = filteredLists.length > 0 || allLists.length === 0 ? filteredLists : allLists;
+  const manage = canManage(myRole(states, settings)); // الطفل مايحذفش
 
   const TABS: { key: Section; label: string; icon: string }[] = [
     { key: 'home', label: i18n.t('home'), icon: 'home' },
@@ -85,9 +87,9 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
         {tab === 'home' ? (
           <FamilyDashboard calendars={calendars} states={states} settings={settings} onOpenSection={setTab} />
         ) : tab === 'calendar' ? (
-          <AgendaView calendars={calendars} states={states} settings={settings} />
+          <AgendaView calendars={calendars} states={states} settings={settings} canManage={manage} />
         ) : tab === 'tasks' ? (
-          <ChoresView states={states} settings={settings} />
+          <ChoresView states={states} settings={settings} canManage={manage} />
         ) : tab === 'shopping' ? (
           <ComingSoon icon="cart-outline" label={i18n.t('shopping')} />
         ) : (
@@ -105,7 +107,7 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
             {moduleOpen === 'meals' && mealsCalendar ? (
               <MealsView mealsCalendar={mealsCalendar} lists={lists} settings={settings} />
             ) : moduleOpen === 'wall' ? (
-              <WallView calendars={calendars} states={states} settings={settings} />
+              <WallView calendars={calendars} states={states} settings={settings} canManage={manage} />
             ) : moduleOpen ? (
               <ComingSoon icon="construct-outline" label={moduleTitle(moduleOpen)} />
             ) : null}

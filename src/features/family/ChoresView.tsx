@@ -10,9 +10,9 @@ import { MemberAvatar, personColor } from './MemberAvatar';
 import { readProfiles, profileColor } from './profiles';
 import { readSocial, resolvePoster, type Chore } from './social';
 
-type Props = { states: HaEntity[]; settings: ConnectionSettings };
+type Props = { states: HaEntity[]; settings: ConnectionSettings; canManage?: boolean };
 
-export function ChoresView({ states, settings }: Props) {
+export function ChoresView({ states, settings, canManage = true }: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const persons = useMemo(() => states.filter(e => e.entity_id.startsWith('person.')), [states]);
@@ -32,6 +32,7 @@ export function ChoresView({ states, settings }: Props) {
     try { await choreAdd(settings, t, assignee?.entity_id); setTitle(''); setAssignee(undefined); } finally { setAdding(false); }
   };
   const onDelete = (c: Chore) => {
+    if (!canManage) return; // الطفل مايحذفش
     Alert.alert(c.title, '', [
       { text: i18n.t('cancel'), style: 'cancel' },
       { text: i18n.t('delete'), style: 'destructive', onPress: () => { void socialDelete(settings, 'chores', c.id).catch(() => {}); } },
