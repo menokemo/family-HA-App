@@ -385,6 +385,16 @@ export async function createCalendarEvent(settings: ConnectionSettings, entityId
   await request(settings, '/api/services/calendar/create_event', { method: 'POST', body: JSON.stringify({ entity_id: entityId, ...data }) });
 }
 
+// ===== شبكة العيلة (الحائط/الشات/المهام) عبر سيرفسات مكوّن secure_family =====
+async function callService(settings: ConnectionSettings, domain: string, service: string, data: Record<string, unknown>): Promise<void> {
+  await request(settings, `/api/services/${domain}/${service}`, { method: 'POST', body: JSON.stringify(data) });
+}
+export const wallPost = (s: ConnectionSettings, text: string) => callService(s, 'secure_family', 'wall_post', { text });
+export const chatSend = (s: ConnectionSettings, text: string) => callService(s, 'secure_family', 'chat_send', { text });
+export const choreAdd = (s: ConnectionSettings, title: string, assignee?: string) => callService(s, 'secure_family', 'chore_add', assignee ? { title, assignee } : { title });
+export const choreSet = (s: ConnectionSettings, choreId: string, done: boolean) => callService(s, 'secure_family', 'chore_set', { chore_id: choreId, done });
+export const socialDelete = (s: ConnectionSettings, section: 'wall' | 'chat' | 'chores', itemId: string) => callService(s, 'secure_family', 'social_delete', { section, item_id: itemId });
+
 // حذف حدث تقويم بالـ uid — عبر WebSocket (مفيش خدمة REST لحذف أحداث التقويم).
 // بنستخدمه في خطة الأكل لاستبدال وجبة (نحذف القديمة وننشئ الجديدة).
 export async function deleteCalendarEvent(settings: ConnectionSettings, entityId: string, uid: string): Promise<void> {

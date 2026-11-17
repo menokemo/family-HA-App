@@ -6,21 +6,23 @@ import { i18n } from '../../i18n';
 import { findCalendarEntities, findTodoEntities } from '../../api/homeAssistant';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { AgendaView } from './AgendaView';
-import { ListsView } from './ListsView';
 import { MealsView } from './MealsView';
-import { readProfiles } from './profiles';
+import { WallView } from './WallView';
+import { ChatView } from './ChatView';
+import { ChoresView } from './ChoresView';
 import { PressableScale } from '../../components/PressableScale';
 import { Card } from '../../components/Card';
 
 type Props = { states: HaEntity[]; settings: ConnectionSettings; onSettingsChange: (patch: Partial<ConnectionSettings>) => void };
-type Tab = 'agenda' | 'tasks' | 'meals';
+type Tab = 'wall' | 'calendar' | 'chores' | 'meals';
 
 export function FamilyTab({ states, settings, onSettingsChange }: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
-  const [tab, setTab] = useState<Tab>('agenda');
+  const [tab, setTab] = useState<Tab>('wall');
   const [showCalendarSettings, setShowCalendarSettings] = useState(false);
   const [showListSettings, setShowListSettings] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
   const allCalendars = findCalendarEntities(states);
   const filteredCalendars = settings.selectedCalendarIds?.length ? allCalendars.filter(c => settings.selectedCalendarIds!.includes(c.entity_id)) : allCalendars;
@@ -32,27 +34,33 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
   const allLists = findTodoEntities(states);
   const filteredLists = settings.selectedTodoIds?.length ? allLists.filter(l => settings.selectedTodoIds!.includes(l.entity_id)) : allLists;
   const lists = filteredLists.length > 0 || allLists.length === 0 ? filteredLists : allLists;
-  const persons = states.filter(e => e.entity_id.startsWith('person.'));
-  const profiles = readProfiles(states);
-
   // لو تبويب الأكل مش متاح (المكوّن القديم) ما نسيبش المستخدم واقف عليه.
-  useEffect(() => { if (tab === 'meals' && !mealsCalendar) setTab('agenda'); }, [tab, mealsCalendar]);
+  useEffect(() => { if (tab === 'meals' && !mealsCalendar) setTab('wall'); }, [tab, mealsCalendar]);
 
   const TABS: { key: Tab; label: string; icon: string }[] = [
-    { key: 'agenda', label: i18n.t('agenda'), icon: 'calendar' },
-    { key: 'tasks', label: i18n.t('lists'), icon: 'checkbox' },
+    { key: 'wall', label: i18n.t('wall'), icon: 'newspaper' },
+    { key: 'calendar', label: i18n.t('calendar'), icon: 'calendar' },
+    { key: 'chores', label: i18n.t('chores'), icon: 'checkbox' },
     ...(mealsCalendar ? [{ key: 'meals' as Tab, label: i18n.t('meals'), icon: 'restaurant' }] : []),
   ];
 
-  const openSettings = () => { if (tab === 'agenda') setShowCalendarSettings(true); else setShowListSettings(true); };
+  const hasSettings = tab === 'calendar' || tab === 'meals';
+  const openSettings = () => { if (tab === 'calendar') setShowCalendarSettings(true); else if (tab === 'meals') setShowListSettings(true); };
 
   return (
     <View style={{ flex: 1 }}>
       <View style={s.header}>
         <Text style={s.title}>{i18n.t('family')}</Text>
-        <PressableScale onPress={openSettings} style={s.settingsBtn}>
-          <Ionicons name="options-outline" size={20} color={colors.text} />
-        </PressableScale>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <PressableScale onPress={() => setShowChat(true)} style={s.settingsBtn}>
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.text} />
+          </PressableScale>
+          {hasSettings ? (
+            <PressableScale onPress={openSettings} style={s.settingsBtn}>
+              <Ionicons name="options-outline" size={20} color={colors.text} />
+            </PressableScale>
+          ) : null}
+        </View>
       </View>
 
       <View style={s.tabBar}>
@@ -60,7 +68,7 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
           const on = tab === t.key;
           return (
             <PressableScale key={t.key} style={[s.tab, on && s.tabOn]} onPress={() => setTab(t.key)}>
-              <Ionicons name={on ? t.icon : (t.icon + '-outline')} size={16} color={on ? colors.black : colors.muted} />
+              <Ionicons name={on ? t.icon : (t.icon + '-outline')} size={15} color={on ? colors.black : colors.muted} />
               <Text style={[s.tabText, on && s.tabTextOn]}>{t.label}</Text>
             </PressableScale>
           );
@@ -68,14 +76,26 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
       </View>
 
       <View style={{ flex: 1 }}>
-        {tab === 'agenda' ? (
+        {tab === 'wall' ? (
+          <WallView calendars={calendars} states={states} settings={settings} />
+        ) : tab === 'calendar' ? (
           <AgendaView calendars={calendars} states={states} settings={settings} />
-        ) : tab === 'tasks' ? (
-          <ListsView lists={lists} settings={settings} persons={persons} profiles={profiles} myName={persons.find(p => p.entity_id === settings.selectedPersonId)?.attributes.friendly_name as string | undefined} />
+        ) : tab === 'chores' ? (
+          <ChoresView states={states} settings={settings} />
         ) : mealsCalendar ? (
           <MealsView mealsCalendar={mealsCalendar} lists={lists} settings={settings} />
         ) : null}
       </View>
+
+      <Modal visible={showChat} animationType="slide" onRequestClose={() => setShowChat(false)}>
+        <View style={s.chatModal}>
+          <View style={s.chatHeader}>
+            <Text style={s.chatTitle}>{i18n.t('chat')}</Text>
+            <PressableScale onPress={() => setShowChat(false)}><Ionicons name="close" size={24} color={colors.text} /></PressableScale>
+          </View>
+          <ChatView states={states} settings={settings} />
+        </View>
+      </Modal>
 
       <EntityPickerModal
         visible={showCalendarSettings}
@@ -152,8 +172,11 @@ function makeStyles(colors: Palette) { return StyleSheet.create({
   tabBar: { flexDirection: 'row', gap: 7, paddingHorizontal: 14, paddingBottom: 8 },
   tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 9, borderRadius: 13, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   tabOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  tabText: { color: colors.muted, fontSize: 13, fontWeight: '700' },
+  tabText: { color: colors.muted, fontSize: 12.5, fontWeight: '700' },
   tabTextOn: { color: colors.black },
+  chatModal: { flex: 1, backgroundColor: colors.background },
+  chatHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 10, borderBottomWidth: 0.5, borderBottomColor: colors.border },
+  chatTitle: { color: colors.text, fontSize: 20, fontWeight: '800' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(4,8,14,.6)', justifyContent: 'flex-end' },
   modalSheet: { backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, maxHeight: '80%', gap: 12 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

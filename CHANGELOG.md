@@ -6,6 +6,15 @@
 
 ## العربية
 
+### [2.32.0] — 2026-11-17  (تعديل JS + **المكوّن v0.9.3**) — **تبويب العائلة بقى «شبكة عيلة» (FamilyWall): حائط + شات + مهام موزّعة**
+إعادة تصميم من الأساس — محور التبويب بقى **الحائط** (feed) بدل التقويم.
+- **الحائط (Home):** خانة كتابة بوست + كارت «النهاردة» بمواعيد العيلة + فيد البوستات (بصورة صاحبها ولونه ووقته). ضغطة مطوّلة = مسح.
+- **شات العيلة:** زر في الهيدر بيفتح جروب شات نصّي — فقاعات بصورة الباعت، لحظي.
+- **مهام موزّعة:** تسنيد مهمة لفرد (أو «أي حد»)، شطب، مسح — بصورة الفرد المسنّدة له.
+- **الأقسام:** حائط · تقويم · مهام · أكل (+ الموقع في تبويب الخريطة زي ما هو).
+- كله **محلي على HA** عبر مكوّن v0.9.3 (سيرفسات غير محصورة للأدمن + كيانات قراية)، **نص بس** فالتخزين خفيف. الصور مؤجّلة.
+- `WallView`/`ChatView`/`ChoresView` + `social.ts` (قراية/هوية) + دوال السيرفس في `homeAssistant.ts`.
+
 ### [2.31.3] — 2026-11-17  (تعديل JS — بييجي من metro) — **إصلاح: رجوع زر الإضافة في الأجندة**
 - زر «+» كان بيختفي لو المكوّن لسه ماتحدّثش لـv0.9 (مفيش تقويم annual/planner). دلوقتي لو مفيش النوعين، التطبيق بيستخدم أول تقويم قابل للكتابة كـ«مفكرة»، فالزر شغّال مع المكوّن القديم والجديد.
 
@@ -1097,6 +1106,15 @@
 ---
 
 ## English
+
+### [2.32.0] — 2026-11-17  (JS change + **component v0.9.3**) — **Family tab is now a family network (FamilyWall): wall + chat + chores**
+A ground-up redesign — the tab now centres on the **wall** (a feed) instead of the calendar.
+- **Wall (home):** a composer + a "Today" card with the family's events + a feed of posts (each with the author's photo, colour, and time). Long-press to delete.
+- **Family chat:** a header button opens a text group chat — bubbles with the sender's photo, effectively live.
+- **Distributed chores:** assign a chore to a member (or "Anyone"), tick it off, delete — shown with the assignee's photo.
+- **Sections:** Wall · Calendar · Chores · Meals (+ location stays in the Map tab).
+- All **local on HA** via component v0.9.3 (non-admin-callable services + read sensors), **text only** so storage stays light. Photos deferred.
+- `WallView`/`ChatView`/`ChoresView` + `social.ts` (read/identity) + service helpers in `homeAssistant.ts`.
 
 ### [2.31.3] — 2026-11-17  (JS change — comes from metro) — **Fix: the agenda add button is back**
 - The "+" button disappeared when the component wasn't yet updated to v0.9 (no annual/planner calendar). Now, if neither exists, the app uses the first writable calendar as "Planner", so the button works with both the old and new component.
