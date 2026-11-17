@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.34.0] — 2026-11-17  (تعديل JS — بييجي من metro، **من غير مكوّن**) — **منظّم «لمّتنا»: موديول المشتريات**
+- **تبويب المشتريات** بقى شغّال — قائمة تسوّق على **قوائم HA القياسية (`todo`)**، فمايحتاجش المكوّن خالص.
+- إضافة صنف بـ**كمية + وحدة + قسم** (خضار/ألبان/لحوم/مخبوزات/منظفات/أخرى)، شطب «تم الشراء»، مسح (الطفل لأ). تجميع بالأقسام + قسم «تم الشراء».
+- بيتحدّث لحظيًا مع حالة القائمة (أي فرد يضيف يبان للكل). الكمية/الوحدة/القسم متخزّنين في وصف عنصر الـtodo (`shopping.ts`) + تست (3).
+- لو مفيش قائمة to-do في HA، بيظهر إرشاد يضيف واحدة.
+
 ### [2.33.1] — 2026-11-17  (تعديل JS + **المكوّن v0.9.4**) — **منظّم «لمّتنا» — مرحلة ٢أ: الأدوار والصلاحيات**
 - **البروفايل:** حقل الدور في لوحة المكوّن بقى **قائمة محدّدة** (مدير/بالغ/طفل) بدل نص حر.
 - **الصلاحيات:** **الطفل مايحذفش** — متخفي عنه حذف أحداث التقويم وبوستات الحائط والمهام (في التطبيق)، و**المكوّن كمان بيرفض** حذف الحائط/الشات/المهام لو الداعي دوره «طفل» (مايتحايلش من برّا التطبيق). مفيش دور متحدّد = نفس السلوك القديم (الكل يقدر).
@@ -1120,6 +1126,12 @@
 ---
 
 ## English
+
+### [2.34.0] — 2026-11-17  (JS change — comes from metro, **no component**) — **"لمّتنا" organizer: shopping module**
+- The **Shopping tab** now works — a shopping list on **standard HA `todo` lists**, so it needs no component at all.
+- Add an item with **quantity + unit + category** (produce/dairy/meat/bakery/cleaning/other), tick "purchased", delete (not children). Grouped by category + a "purchased" section.
+- Refreshes live with the list state (anyone adding shows for all). Quantity/unit/category are stored in the todo item's description (`shopping.ts`) + a test (3).
+- If there's no to-do list in HA, it shows a hint to add one.
 
 ### [2.33.1] — 2026-11-17  (JS change + **component v0.9.4**) — **"لمّتنا" organizer — Phase 2a: roles & permissions**
 - **Profile:** the role field in the component panel is now a **fixed select** (manager/adult/child) instead of free text.

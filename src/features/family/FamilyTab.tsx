@@ -11,6 +11,7 @@ import { MealsView } from './MealsView';
 import { WallView } from './WallView';
 import { ChatView } from './ChatView';
 import { ChoresView } from './ChoresView';
+import { ShoppingView } from './ShoppingView';
 import { PressableScale } from '../../components/PressableScale';
 import { Card } from '../../components/Card';
 import { canManage, myRole } from './roles';
@@ -91,7 +92,7 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
         ) : tab === 'tasks' ? (
           <ChoresView states={states} settings={settings} canManage={manage} />
         ) : tab === 'shopping' ? (
-          <ComingSoon icon="cart-outline" label={i18n.t('shopping')} />
+          <ShoppingView lists={lists} settings={settings} canManage={manage} />
         ) : (
           <MoreMenu hasMeals={!!mealsCalendar} onOpen={setModuleOpen} />
         )}
