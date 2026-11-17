@@ -128,6 +128,10 @@ export function AgendaView({ calendars, states, settings }: Props) {
 
   const row = (e: Ev): ReactElement => {
     const who = resolveWho(e);
+    // الصورة على اليمين = المنشئ لو موجود، وإلا صاحب «خاص بمين» (زي الميلاد المتولّد).
+    const right = who.creator ?? who.subject;
+    // علامة «لـ فلان» تحت العنوان بس لما في منشئ **و** خاص-بمين مختلفين.
+    const showFor = who.creator && who.subject;
     const barColor = who.holiday ? HOLIDAY_COLOR : (who.subject?.color ?? who.creator?.color ?? colors.primary);
     return (
       <PressableScale key={(e.uid ?? '') + e.start} onLongPress={() => onDelete(e)} style={s.row}>
@@ -136,15 +140,15 @@ export function AgendaView({ calendars, states, settings }: Props) {
           <Text style={s.rowTitle} numberOfLines={1}>{e.summary || i18n.t('untitled')}</Text>
           <Text style={s.rowTime} numberOfLines={1}>
             {timeLabel(e.start)}
-            {who.subject ? `  ·  ${i18n.t('forShort')} ${who.subject.name.split(' ')[0]}` : ''}
+            {showFor ? `  ·  ${i18n.t('forShort')} ${who.subject!.name.split(' ')[0]}` : ''}
           </Text>
         </View>
         {who.holiday ? (
           <View style={[s.holidayBadge, { backgroundColor: HOLIDAY_COLOR + '22' }]}><Ionicons name="flag" size={15} color={HOLIDAY_COLOR} /></View>
-        ) : who.creator ? (
+        ) : right ? (
           <View style={s.by}>
-            <MemberAvatar person={who.creator.person} name={who.creator.name} settings={settings} size={26} />
-            <Text style={s.byName} numberOfLines={1}>{who.creator.name.split(' ')[0]}</Text>
+            <MemberAvatar person={right.person} name={right.name} settings={settings} size={26} />
+            <Text style={s.byName} numberOfLines={1}>{right.name.split(' ')[0]}</Text>
           </View>
         ) : null}
       </PressableScale>

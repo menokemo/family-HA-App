@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.31.1] — 2026-11-17  (تعديل JS + **المكوّن v0.9.1**) — **بروفايل لكل فرد + توليد أعياد الميلاد تلقائيًا**
+- **بروفايل لكل فرد (في لوحة المكوّن، أدمن):** قسم «بروفايلات العيلة» — لكل `person`: **تاريخ ميلاد** + **صفة** (أب/أم/ابن…) + **لون** اختياري. بتتخزّن في كونفيج العيلة.
+- **توليد عيد الميلاد تلقائيًا:** المكوّن بيعمل من تاريخ ميلاد كل فرد **حدث سنوي** (يوم كامل، يتكرر) في «مناسبات سنوية»، بـid ثابت (مفيش تكرار، ويتحدّث لو التاريخ اتغيّر)، ومتعلّم باسم الفرد فالتطبيق بيعرض صورته جمبه.
+- **التطبيق:** الصورة على يمين الحدث بقت = المنشئ لو موجود، وإلا **صاحب «خاص بمين»** (فعيد الميلاد بيبان بصورة صاحبه). علامة «لـ فلان» بس لما في منشئ وخاص-بمين مختلفين.
+- **مؤجّل (خطوة صغيرة جاية):** إظهار لون/صفة البروفايل في كل التطبيق (دلوقتي بيتخزّنوا ويتولّد منهم الميلاد؛ اللون المخصص لسه ما بيتطبّقش بصريًا).
+
 ### [2.31.0] — 2026-11-17  (تعديل JS + **المكوّن v0.9.0**) — **تقاويم عائلية مشتركة بدل تقويم كل فرد**
 بعد نقاش اتفقنا إن الغرض مشاركة العيلة للمواعيد، فالتقويم-لكل-فرد زيادة. الهيكل الجديد:
 - **شيل تقاويم الأفراد:** المكوّن بيشيل تقاويم `person_*` القديمة اللي كان بيعملها (ميجريشن تلقائي idempotent)، وبقت التقاويم **مشتركة بس**.
@@ -1083,6 +1089,12 @@
 ---
 
 ## English
+
+### [2.31.1] — 2026-11-17  (JS change + **component v0.9.1**) — **Per-member profiles + automatic birthdays**
+- **Profile per member (component panel, admin):** a "Family profiles" section — for each `person`: a **birthday** + optional **role** (Dad/Mom/Son…) + optional **colour**. Stored in the family config.
+- **Automatic birthdays:** the component turns each member's birthday into a **yearly all-day event** in the Annual calendar, with a stable id (never duplicated, updates when the date changes) and tagged with the member so the app shows their photo next to it.
+- **App:** the avatar on an event's right is now the creator if present, otherwise the **"for whom"** subject (so a birthday shows the birthday person's photo). The "For X" note only appears when creator and subject differ.
+- **Deferred (small next step):** applying the profile colour/role visually across the app (they're stored and drive birthdays now; the custom colour isn't applied visually yet).
 
 ### [2.31.0] — 2026-11-17  (JS change + **component v0.9.0**) — **Shared family calendars instead of per-person**
 After discussion we agreed the point is shared family scheduling, so per-person calendars were redundant. New model:
