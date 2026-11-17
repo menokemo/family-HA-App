@@ -6,6 +6,9 @@
 
 ## العربية
 
+### [2.31.3] — 2026-11-17  (تعديل JS — بييجي من metro) — **إصلاح: رجوع زر الإضافة في الأجندة**
+- زر «+» كان بيختفي لو المكوّن لسه ماتحدّثش لـv0.9 (مفيش تقويم annual/planner). دلوقتي لو مفيش النوعين، التطبيق بيستخدم أول تقويم قابل للكتابة كـ«مفكرة»، فالزر شغّال مع المكوّن القديم والجديد.
+
 ### [2.31.2] — 2026-11-17  (تعديل JS — بييجي من metro) — **تطبيق لون البروفايل بصريًا**
 - **لون البروفايل** (اللي الأدمن بيختاره في اللوحة) بقى بيتطبّق على **صور الأفراد وشرائط الأحداث** في الأجندة، وعلى صورة «مين ضاف» في المهام، وفي اختيار «خاص بمين». لو مفيش لون مخصص بيرجع للّون التلقائي الثابت.
 - موديول `profiles.ts` بيقرا البروفايلات من كونفيج العيلة المنشور + تست (3).
@@ -1094,6 +1097,9 @@
 ---
 
 ## English
+
+### [2.31.3] — 2026-11-17  (JS change — comes from metro) — **Fix: the agenda add button is back**
+- The "+" button disappeared when the component wasn't yet updated to v0.9 (no annual/planner calendar). Now, if neither exists, the app uses the first writable calendar as "Planner", so the button works with both the old and new component.
 
 ### [2.31.2] — 2026-11-17  (JS change — comes from metro) — **Apply the profile colour visually**
 - The **profile colour** (set by the admin in the panel) is now applied to **member avatars and event bars** in the agenda, to the "added by" avatar in Tasks, and in the "for whom" picker. Falls back to the stable auto colour when none is set.

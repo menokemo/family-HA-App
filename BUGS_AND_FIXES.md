@@ -13,6 +13,15 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**زر الإضافة (+) اختفى من الأجندة (2.31.3)** — بعد تحويل الأجندة للتقاويم المشتركة،
+بنيت «وجهات الإضافة» من تقويم **annual/planner** بس (اللي بييجوا من المكوّن v0.9+)،
+وخبّيت زر الـFAB لو القايمة فاضية. النتيجة: لو المكوّن لسه ماتحدّثش (أو لسه بيعرض
+التقاويم القديمة birthdays/events/appointments اللي مالهاش `secure_family_kind`)،
+مفيش وجهة → الزر يختفي خالص. **الحل:** fallback — لو مفيش annual/planner، نستخدم أول
+تقويم قابل للكتابة (أي حاجة مش «أعياد رسمية») كـ«مفكرة»، فالزر يفضل شغّال مع المكوّن
+القديم والجديد. **الدرس:** أي ميزة بتعتمد على قدرة من المكوّن لازم يكون ليها سلوك
+آمن لو القدرة لسه مش موجودة (التطبيق والمكوّن بيتحدّثوا مش بالضرورة مع بعض).
+
 **فشل build الـAPK: `compileDebugKotlin` — unresolved `currentActivity` (2.26.7)** —
 `DoorbellRingerModule.dismissCall()` استعمل `currentActivity` كـproperty. في RN 0.83
 `ReactContextBaseJavaModule` بقى **Kotlin** و`getCurrentActivity()` بقت **دالة** (مش

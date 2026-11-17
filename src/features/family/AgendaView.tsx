@@ -85,6 +85,12 @@ export function AgendaView({ calendars, states, settings }: Props) {
     const planner = calendars.find(c => kindById[c.entity_id] === 'planner');
     if (planner) out.push({ key: 'planner', label: i18n.t('calPlanner'), color: colors.primary, calendarId: planner.entity_id });
     if (annual) out.push({ key: 'annual', label: i18n.t('calAnnual'), color: ANNUAL_COLOR, calendarId: annual.entity_id });
+    // توافق مع المكوّن القديم (قبل v0.9): لو مفيش سنوي/مفكرة، نستخدم أول تقويم
+    // قابل للكتابة (مش عطلة) كـ«مفكرة» عشان زر الإضافة يفضل شغّال.
+    if (out.length === 0) {
+      const writable = calendars.find(c => kindById[c.entity_id] !== 'holidays');
+      if (writable) out.push({ key: 'planner', label: i18n.t('calPlanner'), color: colors.primary, calendarId: writable.entity_id });
+    }
     return out;
   }, [calendars, kindById, colors.primary]);
 
