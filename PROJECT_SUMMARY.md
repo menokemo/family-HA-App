@@ -229,7 +229,7 @@ it ourselves.**
 | Map: nearby places (Overpass API) | ✅ | Free, no API key |
 | Map: live-GPS distance | ✅ | `@react-native-community/geolocation` |
 | Family tab: agenda (Cozi-style) | ✅ | Single agenda across all calendars — "Today" hero card + upcoming days, each event = **creator-colored bar + title + time + creator avatar & name** (stored via the `·by:` marker, like Tasks; falls back to the calendar owner for component/old events). FAB add sheet (title + who + 14-day strip + time, stores the creator), long-press to delete. Replaced the rejected multi-member columns (2.29.0). Edit/recurring add still to come |
-| Family tab: agenda — week strip + month view | ✅ | A top week strip (4 weeks, dot on days with events) scrolls the agenda to a day; a top button toggles a **month grid** (coloured event dots, prev/next, tap a day to list its events) — 2.30.0 |
+| Family tab: agenda — day strip + month view | ✅ | A top day strip (4 weeks, dot on days with events) **filters the list to the selected day** (today by default); a top button toggles a **month grid** (coloured event dots, prev/next, tap a day to list its events). Strip + load window share the same 4-week range — 2.30.0/2.30.1 |
 | Family tab: 3-tab shell | ✅ | Pill tabs Agenda · Tasks · Meals; `⋮` settings picks which calendars/lists show |
 | Family tab: reminders | ✅ | Add/edit dialog: title + notes + date and time + category, and who added it (member avatar); still the same HA `todo.*` |
 | Decentralized per-tab settings | ✅ | `⋮` button next to the LIVE indicator (Alarmo, Cameras, Dashboard, Map) |

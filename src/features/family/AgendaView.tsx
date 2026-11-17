@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useState, type ReactElement } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTheme, type Palette } from '../../theme';
@@ -15,6 +15,7 @@ type Who = { person?: HaEntity; name: string; color: string };
 // وجهة الإضافة: فرد (تقويمه) أو العيلة (تقويم مشترك).
 type Target = { key: string; label: string; color: string; person?: HaEntity; calendarId: string };
 
+const STRIP_DAYS = 28; // الأجندة وشريط الأيام بيغطّوا نفس المدى.
 const locale = () => i18n.locale || 'en';
 function startOfDay(d: Date) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
 function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
@@ -38,8 +39,6 @@ export function AgendaView({ calendars, states, settings }: Props) {
   const [view, setView] = useState<'agenda' | 'month'>('agenda');
   const [selectedDay, setSelectedDay] = useState<Date>(startOfDay(new Date()));
   const [anchor, setAnchor] = useState<Date>(startOfMonth(new Date())); // الشهر المعروض في الفيو الشهري
-  const scrollRef = useRef<ScrollView>(null);
-  const dayOffsets = useRef<Record<string, number>>({});
 
   const persons = useMemo(() => states.filter(e => e.entity_id.startsWith('person.')), [states]);
   const me = useMemo(() => persons.find(p => p.entity_id === settings.selectedPersonId), [persons, settings.selectedPersonId]);
@@ -81,10 +80,10 @@ export function AgendaView({ calendars, states, settings }: Props) {
     return out;
   }, [calendars, persons, colors.primary]);
 
-  // نافذة التحميل: الأجندة من النهاردة لـ6 أسابيع قدام؛ الشهري حوالين الشهر المعروض.
+  // نافذة التحميل: الأجندة من النهاردة بطول الشريط؛ الشهري حوالين الشهر المعروض.
   const [winStart, winEnd] = useMemo<[Date, Date]>(() => {
     if (view === 'month') return [addDays(startOfMonth(anchor), -7), addDays(endOfMonth(anchor), 7)];
-    return [startOfDay(new Date()), addDays(startOfDay(new Date()), 42)];
+    return [startOfDay(new Date()), addDays(startOfDay(new Date()), STRIP_DAYS)];
   }, [view, anchor]);
   const winKey = `${dayKey(winStart)}_${dayKey(winEnd)}`;
   const calKey = calendars.map(c => c.entity_id).sort().join('|');
@@ -107,18 +106,12 @@ export function AgendaView({ calendars, states, settings }: Props) {
     return m;
   }, [events]);
 
-  // مجموعات الأجندة: من النهاردة لقدام، الأيام اللي فيها أحداث بس.
-  const groups = useMemo(() => {
-    const todayK = dayKey(new Date());
-    return Object.keys(byDay).filter(k => k >= todayK).sort().map(k => ({ key: k, date: new Date(k + 'T00:00:00'), events: byDay[k] }));
-  }, [byDay]);
-
   const dayTitle = (d: Date) => {
     const tk = dayKey(new Date());
     const k = dayKey(d);
     if (k === tk) return i18n.t('today');
     if (k === dayKey(addDays(new Date(), 1))) return i18n.t('tomorrow');
-    return d.toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'short' });
+    return d.toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' });
   };
 
   const onDelete = (e: Ev) => {
@@ -129,19 +122,10 @@ export function AgendaView({ calendars, states, settings }: Props) {
     ]);
   };
 
-  // لمس يوم في شريط الأسبوع → نلف لليوم ده في الأجندة (أو أقرب يوم بعده).
-  const jumpToDay = (d: Date) => {
-    setSelectedDay(startOfDay(d));
-    const target = dayKey(d);
-    const keys = groups.map(g => g.key);
-    const hit = keys.includes(target) ? target : keys.find(k => k >= target);
-    if (hit && dayOffsets.current[hit] != null) scrollRef.current?.scrollTo({ y: Math.max(0, dayOffsets.current[hit] - 8), animated: true });
-  };
-
-  const row = (e: Ev, inHero: boolean) => {
+  const row = (e: Ev): ReactElement => {
     const who = resolveWho(e);
     return (
-      <PressableScale key={(e.uid ?? '') + e.start} onLongPress={() => onDelete(e)} style={[s.row, inHero && s.rowHero]}>
+      <PressableScale key={(e.uid ?? '') + e.start} onLongPress={() => onDelete(e)} style={s.row}>
         <View style={[s.bar, { backgroundColor: who.color }]} />
         <View style={{ flex: 1 }}>
           <Text style={s.rowTitle} numberOfLines={1}>{e.summary || i18n.t('untitled')}</Text>
@@ -155,8 +139,9 @@ export function AgendaView({ calendars, states, settings }: Props) {
     );
   };
 
-  // شريط الأسبوع: 28 يوم من النهاردة، كل يوم فيه نقطة لو عليه أحداث.
-  const weekStrip = useMemo(() => Array.from({ length: 28 }, (_, i) => addDays(startOfDay(new Date()), i)), []);
+  // شريط الأيام: مدى ثابت من النهاردة، كل يوم فيه نقطة لو عليه أحداث.
+  const strip = useMemo(() => Array.from({ length: STRIP_DAYS }, (_, i) => addDays(startOfDay(new Date()), i)), []);
+  const dayEvents = byDay[dayKey(selectedDay)] ?? [];
 
   return (
     <View style={{ flex: 1 }}>
@@ -172,13 +157,13 @@ export function AgendaView({ calendars, states, settings }: Props) {
 
       {view === 'agenda' ? (
         <>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.stripOuter} contentContainerStyle={s.strip}>
-            {weekStrip.map(d => {
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.stripOuter} contentContainerStyle={s.stripRow}>
+            {strip.map(d => {
               const sel = dayKey(d) === dayKey(selectedDay);
               const isToday = dayKey(d) === dayKey(new Date());
               const has = !!byDay[dayKey(d)]?.length;
               return (
-                <PressableScale key={dayKey(d)} style={[s.chip, sel && s.chipSel]} onPress={() => jumpToDay(d)}>
+                <PressableScale key={dayKey(d)} style={[s.chip, sel && s.chipSel]} onPress={() => setSelectedDay(startOfDay(d))}>
                   <Text style={[s.chipDow, sel && s.chipSelText]}>{d.toLocaleDateString(locale(), { weekday: 'short' })}</Text>
                   <Text style={[s.chipNum, sel && s.chipSelText, isToday && !sel && { color: colors.primary }]}>{d.getDate()}</Text>
                   <View style={[s.chipDot, { backgroundColor: has ? (sel ? colors.black : colors.primary) : 'transparent' }]} />
@@ -187,27 +172,14 @@ export function AgendaView({ calendars, states, settings }: Props) {
             })}
           </ScrollView>
 
+          <Text style={s.selDayLabel}>{dayTitle(selectedDay)}</Text>
           {loading ? (
             <View style={s.center}><ActivityIndicator color={colors.primary} /></View>
-          ) : groups.length === 0 ? (
-            <View style={s.center}><Ionicons name="calendar-outline" size={40} color={colors.muted} /><Text style={s.empty}>{i18n.t('agendaEmpty')}</Text></View>
           ) : (
-            <ScrollView ref={scrollRef} contentContainerStyle={s.list}>
-              {groups.map((g, gi) => (
-                <View key={g.key} onLayout={e => { dayOffsets.current[g.key] = e.nativeEvent.layout.y; }} style={{ marginTop: gi === 0 ? 0 : 6 }}>
-                  {gi === 0 && g.key === dayKey(new Date()) ? (
-                    <View style={s.hero}>
-                      <Text style={s.heroLabel}>{i18n.t('today')} · {g.date.toLocaleDateString(locale(), { day: 'numeric', month: 'short' })}</Text>
-                      <View style={{ gap: 8 }}>{g.events.map(e => row(e, true))}</View>
-                    </View>
-                  ) : (
-                    <>
-                      <Text style={s.dayHeader}>{dayTitle(g.date)}</Text>
-                      <View>{g.events.map(e => row(e, false))}</View>
-                    </>
-                  )}
-                </View>
-              ))}
+            <ScrollView contentContainerStyle={s.list}>
+              {dayEvents.length === 0 ? (
+                <View style={s.center}><Ionicons name="calendar-clear-outline" size={36} color={colors.muted} /><Text style={s.empty}>{i18n.t('noEventsThisDay')}</Text></View>
+              ) : dayEvents.map(row)}
               <View style={{ height: 80 }} />
             </ScrollView>
           )}
@@ -224,6 +196,7 @@ export function AgendaView({ calendars, states, settings }: Props) {
           colors={colors}
           s={s}
           renderRow={row}
+          dayTitle={dayTitle}
           loading={loading}
         />
       )}
@@ -237,14 +210,13 @@ export function AgendaView({ calendars, states, settings }: Props) {
   );
 }
 
-function MonthView({ anchor, selectedDay, byDay, colorOf, onPrev, onNext, onSelect, colors, s, renderRow, loading }: {
+function MonthView({ anchor, selectedDay, byDay, colorOf, onPrev, onNext, onSelect, colors, s, renderRow, dayTitle, loading }: {
   anchor: Date; selectedDay: Date; byDay: Record<string, Ev[]>; colorOf: (ev: Ev) => string;
   onPrev: () => void; onNext: () => void; onSelect: (d: Date) => void; colors: Palette;
-  s: ReturnType<typeof makeStyles>; renderRow: (e: Ev, inHero: boolean) => ReactElement; loading: boolean;
+  s: ReturnType<typeof makeStyles>; renderRow: (e: Ev) => ReactElement; dayTitle: (d: Date) => string; loading: boolean;
 }) {
   const first = startOfMonth(anchor);
-  const lead = first.getDay(); // الأحد = 0
-  const gridStart = addDays(first, -lead);
+  const gridStart = addDays(first, -first.getDay()); // الأحد = 0
   const cells = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
   const selEvents = byDay[dayKey(selectedDay)] ?? [];
 
@@ -275,12 +247,14 @@ function MonthView({ anchor, selectedDay, byDay, colorOf, onPrev, onNext, onSele
         })}
       </View>
       <View style={s.monthDivider} />
-      <Text style={s.selDayLabel}>{selectedDay.toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
+      <Text style={s.selDayLabel}>{dayTitle(selectedDay)}</Text>
       {loading ? (
         <View style={s.center}><ActivityIndicator color={colors.primary} /></View>
       ) : (
-        <ScrollView contentContainerStyle={s.selList}>
-          {selEvents.length === 0 ? <Text style={s.empty}>{i18n.t('noEventsThisDay')}</Text> : selEvents.map(e => renderRow(e, false))}
+        <ScrollView contentContainerStyle={s.list}>
+          {selEvents.length === 0 ? (
+            <View style={s.center}><Ionicons name="calendar-clear-outline" size={36} color={colors.muted} /><Text style={s.empty}>{i18n.t('noEventsThisDay')}</Text></View>
+          ) : selEvents.map(renderRow)}
           <View style={{ height: 80 }} />
         </ScrollView>
       )}
@@ -369,26 +343,23 @@ function AddEventSheet({ targets, settings, initialDay, myName, onClose, onSaved
 
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, padding: 30 },
+    center: { alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 48 },
     empty: { color: colors.muted, fontSize: 14 },
     topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 2, paddingBottom: 8 },
     monthLabel: { color: colors.text, fontSize: 17, fontWeight: '800', textTransform: 'capitalize' },
     viewToggle: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 7, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
     viewToggleText: { color: colors.text, fontSize: 13, fontWeight: '700' },
     stripOuter: { flexGrow: 0, flexShrink: 0 },
-    strip: { gap: 8, paddingHorizontal: 14, paddingBottom: 10 },
+    stripRow: { gap: 8, paddingHorizontal: 14, paddingBottom: 10 },
     chip: { width: 50, paddingVertical: 8, borderRadius: 14, alignItems: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
     chipSel: { backgroundColor: colors.primary, borderColor: colors.primary },
     chipDow: { color: colors.muted, fontSize: 10, fontWeight: '600' },
     chipNum: { color: colors.text, fontSize: 16, fontWeight: '800', marginTop: 2 },
     chipSelText: { color: colors.black },
     chipDot: { width: 5, height: 5, borderRadius: 3, marginTop: 4 },
-    list: { padding: 14, paddingTop: 0, gap: 4 },
-    hero: { backgroundColor: colors.primary + '14', borderRadius: 18, padding: 14, marginBottom: 10 },
-    heroLabel: { fontSize: 13, fontWeight: '800', color: colors.primary, marginBottom: 10 },
-    dayHeader: { fontSize: 12.5, fontWeight: '700', color: colors.muted, marginTop: 10, marginBottom: 4, marginLeft: 2 },
+    selDayLabel: { color: colors.text, fontSize: 15, fontWeight: '800', paddingHorizontal: 16, paddingBottom: 2, textTransform: 'capitalize' },
+    list: { padding: 14, paddingTop: 6, gap: 4 },
     row: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 9, paddingHorizontal: 2 },
-    rowHero: { backgroundColor: colors.surface, borderRadius: 12, paddingHorizontal: 11, marginBottom: 0 },
     bar: { width: 4, height: 34, borderRadius: 3 },
     rowTitle: { color: colors.text, fontSize: 14.5, fontWeight: '600' },
     rowTime: { color: colors.muted, fontSize: 11.5, marginTop: 1 },
@@ -410,8 +381,6 @@ function makeStyles(colors: Palette) {
     dots: { flexDirection: 'row', gap: 2, marginTop: 3, height: 5 },
     dot: { width: 5, height: 5, borderRadius: 3 },
     monthDivider: { height: 1, backgroundColor: colors.border, marginVertical: 8, marginHorizontal: 14 },
-    selDayLabel: { color: colors.text, fontSize: 14, fontWeight: '800', paddingHorizontal: 16, textTransform: 'capitalize' },
-    selList: { padding: 14, gap: 4 },
     // شيت الإضافة
     backdrop: { flex: 1, backgroundColor: 'rgba(4,8,14,.6)', justifyContent: 'flex-end' },
     sheet: { backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, gap: 8 },

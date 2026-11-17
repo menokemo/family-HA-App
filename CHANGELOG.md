@@ -6,6 +6,9 @@
 
 ## العربية
 
+### [2.30.1] — 2026-11-17  (تعديل JS — بييجي من metro) — **الأجندة بتتفلتر باليوم المختار**
+- قبل كده الأجندة كانت بتعرض كل المواعيد الجاية بغضّ النظر عن اليوم المعلّم عليه في الشريط، فالشريط كان ملوش لازمة. دلوقتي **لمس أي يوم بيعرض مواعيد اليوم ده بس** (النهاردة مختار افتراضيًا)، وده يطابق سلوك الفيو الشهري. النقط على الشريط بتوريك فين المواعيد عشان تنطّ لها، ولو اليوم فاضي بيظهر «مفيش مواعيد اليوم ده». الشريط والنافذة بقوا نفس المدى (٤ أسابيع) فمفيش يوم فيه أحداث من غير شيب يختاره.
+
 ### [2.30.0] — 2026-11-17  (تعديل JS — بييجي من metro) — **الأجندة: منشئ الحدث + شريط أسبوع + فيو شهري**
 - **مين أنشأ الحدث:** كل حدث بيضيفه المستخدم بيتخزّن معاه اسمه (بنفس علامة المهام `·by:` في الوصف)، وبيظهر جمب الحدث **صورة واسم اللي أنشأه** (بيتربط بكيان `person` من الاسم؛ لو مفيش صورة يبان أول حرف ملوّن). لون شريط الحدث كمان بقى بلون المنشئ. الأحداث القديمة/اللي من المكوّن بترجع لصاحب التقويم.
 - **شريط أسبوع من فوق:** صف أفقي بأيام (٤ أسابيع) تحت العنوان — نقطة تحت اليوم اللي عليه أحداث، ولمس أي يوم بيلفّ الأجندة لليوم ده (أو أقرب يوم بعده).
@@ -1071,6 +1074,9 @@
 ---
 
 ## English
+
+### [2.30.1] — 2026-11-17  (JS change — comes from metro) — **Agenda filters to the selected day**
+- The agenda used to show every upcoming event regardless of which day was highlighted in the strip, so the strip had no effect. Now **tapping a day shows only that day's events** (today selected by default), matching the month view's behaviour. Dots on the strip show which days have events to jump to, and an empty day shows "No events this day". The strip and the load window now cover the same range (4 weeks) so no day with events is unreachable.
 
 ### [2.30.0] — 2026-11-17  (JS change — comes from metro) — **Agenda: event creator + week strip + month view**
 - **Who created the event:** every event the user adds now stores their name (same `·by:` marker as Tasks, in the description) and shows the **creator's avatar + name** next to it (resolved from the name to a `person` entity; coloured initial if no photo). The event bar takes the creator's colour too. Old/component events fall back to the calendar owner.
