@@ -228,7 +228,7 @@ it ourselves.**
 | Map: arrival/departure alerts | ✅ | Work even if the app is fully closed (same architecture as the alarm background service) |
 | Map: nearby places (Overpass API) | ✅ | Free, no API key |
 | Map: live-GPS distance | ✅ | `@react-native-community/geolocation` |
-| Family tab: agenda (Cozi-style) | ✅ | Single agenda across all calendars — "Today" hero card + upcoming days, each event = **creator-colored bar + title + time + creator avatar & name** (stored via the `·by:` marker, like Tasks; falls back to the calendar owner for component/old events). FAB add sheet (title + who + 14-day strip + time, stores the creator), long-press to delete. Replaced the rejected multi-member columns (2.29.0). Edit/recurring add still to come |
+| Family tab: agenda (Cozi-style) | ✅ | Single agenda across the shared calendars — each event = colored bar + title + time + **creator avatar & name** (`·by:` marker) and an optional **"for whom"** subject (`·for:`). Holidays show read-only with a flag badge. FAB add sheet: pick calendar (Annual/Planner) + title + optional subject + date (+ time for Planner). Long-press to delete (not holidays). Shared-calendar model + component v0.9.0 (2.31.0) |
 | Family tab: agenda — day strip + month view | ✅ | A top day strip (4 weeks, dot on days with events) **filters the list to the selected day** (today by default); a top button toggles a **month grid** (coloured event dots, prev/next, tap a day to list its events). Strip + load window share the same 4-week range — 2.30.0/2.30.1 |
 | Family tab: 3-tab shell | ✅ | Pill tabs Agenda · Tasks · Meals; `⋮` settings picks which calendars/lists show |
 | Family tab: reminders | ✅ | Add/edit dialog: title + notes + date and time + category, and who added it (member avatar); still the same HA `todo.*` |
@@ -633,10 +633,37 @@ todo · البناء mockup الأول ثم مراحل.
   المختار. (٣) **زر فيو شهري** بيبدّل لشبكة الشهر بنقاط ملوّنة للأحداث + أسهم + لمس اليوم
   يعرض أحداثه.
 
-**لسه (تحسينات اختيارية):** **تعديل حدث + أحداث متكررة** في شيت الإضافة (دلوقتي إضافة/مسح
-بس، من غير تكرار — أعياد الميلاد السنوية بتتعمل من المكوّن أو مؤجّلة لحد ما نرجّع منطق
-التكرار من git) · إثراء كروت الملخّص · created_by أدق (تخزين person_id بدل الاسم) ·
-تعيين مهمة لفرد (مش بس مين ضاف) · ميزانية/مستندات لو اتقرر نعملها.
+**لسه (تحسينات اختيارية):** إثراء كروت الملخّص · created_by أدق (تخزين person_id بدل
+الاسم) · تعيين مهمة لفرد (مش بس مين ضاف) · ميزانية/مستندات لو اتقرر نعملها.
+
+### 📅 القرار النهائي لهيكل التقاويم (متفق عليه 2026-11-17) — منفّذ في 2.31.0 + المكوّن v0.9.0
+
+**المبدأ (بعد نقاش):** الغرض إن العيلة **تشارك** المواعيد وترتّب مع بعض، فالتقويم-لكل-فرد
+**زيادة** طالما كل حدث بيبان مين أنشأه. فاتشال، والتقاويم بقت **مشتركة بس**.
+
+**٣ تقاويم مشتركة (+ الأكل):**
+- **مناسبات سنوية** (`secure_family_annual`): ميلاد/جواز/مناسبات — كل حدث **يوم كامل ويتكرر
+  سنويًا تلقائيًا** (المكوّن بيفرض `FREQ=YEARLY`).
+- **المفكرة** (`secure_family_planner`): مواعيد وأحداث عابرة بوقت محدّد — **تتمسح تلقائيًا أول
+  ما تعدّي** (تنظيف كل ٦ ساعات في المكوّن).
+- **أعياد رسمية** (`secure_family_holidays`): أعياد البلد الرسمية، بتتولّد من مكتبة `holidays`
+  حسب دولة HA — **عرض فقط** (مفيش إضافة/مسح)، بأيقونة علم ولون مميّز.
+- **الأكل** (`secure_family_meals`): زي ما هو.
+
+**على كل حدث:** **المنشئ** (`·by:` في الوصف، تلقائي = المستخدم الحالي) + **اختياري «خاص بمين»**
+(`·for:`، صورة الشخص المعني) — من غير تقويم منفصل. لون الشريط = لون «خاص بمين» وإلا المنشئ.
+
+**الإضافة (التطبيق):** تختار التقويم (مناسبات سنوية/مفكرة) + عنوان + «خاص بمين» اختياري +
+تاريخ، والوقت يظهر للمفكرة بس (السنوية يوم كامل). كل تقويم بأيقونته/لونه.
+
+**ميجريشن في المكوّن (idempotent):** birthdays+events → annual (مع `FREQ=YEARLY`)،
+appointments → planner، و**تقاويم الأفراد `person_*` القديمة بتتشال** تلقائيًا. attribute
+`secure_family_kind` على كل تقويم عشان التطبيق يميّزه من غير اعتماد على الاسم.
+
+**مؤجّل (الخطوة الجاية، بطلب المستخدم):** **توليد أعياد الميلاد تلقائيًا** من تاريخ ميلاد كل
+فرد — محتاج **قسم في لوحة المكوّن** لإدخال التواريخ (+ override للدولة). اتأجّل عشان تعديل
+الـfrontend بعناية بدل ما نكسر اللوحة. **دلوقتي الميلاد يتضاف يدوي** في «مناسبات سنوية» (ويتكرر
+سنويًا تلقائيًا). كمان مؤجّل: تعديل حدث موجود من الشيت.
 
 ### تبعة مفتوحة — الأفراد غير الأدمن مش بيستقبلوا الأحداث المخصّصة (من 2.17.4)
 Home Assistant بيسمح لغير الأدمن بالاشتراك في `state_changed` **بس**؛ أي اشتراك

@@ -376,7 +376,12 @@ export async function getCalendarEvents(settings: ConnectionSettings, entityId: 
     .filter(e => e.start);
 }
 
-export async function createCalendarEvent(settings: ConnectionSettings, entityId: string, data: { summary: string; start_date_time: string; end_date_time: string; description?: string; location?: string }): Promise<void> {
+// بيقبل حدث بوقت (start_date_time/end_date_time) أو حدث يوم-كامل
+// (start_date/end_date، بصيغة YYYY-MM-DD) — زي ما خدمة HA بتفرّق بينهم.
+type CreateEventData = { summary: string; description?: string; location?: string } &
+  ({ start_date_time: string; end_date_time: string } | { start_date: string; end_date: string });
+
+export async function createCalendarEvent(settings: ConnectionSettings, entityId: string, data: CreateEventData): Promise<void> {
   await request(settings, '/api/services/calendar/create_event', { method: 'POST', body: JSON.stringify({ entity_id: entityId, ...data }) });
 }
 

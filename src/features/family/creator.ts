@@ -14,3 +14,26 @@ export function splitCreator(description?: string): { notes: string; createdBy?:
 export function joinCreator(notes: string, createdBy?: string): string {
   return notes.trim() + (createdBy ? `${CREATOR_MARKER}${createdBy}` : '');
 }
+
+// أحداث التقويم بتحمل معلومتين في الوصف: مين أنشأه (·by:) و«خاص بمين» (·for:)،
+// كل واحدة في سطر. parse بالسطور عشان يتحمّل وجود الاتنين أو واحدة أو ولا حاجة.
+const SUBJECT_PREFIX = '·for:';
+const CREATOR_PREFIX = '·by:';
+
+export function splitEventMeta(description?: string): { createdBy?: string; forWhom?: string } {
+  if (!description) return {};
+  let createdBy: string | undefined;
+  let forWhom: string | undefined;
+  for (const line of description.split('\n')) {
+    if (line.startsWith(CREATOR_PREFIX)) createdBy = line.slice(CREATOR_PREFIX.length).trim();
+    else if (line.startsWith(SUBJECT_PREFIX)) forWhom = line.slice(SUBJECT_PREFIX.length).trim();
+  }
+  return { createdBy, forWhom };
+}
+
+export function joinEventMeta(createdBy?: string, forWhom?: string): string | undefined {
+  const parts: string[] = [];
+  if (createdBy) parts.push(`${CREATOR_PREFIX}${createdBy}`);
+  if (forWhom) parts.push(`${SUBJECT_PREFIX}${forWhom}`);
+  return parts.length ? parts.join('\n') : undefined;
+}

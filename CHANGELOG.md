@@ -6,6 +6,15 @@
 
 ## العربية
 
+### [2.31.0] — 2026-11-17  (تعديل JS + **المكوّن v0.9.0**) — **تقاويم عائلية مشتركة بدل تقويم كل فرد**
+بعد نقاش اتفقنا إن الغرض مشاركة العيلة للمواعيد، فالتقويم-لكل-فرد زيادة. الهيكل الجديد:
+- **شيل تقاويم الأفراد:** المكوّن بيشيل تقاويم `person_*` القديمة اللي كان بيعملها (ميجريشن تلقائي idempotent)، وبقت التقاويم **مشتركة بس**.
+- **٣ تقاويم مشتركة:** **مناسبات سنوية** (ميلاد/جواز/مناسبات — كل حدث يوم كامل ويتكرر سنويًا تلقائيًا) · **المفكرة** (مواعيد بوقت محدّد، بتتمسح تلقائيًا أول ما تعدّي) · **أعياد رسمية** (أعياد بلدك، بتتولّد من مكتبة holidays حسب دولة HA، عرض فقط). (+ الأكل زي ما هو.)
+- **كل حدث عليه:** مين أنشأه (تلقائي) + **اختياري «خاص بمين»** (صورة الشخص المعني) — من غير تقويم منفصل.
+- **شكل الإضافة الجديد:** تختار التقويم (سنوي/مفكرة) + عنوان + «خاص بمين» اختياري + تاريخ (والوقت للمفكرة بس). الأعياد بتظهر بأيقونة علم ومن غير مسح.
+- **ميجريشن:** birthdays+events → سنوي، appointments → مفكرة. attribute `secure_family_kind` على كل تقويم.
+- **مؤجّل:** توليد الميلاد تلقائيًا من تواريخ الأفراد (محتاج قسم إدخال في لوحة المكوّن) — دلوقتي الميلاد يتضاف يدوي ويتكرر سنويًا.
+
 ### [2.30.1] — 2026-11-17  (تعديل JS — بييجي من metro) — **الأجندة بتتفلتر باليوم المختار**
 - قبل كده الأجندة كانت بتعرض كل المواعيد الجاية بغضّ النظر عن اليوم المعلّم عليه في الشريط، فالشريط كان ملوش لازمة. دلوقتي **لمس أي يوم بيعرض مواعيد اليوم ده بس** (النهاردة مختار افتراضيًا)، وده يطابق سلوك الفيو الشهري. النقط على الشريط بتوريك فين المواعيد عشان تنطّ لها، ولو اليوم فاضي بيظهر «مفيش مواعيد اليوم ده». الشريط والنافذة بقوا نفس المدى (٤ أسابيع) فمفيش يوم فيه أحداث من غير شيب يختاره.
 
@@ -1074,6 +1083,15 @@
 ---
 
 ## English
+
+### [2.31.0] — 2026-11-17  (JS change + **component v0.9.0**) — **Shared family calendars instead of per-person**
+After discussion we agreed the point is shared family scheduling, so per-person calendars were redundant. New model:
+- **Per-person calendars removed:** the component removes the old `person_*` calendars it used to create (automatic, idempotent migration); calendars are now **shared only**.
+- **Three shared calendars:** **Annual** (birthdays/anniversaries/occasions — every event is all-day and repeats yearly automatically) · **Planner** (timed one-off events, auto-removed once they pass) · **Holidays** (your country's official holidays, generated from the `holidays` library by HA's country, read-only). (+ Meals unchanged.)
+- **Every event shows:** its creator (automatic) + an optional **"for whom"** subject (the member it concerns) — no separate calendar needed.
+- **New add sheet:** pick the calendar (Annual/Planner) + title + optional subject + date (+ time for Planner). Holidays show with a flag badge and can't be deleted.
+- **Migration:** birthdays+events → Annual, appointments → Planner. A `secure_family_kind` attribute tags each calendar.
+- **Deferred:** auto-generating birthdays from each member's birthdate (needs a birthdate-input section in the component panel) — for now birthdays are added manually to Annual and repeat yearly.
 
 ### [2.30.1] — 2026-11-17  (JS change — comes from metro) — **Agenda filters to the selected day**
 - The agenda used to show every upcoming event regardless of which day was highlighted in the strip, so the strip had no effect. Now **tapping a day shows only that day's events** (today selected by default), matching the month view's behaviour. Dots on the strip show which days have events to jump to, and an empty day shows "No events this day". The strip and the load window now cover the same range (4 weeks) so no day with events is unreachable.

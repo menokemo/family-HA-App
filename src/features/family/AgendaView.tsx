@@ -7,15 +7,18 @@ import { createCalendarEvent, deleteCalendarEvent, getCalendarEvents, type Calen
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { PressableScale } from '../../components/PressableScale';
 import { MemberAvatar, personColor } from './MemberAvatar';
-import { joinCreator, splitCreator } from './creator';
+import { joinEventMeta, splitEventMeta } from './creator';
 
 type Props = { calendars: HaEntity[]; states: HaEntity[]; settings: ConnectionSettings };
 type Ev = CalendarEvent & { calendarId: string };
-type Who = { person?: HaEntity; name: string; color: string };
-// وجهة الإضافة: فرد (تقويمه) أو العيلة (تقويم مشترك).
-type Target = { key: string; label: string; color: string; person?: HaEntity; calendarId: string };
+type Ident = { person?: HaEntity; name: string; color: string };
+type Who = { holiday?: boolean; creator?: Ident; subject?: Ident };
+// وجهة الإضافة: تقويم مشترك قابل للكتابة (سنوي = يوم كامل متكرر، أو مفكرة = بوقت).
+type Target = { key: 'annual' | 'planner'; label: string; color: string; calendarId: string };
 
-const STRIP_DAYS = 28; // الأجندة وشريط الأيام بيغطّوا نفس المدى.
+const STRIP_DAYS = 28;
+const HOLIDAY_COLOR = '#C9892F';
+const ANNUAL_COLOR = '#BA7517';
 const locale = () => i18n.locale || 'en';
 function startOfDay(d: Date) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
 function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
@@ -27,8 +30,17 @@ function isAllDay(start: string) { return /^\d{4}-\d{2}-\d{2}$/.test(start); }
 function eventDayKey(start: string): string | null { if (isAllDay(start)) return start; const d = new Date(start); return Number.isNaN(d.getTime()) ? null : dayKey(d); }
 function timeLabel(start: string): string { if (isAllDay(start)) return i18n.t('allDay'); const d = new Date(start); return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }); }
 function sortTime(a: Ev, b: Ev) { return (isAllDay(a.start) ? 0 : 1) - (isAllDay(b.start) ? 0 : 1) || a.start.localeCompare(b.start); }
-// 1 يناير 2023 كان يوم أحد → نولّد أسماء أيام الأسبوع تبدأ من الأحد.
 function weekdayShort(i: number) { return new Date(2023, 0, 1 + i).toLocaleDateString(locale(), { weekday: 'short' }); }
+// نوع التقويم: من attribute المكوّن، أو من entity_id كـfallback.
+function calKindOf(cal: HaEntity): string {
+  const k = cal.attributes.secure_family_kind as string | undefined;
+  if (k) return k;
+  const id = cal.entity_id;
+  if (id.includes('secure_family_holidays')) return 'holidays';
+  if (id.includes('secure_family_annual')) return 'annual';
+  if (id.includes('secure_family_planner')) return 'planner';
+  return 'other';
+}
 
 export function AgendaView({ calendars, states, settings }: Props) {
   const { colors } = useTheme();
@@ -38,49 +50,41 @@ export function AgendaView({ calendars, states, settings }: Props) {
   const [adding, setAdding] = useState(false);
   const [view, setView] = useState<'agenda' | 'month'>('agenda');
   const [selectedDay, setSelectedDay] = useState<Date>(startOfDay(new Date()));
-  const [anchor, setAnchor] = useState<Date>(startOfMonth(new Date())); // الشهر المعروض في الفيو الشهري
+  const [anchor, setAnchor] = useState<Date>(startOfMonth(new Date()));
 
   const persons = useMemo(() => states.filter(e => e.entity_id.startsWith('person.')), [states]);
   const me = useMemo(() => persons.find(p => p.entity_id === settings.selectedPersonId), [persons, settings.selectedPersonId]);
   const myName = me ? String(me.attributes.friendly_name ?? me.entity_id) : undefined;
   const personByName = useMemo(() => new Map(persons.map(p => [String(p.attributes.friendly_name ?? p.entity_id), p])), [persons]);
+  const kindById = useMemo(() => Object.fromEntries(calendars.map(c => [c.entity_id, calKindOf(c)])), [calendars]);
 
-  // صاحب كل تقويم (fallback لو الحدث اتعمل برّا التطبيق فمفيش منشئ مخزّن).
-  const calMeta = useMemo(() => {
-    const byId = new Map(persons.map(p => [p.entity_id, p]));
-    const m: Record<string, { person?: HaEntity; color: string; label: string }> = {};
-    for (const cal of calendars) {
-      const pid = cal.attributes.person_entity_id as string | undefined;
-      const person = pid ? byId.get(pid) : undefined;
-      m[cal.entity_id] = person
-        ? { person, color: personColor(person.entity_id), label: String(person.attributes.friendly_name ?? person.entity_id) }
-        : { color: colors.primary, label: i18n.t('familyShared') };
-    }
-    return m;
-  }, [calendars, persons, colors.primary]);
-
-  // مين الحدث: المنشئ أولًا (صورته واسمه)، وإلا صاحب التقويم.
+  const ident = (name?: string): Ident | undefined => {
+    if (!name) return undefined;
+    const person = personByName.get(name);
+    return { person, name, color: personColor(person?.entity_id ?? name) };
+  };
+  // مين الحدث: عطلة رسمية؟ وإلا المنشئ (·by:) و«خاص بمين» (·for:) من الوصف.
   const resolveWho = (ev: Ev): Who => {
-    const by = splitCreator(ev.description).createdBy;
-    if (by) { const person = personByName.get(by); return { person, name: by, color: personColor(person?.entity_id ?? by) }; }
-    const meta = calMeta[ev.calendarId];
-    return { person: meta?.person, name: meta?.label ?? '', color: meta?.color ?? colors.primary };
+    if (kindById[ev.calendarId] === 'holidays') return { holiday: true };
+    const { createdBy, forWhom } = splitEventMeta(ev.description);
+    return { creator: ident(createdBy), subject: ident(forWhom) };
+  };
+  const colorOf = (ev: Ev): string => {
+    const w = resolveWho(ev);
+    if (w.holiday) return HOLIDAY_COLOR;
+    return w.subject?.color ?? w.creator?.color ?? colors.primary;
   };
 
+  // وجهات الإضافة: تقويم سنوي + مفكرة (القابلين للكتابة). الأعياد عرض-فقط فمش هنا.
   const targets = useMemo<Target[]>(() => {
     const out: Target[] = [];
-    for (const cal of calendars) {
-      const pid = cal.attributes.person_entity_id as string | undefined;
-      const person = pid ? persons.find(p => p.entity_id === pid) : undefined;
-      if (person) out.push({ key: person.entity_id, label: String(person.attributes.friendly_name ?? person.entity_id), color: personColor(person.entity_id), person, calendarId: cal.entity_id });
-    }
-    out.sort((a, b) => a.label.localeCompare(b.label));
-    const shared = calendars.find(c => c.entity_id.includes('secure_family_events')) ?? calendars.find(c => !c.attributes.person_entity_id);
-    if (shared) out.push({ key: 'family', label: i18n.t('familyShared'), color: colors.primary, calendarId: shared.entity_id });
+    const annual = calendars.find(c => kindById[c.entity_id] === 'annual');
+    const planner = calendars.find(c => kindById[c.entity_id] === 'planner');
+    if (planner) out.push({ key: 'planner', label: i18n.t('calPlanner'), color: colors.primary, calendarId: planner.entity_id });
+    if (annual) out.push({ key: 'annual', label: i18n.t('calAnnual'), color: ANNUAL_COLOR, calendarId: annual.entity_id });
     return out;
-  }, [calendars, persons, colors.primary]);
+  }, [calendars, kindById, colors.primary]);
 
-  // نافذة التحميل: الأجندة من النهاردة بطول الشريط؛ الشهري حوالين الشهر المعروض.
   const [winStart, winEnd] = useMemo<[Date, Date]>(() => {
     if (view === 'month') return [addDays(startOfMonth(anchor), -7), addDays(endOfMonth(anchor), 7)];
     return [startOfDay(new Date()), addDays(startOfDay(new Date()), STRIP_DAYS)];
@@ -115,7 +119,7 @@ export function AgendaView({ calendars, states, settings }: Props) {
   };
 
   const onDelete = (e: Ev) => {
-    if (!e.uid) return;
+    if (!e.uid || kindById[e.calendarId] === 'holidays') return; // الأعياد عرض-فقط
     Alert.alert(e.summary || i18n.t('untitled'), i18n.t('deleteEventConfirm'), [
       { text: i18n.t('cancel'), style: 'cancel' },
       { text: i18n.t('delete'), style: 'destructive', onPress: () => { void deleteCalendarEvent(settings, e.calendarId, e.uid!).then(load).catch(() => {}); } },
@@ -124,22 +128,29 @@ export function AgendaView({ calendars, states, settings }: Props) {
 
   const row = (e: Ev): ReactElement => {
     const who = resolveWho(e);
+    const barColor = who.holiday ? HOLIDAY_COLOR : (who.subject?.color ?? who.creator?.color ?? colors.primary);
     return (
       <PressableScale key={(e.uid ?? '') + e.start} onLongPress={() => onDelete(e)} style={s.row}>
-        <View style={[s.bar, { backgroundColor: who.color }]} />
+        <View style={[s.bar, { backgroundColor: barColor }]} />
         <View style={{ flex: 1 }}>
           <Text style={s.rowTitle} numberOfLines={1}>{e.summary || i18n.t('untitled')}</Text>
-          <Text style={s.rowTime}>{timeLabel(e.start)}</Text>
+          <Text style={s.rowTime} numberOfLines={1}>
+            {timeLabel(e.start)}
+            {who.subject ? `  ·  ${i18n.t('forShort')} ${who.subject.name.split(' ')[0]}` : ''}
+          </Text>
         </View>
-        <View style={s.by}>
-          <MemberAvatar person={who.person} name={who.name} settings={settings} size={26} />
-          {who.name ? <Text style={s.byName} numberOfLines={1}>{who.name.split(' ')[0]}</Text> : null}
-        </View>
+        {who.holiday ? (
+          <View style={[s.holidayBadge, { backgroundColor: HOLIDAY_COLOR + '22' }]}><Ionicons name="flag" size={15} color={HOLIDAY_COLOR} /></View>
+        ) : who.creator ? (
+          <View style={s.by}>
+            <MemberAvatar person={who.creator.person} name={who.creator.name} settings={settings} size={26} />
+            <Text style={s.byName} numberOfLines={1}>{who.creator.name.split(' ')[0]}</Text>
+          </View>
+        ) : null}
       </PressableScale>
     );
   };
 
-  // شريط الأيام: مدى ثابت من النهاردة، كل يوم فيه نقطة لو عليه أحداث.
   const strip = useMemo(() => Array.from({ length: STRIP_DAYS }, (_, i) => addDays(startOfDay(new Date()), i)), []);
   const dayEvents = byDay[dayKey(selectedDay)] ?? [];
 
@@ -189,7 +200,7 @@ export function AgendaView({ calendars, states, settings }: Props) {
           anchor={anchor}
           selectedDay={selectedDay}
           byDay={byDay}
-          colorOf={ev => resolveWho(ev).color}
+          colorOf={colorOf}
           onPrev={() => setAnchor(a => startOfMonth(addDays(startOfMonth(a), -1)))}
           onNext={() => setAnchor(a => startOfMonth(addDays(endOfMonth(a), 1)))}
           onSelect={d => setSelectedDay(startOfDay(d))}
@@ -201,11 +212,13 @@ export function AgendaView({ calendars, states, settings }: Props) {
         />
       )}
 
-      <PressableScale style={s.fab} onPress={() => setAdding(true)}>
-        <Ionicons name="add" size={28} color="#fff" />
-      </PressableScale>
+      {targets.length > 0 ? (
+        <PressableScale style={s.fab} onPress={() => setAdding(true)}>
+          <Ionicons name="add" size={28} color="#fff" />
+        </PressableScale>
+      ) : null}
 
-      {adding ? <AddEventSheet targets={targets} settings={settings} initialDay={selectedDay} myName={myName} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); void load(); }} /> : null}
+      {adding ? <AddEventSheet targets={targets} persons={persons} settings={settings} initialDay={selectedDay} myName={myName} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); void load(); }} /> : null}
     </View>
   );
 }
@@ -216,7 +229,7 @@ function MonthView({ anchor, selectedDay, byDay, colorOf, onPrev, onNext, onSele
   s: ReturnType<typeof makeStyles>; renderRow: (e: Ev) => ReactElement; dayTitle: (d: Date) => string; loading: boolean;
 }) {
   const first = startOfMonth(anchor);
-  const gridStart = addDays(first, -first.getDay()); // الأحد = 0
+  const gridStart = addDays(first, -first.getDay());
   const cells = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
   const selEvents = byDay[dayKey(selectedDay)] ?? [];
 
@@ -262,29 +275,35 @@ function MonthView({ anchor, selectedDay, byDay, colorOf, onPrev, onNext, onSele
   );
 }
 
-function AddEventSheet({ targets, settings, initialDay, myName, onClose, onSaved }: { targets: Target[]; settings: ConnectionSettings; initialDay: Date; myName?: string; onClose: () => void; onSaved: () => void }) {
+function AddEventSheet({ targets, persons, settings, initialDay, myName, onClose, onSaved }: { targets: Target[]; persons: HaEntity[]; settings: ConnectionSettings; initialDay: Date; myName?: string; onClose: () => void; onSaved: () => void }) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const [title, setTitle] = useState('');
   const [day, setDay] = useState<Date>(startOfDay(initialDay));
   const [hour, setHour] = useState('09');
   const [minute, setMinute] = useState('00');
-  const [target, setTarget] = useState<Target | undefined>(targets[0]);
+  const [target, setTarget] = useState<Target>(targets[0]);
+  const [subject, setSubject] = useState<HaEntity | undefined>(undefined);
   const [saving, setSaving] = useState(false);
   const strip = useMemo(() => Array.from({ length: 14 }, (_, i) => addDays(startOfDay(new Date()), i)), []);
+  const isAnnual = target.key === 'annual';
 
   const save = async () => {
-    if (!title.trim() || !target || saving) return;
+    if (!title.trim() || saving) return;
     setSaving(true);
-    const h = Math.min(23, Math.max(0, parseInt(hour, 10) || 0));
-    const m = Math.min(59, Math.max(0, parseInt(minute, 10) || 0));
-    const start = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, m, 0);
-    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    const subjectName = subject ? String(subject.attributes.friendly_name ?? subject.entity_id) : undefined;
+    const description = joinEventMeta(myName, subjectName);
     try {
-      await createCalendarEvent(settings, target.calendarId, {
-        summary: title.trim(), start_date_time: start.toISOString(), end_date_time: end.toISOString(),
-        description: joinCreator('', myName) || undefined,
-      });
+      if (isAnnual) {
+        // مناسبة سنوية = يوم كامل (المكوّن بيخلّيها تتكرر سنويًا تلقائيًا).
+        await createCalendarEvent(settings, target.calendarId, { summary: title.trim(), start_date: dayKey(day), end_date: dayKey(addDays(day, 1)), description });
+      } else {
+        const h = Math.min(23, Math.max(0, parseInt(hour, 10) || 0));
+        const m = Math.min(59, Math.max(0, parseInt(minute, 10) || 0));
+        const start = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, m, 0);
+        const end = new Date(start.getTime() + 60 * 60 * 1000);
+        await createCalendarEvent(settings, target.calendarId, { summary: title.trim(), start_date_time: start.toISOString(), end_date_time: end.toISOString(), description });
+      }
       onSaved();
     } catch { setSaving(false); }
   };
@@ -299,14 +318,36 @@ function AddEventSheet({ targets, settings, initialDay, myName, onClose, onSaved
           </View>
           <TextInput style={s.input} placeholder={i18n.t('eventTitle')} placeholderTextColor={colors.muted} value={title} onChangeText={setTitle} autoFocus />
 
-          <Text style={s.fieldLabel}>{i18n.t('forWho')}</Text>
+          {targets.length > 1 ? (
+            <>
+              <Text style={s.fieldLabel}>{i18n.t('calendar')}</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {targets.map(t => {
+                  const sel = target.key === t.key;
+                  return (
+                    <PressableScale key={t.key} style={[s.typeChip, sel && { borderColor: t.color, backgroundColor: t.color + '18' }]} onPress={() => setTarget(t)}>
+                      <Ionicons name={t.key === 'annual' ? 'gift' : 'reader'} size={16} color={sel ? t.color : colors.muted} />
+                      <Text style={[s.typeChipText, sel && { color: t.color }]}>{t.label}</Text>
+                    </PressableScale>
+                  );
+                })}
+              </View>
+            </>
+          ) : null}
+
+          <Text style={s.fieldLabel}>{i18n.t('forWhomOptional')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 2 }}>
-            {targets.map(t => {
-              const sel = target?.key === t.key;
+            <PressableScale style={[s.who2, !subject && { borderColor: colors.primary, backgroundColor: colors.primary + '18' }]} onPress={() => setSubject(undefined)}>
+              <View style={[s.whoFamily, { backgroundColor: colors.muted }]}><Ionicons name="remove" size={15} color="#fff" /></View>
+              <Text style={[s.whoName, !subject && { color: colors.primary }]} numberOfLines={1}>{i18n.t('noneOption')}</Text>
+            </PressableScale>
+            {persons.map(p => {
+              const sel = subject?.entity_id === p.entity_id;
+              const c = personColor(p.entity_id);
               return (
-                <PressableScale key={t.key} style={[s.who2, sel && { borderColor: t.color, backgroundColor: t.color + '18' }]} onPress={() => setTarget(t)}>
-                  {t.person ? <MemberAvatar person={t.person} settings={settings} size={28} /> : <View style={[s.whoFamily, { backgroundColor: t.color }]}><Ionicons name="home" size={15} color="#fff" /></View>}
-                  <Text style={[s.whoName, sel && { color: t.color }]} numberOfLines={1}>{t.label.split(' ')[0]}</Text>
+                <PressableScale key={p.entity_id} style={[s.who2, sel && { borderColor: c, backgroundColor: c + '18' }]} onPress={() => setSubject(p)}>
+                  <MemberAvatar person={p} settings={settings} size={28} />
+                  <Text style={[s.whoName, sel && { color: c }]} numberOfLines={1}>{String(p.attributes.friendly_name ?? p.entity_id).split(' ')[0]}</Text>
                 </PressableScale>
               );
             })}
@@ -325,14 +366,16 @@ function AddEventSheet({ targets, settings, initialDay, myName, onClose, onSaved
             })}
           </ScrollView>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
-            <Ionicons name="time-outline" size={20} color={colors.muted} />
-            <TextInput style={[s.input, s.timeInput]} keyboardType="number-pad" maxLength={2} value={hour} onChangeText={setHour} />
-            <Text style={s.colon}>:</Text>
-            <TextInput style={[s.input, s.timeInput]} keyboardType="number-pad" maxLength={2} value={minute} onChangeText={setMinute} />
-          </View>
+          {!isAnnual ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
+              <Ionicons name="time-outline" size={20} color={colors.muted} />
+              <TextInput style={[s.input, s.timeInput]} keyboardType="number-pad" maxLength={2} value={hour} onChangeText={setHour} />
+              <Text style={s.colon}>:</Text>
+              <TextInput style={[s.input, s.timeInput]} keyboardType="number-pad" maxLength={2} value={minute} onChangeText={setMinute} />
+            </View>
+          ) : null}
 
-          <PressableScale style={[s.save, { backgroundColor: target?.color ?? colors.primary, opacity: title.trim() && !saving ? 1 : 0.5 }]} onPress={save}>
+          <PressableScale style={[s.save, { backgroundColor: target.color, opacity: title.trim() && !saving ? 1 : 0.5 }]} onPress={save}>
             <Text style={s.saveText}>{saving ? '…' : i18n.t('saveEvent')}</Text>
           </PressableScale>
         </View>
@@ -365,8 +408,8 @@ function makeStyles(colors: Palette) {
     rowTime: { color: colors.muted, fontSize: 11.5, marginTop: 1 },
     by: { alignItems: 'center', width: 46 },
     byName: { color: colors.muted, fontSize: 9.5, fontWeight: '600', marginTop: 2 },
+    holidayBadge: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
     fab: { position: 'absolute', bottom: 18, right: 18, width: 54, height: 54, borderRadius: 27, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-    // الفيو الشهري
     monthNav: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingBottom: 4 },
     navBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
     weekHeader: { flexDirection: 'row', paddingHorizontal: 10 },
@@ -381,7 +424,6 @@ function makeStyles(colors: Palette) {
     dots: { flexDirection: 'row', gap: 2, marginTop: 3, height: 5 },
     dot: { width: 5, height: 5, borderRadius: 3 },
     monthDivider: { height: 1, backgroundColor: colors.border, marginVertical: 8, marginHorizontal: 14 },
-    // شيت الإضافة
     backdrop: { flex: 1, backgroundColor: 'rgba(4,8,14,.6)', justifyContent: 'flex-end' },
     sheet: { backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, gap: 8 },
     sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
@@ -390,6 +432,8 @@ function makeStyles(colors: Palette) {
     input: { backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 10, color: colors.text, fontSize: 15 },
     timeInput: { width: 54, textAlign: 'center' },
     colon: { color: colors.text, fontSize: 18, fontWeight: '800' },
+    typeChip: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border },
+    typeChipText: { color: colors.muted, fontSize: 13, fontWeight: '700' },
     who2: { alignItems: 'center', gap: 4, paddingVertical: 7, paddingHorizontal: 10, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, width: 64 },
     whoFamily: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
     whoName: { color: colors.muted, fontSize: 11, fontWeight: '600' },
