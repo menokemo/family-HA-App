@@ -7,6 +7,12 @@
 ## العربية
 
 ### صيانة — 2026-11-18 — **تنظيف جودة الكود (داخلي، مش محتاج نشر OTA)**
+- **(2/4) تقسيم ملفات الخريطة وتقليل التكرار:**
+  - `PeopleMapWeb.tsx` كان بيعيد تعريف ~15 helper موجودين أصلاً في `mapShared.ts` (coord, haversine, bearing, distance, etaText, timeAgo, placeLabel, reverseGeocode، وثوابت الحركة، وأنواع Motion/RouteMode). اتشالت واتجابت بالاستيراد من المصدر المشترك.
+  - استخراج `mapHtml` (222 سطر — قالب HTML/MapLibre للـ WebView) لملف مستقل `mapWebTemplate.ts` نقلًا حرفيًا.
+  - النتيجة: `PeopleMapWeb.tsx` من **1058 → 772 سطر**. `PeopleMapNative.tsx` كان نظيف أصلاً (بيستورد كله من mapShared).
+  - مُلاحظة مؤجّلة: الويب لسه بيستخدم `battery` محلّية أبسط من `batteryText` المشتركة (اللي بيستخدمها Native) — سيبناها زي ما هي عشان ما يتغيّرش سلوك العرض؛ توحيدها تحسين اختياري لاحق.
+  - tsc نظيف، 93 تست ناجح، مفيش أخطاء lint جديدة.
 - **(1/4) تشغيل ESLint فعليًا:** كان مش بيشتغل (مش متثبّت ومفيش سكربت). اتثبّت `eslint@^8.57.0` (نفس نسخة RN 0.83) + سكربت `npm run lint`. الإعداد موجود أصلاً (`.eslintrc.js` → `@react-native`).
   - ضبط `no-void: off` (نمط مقصود: `void promise()` لتعليم «نفّذ ومتستناش»).
   - إزالة **كود ميّت**: دالة `modeIcon` ومكوّن `HeaderModeButton` غير مستخدمين، متغيّر `ready`، بروب `themeMode` من `AppContent`، بروب `onConnect` من `LoginScreen`، import زيادة `WebViewNavigation`، بروب `states` غير مستخدم من `DoorbellScreen`، و`home` من `PeopleMapWeb`، وتعليق disable ميّت.
