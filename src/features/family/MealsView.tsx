@@ -9,18 +9,23 @@ import {
   deleteCalendarEvent,
   getCalendarEvents,
   getEntityConfigEntryId,
+  mealieDeleteMealplan,
   mealieGetMealplan,
+  mealieGetRecipe,
   mealieGetRecipeIngredients,
+  mealieImportRecipe,
   mealieSetMealplan,
   mealieSetRandomMealplan,
   type CalendarEvent,
+  type MealieRecipe,
 } from '../../api/homeAssistant';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { PressableScale } from '../../components/PressableScale';
 import { findMealieCalendars, findMealieTodos, type MealSlot } from './mealie';
 
 type Props = { states: HaEntity[]; lists: HaEntity[]; settings: ConnectionSettings; localCalendar?: HaEntity };
-type Meal = CalendarEvent & { slot: MealSlot };
+// تمثيل موحّد للوجبة: uid لتقويم المكوّن المحلي، mealplanId/recipeId لـ Mealie.
+type Meal = { day: string; slot: MealSlot; summary: string; uid?: string; mealplanId?: string; recipeId?: string };
 
 const SLOT_MARKER = '·slot:';
 const SLOT_META: Record<MealSlot, { h: number; icon: string; color: string }> = {
@@ -30,6 +35,7 @@ const SLOT_META: Record<MealSlot, { h: number; icon: string; color: string }> = 
   side: { h: 15, icon: 'nutrition-outline', color: '#C9892F' },
 };
 const LOCAL_SLOTS: MealSlot[] = ['breakfast', 'lunch', 'dinner'];
+const isKnownSlot = (x: string): x is MealSlot => x === 'breakfast' || x === 'lunch' || x === 'dinner' || x === 'side';
 
 function mondayOf(d: Date) { const r = new Date(d.getFullYear(), d.getMonth(), d.getDate()); const dow = (r.getDay() + 6) % 7; r.setDate(r.getDate() - dow); return r; }
 function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
@@ -70,49 +76,11 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
   const [edit, setEdit] = useState<{ day: Date; slot: MealSlot } | null>(null);
   const [toast, setToast] = useState<string>('');
   const [ing, setIng] = useState<{ title: string; items: string[] } | null>(null);
-  const [ingBusy, setIngBusy] = useState(false);
+  const [details, setDetails] = useState<{ title: string; recipe: MealieRecipe } | null>(null);
+  const [busy, setBusy] = useState(false); // حارس للعمليات اللحظية (مكوّنات/تفاصيل/حذف)
   const cfgRef = useRef<string | null | undefined>(undefined); // config_entry_id بتاع Mealie (undefined = لسه محلّلناش)
 
   const weekKey = dayKey(weekStart);
-  const load = () => {
-    setLoading(true);
-    const start = weekStart;
-    const end = addDays(weekStart, 7);
-    const jobs: Promise<Meal[]>[] = mealie
-      ? mealieCals.map(c =>
-          getCalendarEvents(settings, c.entity.entity_id, start.toISOString(), end.toISOString())
-            .then(list => list.map(e => ({ ...e, slot: c.slot })))
-            .catch(() => []),
-        )
-      : localCalendar
-        ? [getCalendarEvents(settings, localCalendar.entity_id, start.toISOString(), end.toISOString())
-            .then(list => list.map(e => ({ ...e, slot: localSlotOf(e) })))
-            .catch(() => [])]
-        : [Promise.resolve([])];
-    return Promise.all(jobs)
-      .then(parts => setMeals(parts.flat()))
-      .finally(() => setLoading(false));
-  };
-  useEffect(() => { void load(); }, [weekKey, settings.baseUrl, settings.token, mealie]);
-
-  // تجميع: يوم → خانة → كل الوجبات (Mealie ممكن يكون فيه أكتر من مدخل للخانة).
-  const byDaySlot = useMemo(() => {
-    const m: Record<string, Partial<Record<MealSlot, Meal[]>>> = {};
-    for (const e of meals) { const k = eventDayKey(e.start); if (!k) continue; const day = (m[k] ??= {}); (day[e.slot] ??= []).push(e); }
-    return m;
-  }, [meals]);
-
-  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
-
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
-
-  const listName = (l: HaEntity) => String(l.attributes.friendly_name ?? '');
-
-  const addToGroceries = async (meal: Meal) => {
-    if (!groceryList) { showToast(i18n.t('noLists')); return; }
-    try { await addTodoItem(settings, groceryList.entity_id, meal.summary); showToast(`${i18n.t('addedToGroceries')} · ${listName(groceryList)}`); }
-    catch { showToast(i18n.t('saveError')); }
-  };
 
   // نحلّل config_entry_id بتاع Mealie مرّة واحدة ونخزّنه.
   const resolveCfg = async (): Promise<string | null> => {
@@ -122,28 +90,70 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
     return id;
   };
 
-  // ضغط السلة على وجبة Mealie: نجيب وصفتها ونفتح شيت المكوّنات. لو ملاحظة بدون وصفة → نضيف اسمها.
-  const pickIngredients = async (meal: Meal, day: Date, slot: MealSlot) => {
-    if (ingBusy) return;
-    if (!mealie) { void addToGroceries(meal); return; }
-    setIngBusy(true);
+  const load = async () => {
+    setLoading(true);
+    try {
+      if (mealie) {
+        const cfg = await resolveCfg();
+        if (!cfg) { setMeals([]); return; }
+        const entries = await mealieGetMealplan(settings, cfg, dayKey(weekStart), dayKey(addDays(weekStart, 6))).catch(() => []);
+        setMeals(
+          entries
+            .filter(e => typeof e.entry_type === 'string' && isKnownSlot(e.entry_type))
+            .map(e => ({
+              day: (e.date ?? '').slice(0, 10),
+              slot: e.entry_type as MealSlot,
+              summary: (e.recipe?.name ?? e.title ?? '').trim(),
+              mealplanId: e.mealplan_id != null ? String(e.mealplan_id) : e.id != null ? String(e.id) : undefined,
+              recipeId: e.recipe?.id ?? e.recipe?.slug,
+            }))
+            .filter(m => m.day && m.summary),
+        );
+      } else if (localCalendar) {
+        const list = await getCalendarEvents(settings, localCalendar.entity_id, weekStart.toISOString(), addDays(weekStart, 7).toISOString()).catch(() => []);
+        setMeals(
+          list
+            .map(e => ({ day: eventDayKey(e.start) ?? '', slot: localSlotOf(e), summary: e.summary, uid: e.uid }))
+            .filter(m => m.day),
+        );
+      } else {
+        setMeals([]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { void load(); }, [weekKey, settings.baseUrl, settings.token, mealie]);
+
+  // تجميع: يوم → خانة → كل الوجبات (ممكن أكتر من مدخل للخانة).
+  const byDaySlot = useMemo(() => {
+    const m: Record<string, Partial<Record<MealSlot, Meal[]>>> = {};
+    for (const e of meals) { const day = (m[e.day] ??= {}); (day[e.slot] ??= []).push(e); }
+    return m;
+  }, [meals]);
+
+  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
+  const listName = (l: HaEntity) => String(l.attributes.friendly_name ?? '');
+
+  const addNameToGroceries = async (meal: Meal) => {
+    if (!groceryList) { showToast(i18n.t('noLists')); return; }
+    try { await addTodoItem(settings, groceryList.entity_id, meal.summary); showToast(`${i18n.t('addedToGroceries')} · ${listName(groceryList)}`); }
+    catch { showToast(i18n.t('saveError')); }
+  };
+
+  // السلة: وصفة → شيت مكوّنات؛ ملاحظة بدون وصفة → إضافة الاسم مباشرة.
+  const pickIngredients = async (meal: Meal) => {
+    if (busy) return;
+    if (!mealie || !meal.recipeId) { void addNameToGroceries(meal); return; }
+    setBusy(true);
     try {
       const cfg = await resolveCfg();
       if (!cfg) { showToast(i18n.t('mealieNoConfig')); return; }
-      const plan = await mealieGetMealplan(settings, cfg, dayKey(day));
-      const entry =
-        plan.find(e => e.entry_type === slot && (e.recipe?.name ?? e.title ?? '') === meal.summary) ??
-        plan.find(e => e.entry_type === slot && e.recipe);
-      const rid = entry?.recipe?.id ?? entry?.recipe?.slug;
-      if (!rid) { await addToGroceries(meal); return; } // ملاحظة/بدون وصفة → الاسم
-      const items = await mealieGetRecipeIngredients(settings, cfg, rid);
-      if (!items.length) { await addToGroceries(meal); return; }
+      const items = await mealieGetRecipeIngredients(settings, cfg, meal.recipeId).catch(() => []);
+      if (!items.length) { await addNameToGroceries(meal); return; }
       setIng({ title: meal.summary, items });
-    } catch {
-      showToast(i18n.t('saveError'));
-    } finally {
-      setIngBusy(false);
-    }
+    } finally { setBusy(false); }
   };
 
   const addIngredients = async (items: string[]) => {
@@ -153,6 +163,26 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
       showToast(`${i18n.t('addedCount').replace('{n}', String(items.length))} · ${listName(groceryList)}`);
     } catch { showToast(i18n.t('saveError')); }
     setIng(null);
+  };
+
+  // تفاصيل الوصفة: مكوّنات + خطوات التحضير.
+  const showDetails = async (meal: Meal) => {
+    if (busy || !meal.recipeId) return;
+    setBusy(true);
+    try {
+      const cfg = await resolveCfg();
+      if (!cfg) { showToast(i18n.t('mealieNoConfig')); return; }
+      const recipe = await mealieGetRecipe(settings, cfg, meal.recipeId).catch(() => null);
+      if (recipe && (recipe.ingredients.length || recipe.steps.length)) setDetails({ title: meal.summary, recipe });
+      else showToast(i18n.t('noRecipeDetails'));
+    } finally { setBusy(false); }
+  };
+
+  const deleteMeal = async (meal: Meal): Promise<boolean> => {
+    const cfg = await resolveCfg();
+    if (!cfg || !meal.mealplanId) { showToast(i18n.t('mealieNoConfig')); return false; }
+    try { await mealieDeleteMealplan(settings, cfg, meal.mealplanId); showToast(i18n.t('mealDeleted')); return true; }
+    catch { showToast(i18n.t('saveError')); return false; }
   };
 
   const editEntries = edit ? byDaySlot[dayKey(edit.day)]?.[edit.slot] ?? [] : [];
@@ -194,7 +224,7 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
                         <Text style={[s.slotMeal, !label && s.slotEmpty]} numberOfLines={2}>{label || i18n.t('tapToAdd')}</Text>
                       </View>
                       {entries.length ? (
-                        <PressableScale hitSlop={8} onPress={() => void pickIngredients(entries[0], d, slot)} style={s.cartBtn}>
+                        <PressableScale hitSlop={8} onPress={() => void pickIngredients(entries[0])} style={s.cartBtn}>
                           <Ionicons name="cart-outline" size={18} color={colors.muted} />
                         </PressableScale>
                       ) : <Ionicons name="add" size={20} color={colors.muted} />}
@@ -226,7 +256,20 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
             try { await mealieSetRandomMealplan(settings, cfg, { date: dayKey(edit.day), entry_type: edit.slot }); return true; }
             catch { showToast(i18n.t('saveError')); return false; }
           }}
-          onAddToShopping={m => void pickIngredients(m, edit.day, edit.slot)}
+          onImport={async url => {
+            const cfg = await resolveCfg();
+            if (!cfg) { showToast(i18n.t('mealieNoConfig')); return false; }
+            try {
+              const rec = await mealieImportRecipe(settings, cfg, url);
+              const rid = rec?.id ?? rec?.slug;
+              if (rid) await mealieSetMealplan(settings, cfg, { date: dayKey(edit.day), entry_type: edit.slot, recipe_id: String(rid) });
+              showToast(i18n.t('recipeImported'));
+              return true;
+            } catch { showToast(i18n.t('saveError')); return false; }
+          }}
+          onAddToShopping={m => void pickIngredients(m)}
+          onDetails={m => void showDetails(m)}
+          onDelete={deleteMeal}
           onClose={() => setEdit(null)}
           onDone={() => { setEdit(null); void load(); }}
         />
@@ -243,6 +286,7 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
       ) : null}
 
       {ing ? <IngredientsSheet title={ing.title} items={ing.items} onAdd={addIngredients} onClose={() => setIng(null)} /> : null}
+      {details ? <RecipeDetailsSheet title={details.title} recipe={details.recipe} onClose={() => setDetails(null)} /> : null}
     </View>
   );
 }
@@ -294,17 +338,63 @@ function IngredientsSheet({ title, items, onAdd, onClose }: { title: string; ite
   );
 }
 
-// ===== Mealie: إضافة وجبة (ملاحظة أو عشوائية) — الحذف/التعديل بيتعمل من Mealie نفسه =====
-function MealieSlotModal({ day, slot, entries, onAddNote, onRandom, onAddToShopping, onClose, onDone }: {
+// ===== شيت تفاصيل الوصفة: مكوّنات + خطوات التحضير =====
+function RecipeDetailsSheet({ title, recipe, onClose }: { title: string; recipe: MealieRecipe; onClose: () => void }) {
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <View style={s.backdrop}>
+        <View style={[s.sheet, { maxHeight: '86%' }]}>
+          <View style={s.sheetHeader}>
+            <Text style={[s.sheetTitle, { textTransform: 'none', flex: 1 }]} numberOfLines={2}>{title}</Text>
+            <PressableScale onPress={onClose}><Ionicons name="close" size={22} color={colors.text} /></PressableScale>
+          </View>
+          <ScrollView style={{ maxHeight: 460 }} contentContainerStyle={{ gap: 14, paddingBottom: 6 }}>
+            {recipe.ingredients.length ? (
+              <View style={{ gap: 7 }}>
+                <Text style={s.detailHeading}>{i18n.t('ingredients')}</Text>
+                {recipe.ingredients.map((it, i) => (
+                  <View key={i} style={s.bulletRow}>
+                    <View style={s.bulletDot} />
+                    <Text style={s.bulletText}>{it}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+            {recipe.steps.length ? (
+              <View style={{ gap: 9 }}>
+                <Text style={s.detailHeading}>{i18n.t('steps')}</Text>
+                {recipe.steps.map((st, i) => (
+                  <View key={i} style={s.stepRow}>
+                    <View style={s.stepNum}><Text style={s.stepNumText}>{i + 1}</Text></View>
+                    <Text style={s.stepText}>{st}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ===== Mealie: محرّر الخانة — عرض/حذف/تفاصيل الموجود + إضافة (ملاحظة/عشوائي/استيراد بلينك) =====
+function MealieSlotModal({ day, slot, entries, onAddNote, onRandom, onImport, onAddToShopping, onDetails, onDelete, onClose, onDone }: {
   day: Date; slot: MealSlot; entries: Meal[];
   onAddNote: (text: string) => Promise<boolean>;
   onRandom: () => Promise<boolean>;
+  onImport: (url: string) => Promise<boolean>;
   onAddToShopping: (m: Meal) => void;
+  onDetails: (m: Meal) => void;
+  onDelete: (m: Meal) => Promise<boolean>;
   onClose: () => void; onDone: () => void;
 }) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const [text, setText] = useState('');
+  const [url, setUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const meta = SLOT_META[slot];
 
@@ -313,7 +403,7 @@ function MealieSlotModal({ day, slot, entries, onAddNote, onRandom, onAddToShopp
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={s.backdrop}>
-        <View style={s.sheet}>
+        <View style={[s.sheet, { maxHeight: '88%' }]}>
           <View style={s.sheetHeader}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <View style={[s.slotIcon, { backgroundColor: meta.color + '22' }]}><Ionicons name={meta.icon} size={16} color={meta.color} /></View>
@@ -322,30 +412,56 @@ function MealieSlotModal({ day, slot, entries, onAddNote, onRandom, onAddToShopp
             <PressableScale onPress={onClose}><Ionicons name="close" size={22} color={colors.text} /></PressableScale>
           </View>
 
-          {entries.length ? (
-            <View style={{ gap: 6 }}>
-              {entries.map((m, i) => (
-                <View key={m.uid ?? i} style={s.entryRow}>
-                  <Text style={s.entryName} numberOfLines={2}>{m.summary}</Text>
-                  <PressableScale hitSlop={8} onPress={() => onAddToShopping(m)} style={s.cartBtn}>
-                    <Ionicons name="cart-outline" size={18} color={colors.muted} />
-                  </PressableScale>
-                </View>
-              ))}
-            </View>
-          ) : null}
+          <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: 12 }} keyboardShouldPersistTaps="handled">
+            {entries.length ? (
+              <View style={{ gap: 6 }}>
+                {entries.map((m, i) => (
+                  <View key={m.mealplanId ?? i} style={s.entryRow}>
+                    <PressableScale style={{ flex: 1 }} disabled={!m.recipeId} onPress={() => onDetails(m)}>
+                      <Text style={s.entryName} numberOfLines={2}>{m.summary}</Text>
+                      {m.recipeId ? <Text style={s.entryDetailsLink}>{i18n.t('recipeDetails')}</Text> : null}
+                    </PressableScale>
+                    <PressableScale hitSlop={6} onPress={() => onAddToShopping(m)} style={s.cartBtn}>
+                      <Ionicons name="cart-outline" size={18} color={colors.muted} />
+                    </PressableScale>
+                    <PressableScale hitSlop={6} disabled={!m.mealplanId || busy} onPress={() => void run(() => onDelete(m))} style={s.trashBtn}>
+                      <Ionicons name="trash-outline" size={17} color={colors.danger} />
+                    </PressableScale>
+                  </View>
+                ))}
+              </View>
+            ) : null}
 
-          <TextInput style={s.input} placeholder={i18n.t('mealPlaceholder')} placeholderTextColor={colors.muted} value={text} onChangeText={setText} autoFocus multiline />
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <PressableScale style={[s.save, { backgroundColor: meta.color, flex: 1, opacity: busy || !text.trim() ? 0.6 : 1 }]} onPress={() => text.trim() && void run(() => onAddNote(text.trim()))}>
-              <Text style={s.saveText}>{busy ? '…' : i18n.t('addMeal')}</Text>
-            </PressableScale>
-            <PressableScale style={[s.randomBtn, { opacity: busy ? 0.6 : 1 }]} onPress={() => void run(onRandom)}>
-              <Ionicons name="shuffle" size={18} color={colors.text} />
-              <Text style={s.randomText}>{i18n.t('randomMeal')}</Text>
-            </PressableScale>
-          </View>
-          <Text style={s.hint}>{i18n.t('mealieRemoveHint')}</Text>
+            <Text style={s.addHeading}>{i18n.t('addMeal')}</Text>
+            <TextInput style={s.input} placeholder={i18n.t('mealPlaceholder')} placeholderTextColor={colors.muted} value={text} onChangeText={setText} multiline />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <PressableScale style={[s.save, { backgroundColor: meta.color, flex: 1, opacity: busy || !text.trim() ? 0.6 : 1 }]} onPress={() => text.trim() && void run(() => onAddNote(text.trim()))}>
+                <Text style={s.saveText}>{busy ? '…' : i18n.t('addMeal')}</Text>
+              </PressableScale>
+              <PressableScale style={[s.randomBtn, { opacity: busy ? 0.6 : 1 }]} onPress={() => void run(onRandom)}>
+                <Ionicons name="shuffle" size={18} color={colors.text} />
+                <Text style={s.randomText}>{i18n.t('randomMeal')}</Text>
+              </PressableScale>
+            </View>
+
+            <View style={s.importRow}>
+              <TextInput
+                style={[s.input, { flex: 1, minHeight: 44 }]}
+                placeholder={i18n.t('recipeUrl')}
+                placeholderTextColor={colors.muted}
+                value={url}
+                onChangeText={setUrl}
+                autoCapitalize="none"
+                keyboardType="url"
+              />
+              <PressableScale
+                style={[s.importBtn, { opacity: busy || !url.trim() ? 0.6 : 1 }]}
+                onPress={() => url.trim() && void run(() => onImport(url.trim()))}
+              >
+                <Ionicons name="download-outline" size={18} color={colors.black} />
+              </PressableScale>
+            </View>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -423,22 +539,34 @@ function makeStyles(colors: Palette) {
     slotMeal: { color: colors.text, fontSize: 14, fontWeight: '600', marginTop: 1 },
     slotEmpty: { color: colors.muted, fontWeight: '500' },
     cartBtn: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceElevated },
+    trashBtn: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.danger + '18' },
     toast: { position: 'absolute', bottom: 20, alignSelf: 'center', backgroundColor: colors.text, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10 },
     toastText: { color: colors.background, fontWeight: '700', fontSize: 13 },
     backdrop: { flex: 1, backgroundColor: 'rgba(4,8,14,.6)', justifyContent: 'flex-end' },
     sheet: { backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, gap: 12 },
     sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     sheetTitle: { color: colors.text, fontSize: 16, fontWeight: '800', textTransform: 'capitalize' },
-    entryRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 10 },
-    entryName: { color: colors.text, fontSize: 14, fontWeight: '600', flex: 1 },
+    entryRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 10 },
+    entryName: { color: colors.text, fontSize: 14, fontWeight: '600' },
+    entryDetailsLink: { color: colors.primary, fontSize: 11.5, fontWeight: '700', marginTop: 2 },
+    addHeading: { color: colors.muted, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', marginTop: 2 },
     input: { backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 12, color: colors.text, fontSize: 15, minHeight: 60, textAlignVertical: 'top' },
     save: { borderRadius: 14, padding: 14, alignItems: 'center' },
     saveText: { color: '#fff', fontWeight: '800', fontSize: 15 },
     randomBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 14, paddingHorizontal: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
     randomText: { color: colors.text, fontWeight: '700', fontSize: 13 },
-    hint: { color: colors.muted, fontSize: 11.5, lineHeight: 16 },
+    importRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    importBtn: { width: 48, height: 44, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
     ingRow: { flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 11 },
     check: { width: 22, height: 22, borderRadius: 7, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
     ingText: { color: colors.text, fontSize: 14, fontWeight: '600', flex: 1 },
+    detailHeading: { color: colors.primary, fontSize: 13, fontWeight: '800', textTransform: 'uppercase' },
+    bulletRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 9 },
+    bulletDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.muted, marginTop: 7 },
+    bulletText: { color: colors.text, fontSize: 14, flex: 1, lineHeight: 20 },
+    stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+    stepNum: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.surfaceElevated, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+    stepNumText: { color: colors.text, fontSize: 12, fontWeight: '800' },
+    stepText: { color: colors.text, fontSize: 14, flex: 1, lineHeight: 20 },
   });
 }

@@ -722,9 +722,12 @@ appointments → planner، و**تقاويم الأفراد `person_*` القدي
     (كلها متعلّمة مسبقًا) → تضيف المختار لقائمة Mealie. السلسلة: `get_mealplan` (خطة اليوم) → وصفة الخانة →
     `get_recipe` → `recipeIngredient[].display` → `todo.add_item`. (API: `mealieGetMealplan`, `mealieGetRecipeIngredients`.)
     ملاحظة بدون وصفة → يضيف اسم الوجبة.
-  - **حدود/ملاحظات:** مفيش حسّاس «أكل النهاردة» (الخطة من التقاويم). التكامل الرسمي بقى فيه `delete_mealplan` و
-    `update_mealplan` (+ `get_recipes`, `get_shopping_list_items`, `parse_ingredient`) — فحذف/استبدال وجبة من التطبيق
-    بقى **ممكن مستقبلًا** (مؤجّل، مش محتاجينه دلوقتي).
+  - **تفاصيل/حذف/استيراد (منفّذ — 2.38.0):** مصدر بيانات وضع Mealie اتحوّل لـ `get_mealplan` (نداء أسبوعي واحد بيرجّع
+    `mealplan_id` + `recipe`)، فاتفتحت: **عرض تفاصيل الوصفة** (`get_recipe` → مكوّنات + خطوات)، **حذف وجبة**
+    (`delete_mealplan`)، و**استيراد وصفة بلينك** (`import_recipe` + تخطيط فوري بـ `set_mealplan`). API:
+    `mealieGetRecipe`, `mealieDeleteMealplan`, `mealieUpdateMealplan`, `mealieImportRecipe`.
+  - **حدود/ملاحظات:** مفيش حسّاس «أكل النهاردة» (الخطة من التقاويم). الاستبدال من التطبيق = حذف + إضافة (متاح برضه
+    `update_mealplan` لتعديل في المكان لو احتجناه لاحقًا). تعديل محتوى الوصفة نفسها (مكوّنات/خطوات) بيتعمل من Mealie.
 
 ### بنية طبقة الـAPI وملفات الخريطة (تحديث جودة — 2026-11-18)
 - **طبقة الـAPI** (`src/api/`) اتقسمت من ملف واحد ضخم (`homeAssistant.ts` كان 628 سطر) لوحدات باتجاه اعتماد واحد (مفيش دوّارة استيراد):

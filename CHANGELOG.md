@@ -6,6 +6,23 @@
 
 ## العربية
 
+### [2.38.0] — 2026-11-18  (تعديل JS — بييجي من metro، **من غير مكوّن جديد**) — **Mealie: تفاصيل الوصفة + حذف + استيراد بلينك**
+- **مصدر البيانات بقى `get_mealplan`** (نداء واحد للأسبوع) بدل قراءة ٤ تقاويم — بيرجّع معرّفات المدخلات والوصفات، فبيقدر على الحذف/التفاصيل.
+- **عرض تفاصيل الوصفة**: دوس على اسم الوجبة → شيت فيه المكوّنات + خطوات التحضير (`mealie.get_recipe` → `recipeIngredient` + `recipeInstructions`).
+- **حذف وجبة** من التطبيق: زرار سلة المهملات على كل مدخل (`mealie.delete_mealplan` بـ `mealplan_id`). الاستبدال = حذف + إضافة.
+- **استيراد وصفة بلينك**: الصق رابط في محرّر الخانة → `mealie.import_recipe`، ولو التكامل رجّع الوصفة بنخطّطها فورًا على نفس الخانة (`set_mealplan` بـ `recipe_id`).
+- تبسيط «ضيف المكوّنات»: بياخد `recipe_id` من المدخل مباشرة من غير نداء إضافي.
+- API جديد في `mealieApi.ts`: `mealieGetRecipe`, `mealieDeleteMealplan`, `mealieUpdateMealplan`, `mealieImportRecipe` (+ `mealieGetMealplan` بقى بمدى تواريخ).
+- i18n (en/nl/ar): recipeDetails, ingredients, steps, recipeUrl, recipeImported, mealDeleted, noRecipeDetails. tsc نظيف، 93 تست ناجح، لينت أخضر.
+
+### [2.38.0 — EN] — 2026-11-18 — **Mealie: recipe details + delete + import by link**
+- Data source is now `get_mealplan` (one weekly call) instead of four calendar reads — it returns entry and recipe IDs, enabling delete/details.
+- **Recipe details**: tap a meal name → sheet with ingredients + preparation steps (`get_recipe`).
+- **Delete a meal** from the app: trash button per entry (`delete_mealplan` with `mealplan_id`). Replace = delete + add.
+- **Import a recipe by link**: paste a URL in the slot editor → `import_recipe`; if the integration returns the recipe we plan it on that slot immediately (`set_mealplan`).
+- "Add ingredients" simplified to use the entry's `recipe_id` directly (no extra call).
+- New `mealieApi.ts`: `mealieGetRecipe`, `mealieDeleteMealplan`, `mealieUpdateMealplan`, `mealieImportRecipe`.
+
 ### صيانة — 2026-11-18 — **تنظيف جودة الكود (داخلي، مش محتاج نشر OTA)**
 - **(4/4) مراجعة تحذيرات `exhaustive-deps` (الـ43):** اتراجعت كلها يدويًا (عيّنات ممثّلة في الخريطة والعيلة وApp).
   - **كلها نمط مقصود**: الـ effects بتعيد التشغيل على **مفتاح مشتق** (calKey/weekKey/selectedCoordKey/إحداثيات primitive) عشان تتفادى إعادة التشغيل على هوية الكائن. إضافة الكائنات/الدوال للـ deps ميكانيكيًا كانت هتعمل **حلقات إعادة جلب لا نهائية** — فده إصلاح غلط.
