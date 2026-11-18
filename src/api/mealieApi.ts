@@ -3,6 +3,10 @@ import type { ConnectionSettings } from '../types/homeAssistant';
 import { request } from './client';
 import { wsCommand } from './wsClient';
 
+// نداءات Mealie بتضرب على سيرفر Mealie الخارجي (بحث/جلب وصفات/استيراد) فبتبقى
+// أبطأ من أوامر HA العادية — بنديها مهلة أطول عشان ماتقطعش بدري.
+const MEALIE_WS_TIMEOUT = 30000;
+
 // ===== تكامل Mealie الرسمي =====
 // خدمات Mealie محتاجة config_entry_id مش entity_id — بنجيبه بطريقتين (الأضمن أول).
 // مفيش أي اسم ثابت متخزّن في التطبيق — الدومين "mealie" بس هو الثابت القياسي.
@@ -68,7 +72,7 @@ export async function mealieGetMealplan(
   const r = (await wsCommand(settings, {
     type: 'call_service', domain: 'mealie', service: 'get_mealplan',
     service_data: { config_entry_id: configEntryId, start_date: startDate, end_date: endDate }, return_response: true,
-  })) as { response?: { mealplan?: MealieMealplanEntry[] } } | null;
+  }, MEALIE_WS_TIMEOUT)) as { response?: { mealplan?: MealieMealplanEntry[] } } | null;
   return r?.response?.mealplan ?? [];
 }
 
@@ -89,7 +93,7 @@ export async function mealieGetRecipe(settings: ConnectionSettings, configEntryI
   const r = (await wsCommand(settings, {
     type: 'call_service', domain: 'mealie', service: 'get_recipe',
     service_data: { config_entry_id: configEntryId, recipe_id: recipeId }, return_response: true,
-  })) as { response?: { recipe?: { name?: string; recipeIngredient?: RecipeIngredient[]; recipeInstructions?: RecipeInstruction[] } } } | null;
+  }, MEALIE_WS_TIMEOUT)) as { response?: { recipe?: { name?: string; recipeIngredient?: RecipeIngredient[]; recipeInstructions?: RecipeInstruction[] } } } | null;
   const rec = r?.response?.recipe;
   return {
     name: (rec?.name ?? '').trim(),
@@ -142,7 +146,7 @@ export async function mealieGetRecipes(
 ): Promise<MealieRecipeSummary[]> {
   const r = (await wsCommand(settings, {
     type: 'call_service', domain: 'mealie', service: 'get_recipes', service_data: recipesData(configEntryId, searchTerms, resultLimit), return_response: true,
-  })) as { response?: unknown } | null;
+  }, MEALIE_WS_TIMEOUT)) as { response?: unknown } | null;
   return extractRecipes(r?.response);
 }
 
@@ -150,7 +154,7 @@ export async function mealieGetRecipes(
 export async function mealieGetRecipesRaw(settings: ConnectionSettings, configEntryId: string, searchTerms?: string): Promise<string> {
   const r = await wsCommand(settings, {
     type: 'call_service', domain: 'mealie', service: 'get_recipes', service_data: recipesData(configEntryId, searchTerms), return_response: true,
-  });
+  }, MEALIE_WS_TIMEOUT);
   return JSON.stringify(r ?? null).slice(0, 700);
 }
 
@@ -183,7 +187,7 @@ export async function mealieImportRecipe(
   const r = (await wsCommand(settings, {
     type: 'call_service', domain: 'mealie', service: 'import_recipe',
     service_data: { config_entry_id: configEntryId, url }, return_response: true,
-  })) as { response?: { recipe?: { id?: string; slug?: string; name?: string }; id?: string; slug?: string; name?: string } } | null;
+  }, MEALIE_WS_TIMEOUT)) as { response?: { recipe?: { id?: string; slug?: string; name?: string }; id?: string; slug?: string; name?: string } } | null;
   const resp = r?.response;
   return resp?.recipe ?? (resp?.slug || resp?.id ? { id: resp?.id, slug: resp?.slug, name: resp?.name } : null);
 }

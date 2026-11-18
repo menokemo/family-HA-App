@@ -399,6 +399,11 @@ function RecipePickerSheet({ onSearch, onRaw, onPick, onClose }: {
             </PressableScale>
           </View>
 
+          {picking ? (
+            <View style={{ paddingVertical: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+              <ActivityIndicator color={colors.primary} /><Text style={s.hintCenter}>{i18n.t('adding')}</Text>
+            </View>
+          ) : null}
           {loading ? (
             <View style={{ paddingVertical: 28 }}><ActivityIndicator color={colors.primary} /></View>
           ) : results.length ? (

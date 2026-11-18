@@ -7,7 +7,9 @@ function wsUrl(baseUrl: string) {
   return `${normalizeUrl(baseUrl).replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:')}/api/websocket`;
 }
 
-export async function wsCommand(settings: ConnectionSettings, payload: Record<string, unknown>): Promise<unknown> {
+// المهلة الافتراضية 8ث للأوامر السريعة؛ نمرّر أطول للنداءات اللي بتضرب على خدمة
+// خارجية بطيئة (زي Mealie) عبر timeoutMs.
+export async function wsCommand(settings: ConnectionSettings, payload: Record<string, unknown>, timeoutMs = 8000): Promise<unknown> {
   const token = await ensureFreshToken(settings);
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -22,7 +24,7 @@ export async function wsCommand(settings: ConnectionSettings, payload: Record<st
     let id = 0;
     const timer = setTimeout(() => {
       finish(() => { try { socket.close(); } catch { /* ignore */ } reject(new Error('WebSocket request timed out')); });
-    }, 8000);
+    }, timeoutMs);
     socket.onmessage = event => {
       try {
         const message = JSON.parse(String(event.data)) as Record<string, unknown>;
