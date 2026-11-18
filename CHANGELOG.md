@@ -6,6 +6,13 @@
 
 ## العربية
 
+### [2.36.0] — 2026-11-18  (تعديل JS — بييجي من metro، **من غير مكوّن جديد**) — **تكامل Mealie القياسي (كشف تلقائي)**
+- التطبيق بقى يكتشف تكامل **Mealie الرسمي** في Home Assistant **تلقائيًا بالبادئة** (`todo.mealie_*` / `calendar.mealie_*`) — **من غير أسماء كيانات مكتوبة بإيد** (`mealie.ts` + تست 4).
+- **موديول الأكل**: لو Mealie متركّب → بيقرا تقويمات الوجبات الأربعة (فطار/غدا/عشا/جانبي) ويعرض خطة الأسبوع، وبيكتب رجوع في Mealie عبر خدمة `mealie.set_mealplan` (ملاحظة نصية) أو `mealie.set_random_mealplan` (وجبة عشوائية). `config_entry_id` بيتكشف تلقائيًا من سجل الكيانات. لو Mealie مش متركّب → بيرجع لتقويم المكوّن المحلي زي ما كان.
+- **ملاحظة من البحث**: التكامل الرسمي **مفيهوش حسّاس «أكل النهاردة»** — الخطة بتتقري من التقاويم. وتقاويم Mealie للقراءة؛ الإضافة بس عبر الخدمة (مفيش حذف/استبدال من التطبيق — بيتعمل من Mealie).
+- **موديول المشتريات**: بقى يفضّل قوائم Mealie تلقائيًا، وفيه **مُنتقي قائمة** لو عندك أكتر من قائمة todo.
+- تقاويم Mealie اتشالت من الأجندة العامة (بتروح لشاشة الأكل بدل ما تزحم التقويم).
+
 ### [2.35.1] — 2026-11-18  (تعديل JS — بييجي من metro) — **إصلاح: شرائط الأقسام/الأفراد كانت بتتمطّط**
 - في المشتريات (شريط الأقسام) والمهام (شريط الأفراد) كانوا بيظهروا أعمدة طويلة فاضية بدل صف فوق — السبب `ScrollView horizontal` من غير `flexGrow:0`. اتظبط، فالشكل بقى منظم.
 
@@ -1133,6 +1140,13 @@
 ---
 
 ## English
+
+### [2.36.0] — 2026-11-18  (JS change — comes from metro, **no new component**) — **Standard Mealie integration (auto-detect)**
+- The app now auto-detects the **official Mealie integration** in Home Assistant **by entity prefix** (`todo.mealie_*` / `calendar.mealie_*`) — **no hardcoded entity names** (`mealie.ts` + 4 tests).
+- **Meals module**: when Mealie is installed → reads the four meal calendars (breakfast/lunch/dinner/side), shows the week's plan, and **writes back to Mealie** via `mealie.set_mealplan` (note) or `mealie.set_random_mealplan` (random). `config_entry_id` is auto-resolved from the entity registry. When Mealie is absent → falls back to the local component meals calendar as before.
+- **Research note**: the official integration has **no "today's meal" sensor** — the plan is read from the calendars. Mealie calendars are read-only; the app only *adds* via the service (removing/replacing is done in Mealie).
+- **Shopping module**: now prefers Mealie lists automatically and adds a **list picker** when more than one todo list exists.
+- Mealie calendars are excluded from the general agenda (routed to the Meals screen instead of cluttering the calendar).
 
 ### [2.35.1] — 2026-11-18  (JS change — comes from metro) — **Fix: category/member strips were stretching full-height**
 - In Shopping (category strip) and Chores (member strip), the chips rendered as tall empty columns instead of a row — caused by a horizontal `ScrollView` without `flexGrow:0`. Fixed, so the layout reads tidy.

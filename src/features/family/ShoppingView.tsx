@@ -7,16 +7,22 @@ import { addTodoItem, getTodoItems, removeTodoItem, setTodoItemStatus, type Todo
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { PressableScale } from '../../components/PressableScale';
 import { joinShop, parseShop, SHOP_CATS, type ShopCat } from './shopping';
+import { findMealieTodos } from './mealie';
 
 type Props = { lists: HaEntity[]; settings: ConnectionSettings; canManage?: boolean };
 
 const catLabel = (c: string) => i18n.t('cat_' + c) || i18n.t('cat_other');
+const listLabel = (l: HaEntity) => String(l.attributes.friendly_name ?? l.entity_id.replace(/^todo\./, ''));
 
 export function ShoppingView({ lists, settings, canManage = true }: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
-  const list = lists[0];
-  const listState = lists.find(l => l.entity_id === list?.entity_id)?.state; // بيتغيّر مع إضافة/شطب → يعيد التحميل
+  // لو في قوائم Mealie بنفضّلها كافتراضي، وإلا أول قائمة متاحة.
+  const preferredId = useMemo(() => (findMealieTodos(lists)[0] ?? lists[0])?.entity_id, [lists]);
+  const [listId, setListId] = useState<string | undefined>(preferredId);
+  useEffect(() => { if (!lists.some(l => l.entity_id === listId)) setListId(preferredId); }, [preferredId, lists, listId]);
+  const list = lists.find(l => l.entity_id === listId) ?? lists[0];
+  const listState = list?.state; // بيتغيّر مع إضافة/شطب → يعيد التحميل
 
   const [items, setItems] = useState<TodoItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,6 +85,18 @@ export function ShoppingView({ lists, settings, canManage = true }: Props) {
 
   return (
     <View style={{ flex: 1 }}>
+      {lists.length > 1 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.listsOuter} contentContainerStyle={s.listsRow}>
+          {lists.map(l => {
+            const sel = l.entity_id === list.entity_id;
+            return (
+              <PressableScale key={l.entity_id} style={[s.listChip, sel && { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => setListId(l.entity_id)}>
+                <Text style={[s.listChipText, sel && { color: colors.black }]} numberOfLines={1}>{listLabel(l)}</Text>
+              </PressableScale>
+            );
+          })}
+        </ScrollView>
+      ) : null}
       <View style={s.addBar}>
         <TextInput style={[s.input, { flex: 1 }]} placeholder={i18n.t('addItemPlaceholder')} placeholderTextColor={colors.muted} value={name} onChangeText={setName} />
         <TextInput style={[s.input, s.small]} placeholder={i18n.t('quantity')} placeholderTextColor={colors.muted} value={qty} onChangeText={setQty} keyboardType="numbers-and-punctuation" />
@@ -126,6 +144,10 @@ function makeStyles(colors: Palette) {
     input: { backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, borderRadius: 11, paddingHorizontal: 11, paddingVertical: 9, color: colors.text, fontSize: 14 },
     small: { width: 58, textAlign: 'center', paddingHorizontal: 4 },
     addBtn: { width: 40, height: 40, borderRadius: 11, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+    listsOuter: { flexGrow: 0, flexShrink: 0 },
+    listsRow: { gap: 7, paddingHorizontal: 14, paddingTop: 10, alignItems: 'center' },
+    listChip: { paddingVertical: 6, paddingHorizontal: 13, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, maxWidth: 160 },
+    listChipText: { color: colors.text, fontSize: 12.5, fontWeight: '700' },
     chipsOuter: { flexGrow: 0, flexShrink: 0 },
     cats: { gap: 7, paddingHorizontal: 14, paddingVertical: 10, alignItems: 'center' },
     catChip: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },

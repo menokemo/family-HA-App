@@ -16,6 +16,7 @@ import { MembersView } from './MembersView';
 import { PressableScale } from '../../components/PressableScale';
 import { Card } from '../../components/Card';
 import { canManage, myRole } from './roles';
+import { findMealieCalendars } from './mealie';
 
 type Props = { states: HaEntity[]; settings: ConnectionSettings; onSettingsChange: (patch: Partial<ConnectionSettings>) => void };
 type Section = 'home' | 'calendar' | 'tasks' | 'shopping' | 'more';
@@ -41,9 +42,11 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
   const filteredCalendars = settings.selectedCalendarIds?.length ? allCalendars.filter(c => settings.selectedCalendarIds!.includes(c.entity_id)) : allCalendars;
   // لو الاختيار المحفوظ بقى IDs قديمة مش موجودة، نرجع نعرض الكل بدل شاشة فاضية.
   const calendarsAll = filteredCalendars.length > 0 || allCalendars.length === 0 ? filteredCalendars : allCalendars;
-  // تقويم الأكل ليه شاشته، فبيتفصل عن تقاويم الأجندة.
+  // تقاويم الأكل (المحلي + Mealie) ليها شاشة الأكل، فبتتفصل عن تقاويم الأجندة.
   const mealsCalendar = allCalendars.find(c => c.entity_id.includes('secure_family_meals'));
-  const calendars = calendarsAll.filter(c => !c.entity_id.includes('secure_family_meals'));
+  const mealieCalIds = new Set(findMealieCalendars(states).map(c => c.entity.entity_id));
+  const hasMeals = !!mealsCalendar || mealieCalIds.size > 0;
+  const calendars = calendarsAll.filter(c => !c.entity_id.includes('secure_family_meals') && !mealieCalIds.has(c.entity_id));
   const allLists = findTodoEntities(states);
   const filteredLists = settings.selectedTodoIds?.length ? allLists.filter(l => settings.selectedTodoIds!.includes(l.entity_id)) : allLists;
   const lists = filteredLists.length > 0 || allLists.length === 0 ? filteredLists : allLists;
@@ -95,7 +98,7 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
         ) : tab === 'shopping' ? (
           <ShoppingView lists={lists} settings={settings} canManage={manage} />
         ) : (
-          <MoreMenu hasMeals={!!mealsCalendar} onOpen={setModuleOpen} />
+          <MoreMenu hasMeals={hasMeals} onOpen={setModuleOpen} />
         )}
       </View>
 
@@ -106,8 +109,8 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
             <PressableScale onPress={() => setModuleOpen(null)}><Ionicons name="close" size={24} color={colors.text} /></PressableScale>
           </View>
           <View style={{ flex: 1 }}>
-            {moduleOpen === 'meals' && mealsCalendar ? (
-              <MealsView mealsCalendar={mealsCalendar} lists={lists} settings={settings} />
+            {moduleOpen === 'meals' && hasMeals ? (
+              <MealsView states={states} lists={lists} settings={settings} localCalendar={mealsCalendar} />
             ) : moduleOpen === 'wall' ? (
               <WallView calendars={calendars} states={states} settings={settings} canManage={manage} />
             ) : moduleOpen === 'members' ? (
