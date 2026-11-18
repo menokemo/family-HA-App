@@ -13,6 +13,16 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**منتقي وصفات Mealie بيقول «No recipes found» رغم وجود وصفات (2.39.3)** — خدمة
+`get_recipes` بترجّع الوصفات في `response.recipes.items[]` (الـ`recipes` **كائن مرقّم**
+فيه `items`، مش مصفوفة)، وكل عنصر فيه `recipe_id` مش `id`. الكود كان بيدوّر على
+`response.recipes` كمصفوفة مباشرة فمالقاش حاجة → «No recipes found». **التشخيص:** عرضنا
+الرد الخام في الشيت وقت الفراغ، فبان الشكل الحقيقي فورًا. **الحل:** `extractRecipes`
+بقى يفك `recipes.items` (ويدعم أشكال بديلة: مصفوفة مباشرة/`items`/`result`)،
+و`recipe_id` بقى مقبول كمعرّف للتخطيط. مع تست (5 حالات) تقفل الريجريشن. **الدرس:**
+ردود الخدمات المرقّمة (paginated) بتكون `{items:[…]}` مش مصفوفة — نتأكد من الشكل
+بعرض الرد الخام بدل التخمين.
+
 **وضع Mealie مابيعرضش أي خطة رغم «Synced with Mealie» (2.38.1)** — في 2.38.0 حوّلت
 تحميل خطة Mealie تعتمد **بس** على `get_mealplan` + `config_entry_id`. لو حلّ
 `config_entry_id` فشل (أو الخدمة رجّعت رد بشكل مختلف)، الـ`load` كان بيرجع **فاضي**

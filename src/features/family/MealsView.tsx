@@ -331,7 +331,7 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
           }}
           onPick={async recipe => {
             const cfg = await resolveCfg();
-            const rid = recipe.slug ?? recipe.id;
+            const rid = recipe.slug ?? recipe.recipe_id ?? recipe.id;
             if (!cfg || !rid) { showToast(i18n.t('saveError')); return; }
             try { await mealieSetMealplan(settings, cfg, { date: dayKey(edit.day), entry_type: edit.slot, recipe_id: String(rid) }); }
             catch { showToast(i18n.t('saveError')); return; }
@@ -405,7 +405,7 @@ function RecipePickerSheet({ onSearch, onRaw, onPick, onClose }: {
             <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: 6, paddingVertical: 2 }} keyboardShouldPersistTaps="handled">
               {results.map((r, i) => (
                 <PressableScale
-                  key={r.slug ?? r.id ?? i}
+                  key={r.slug ?? r.recipe_id ?? r.id ?? i}
                   style={s.recipeRow}
                   disabled={picking}
                   onPress={() => { if (picking) return; setPicking(true); onPick(r); }}

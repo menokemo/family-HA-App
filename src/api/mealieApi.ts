@@ -104,7 +104,7 @@ export async function mealieGetRecipeIngredients(settings: ConnectionSettings, c
 }
 
 // بحث في مكتبة وصفات Mealie — للاختيار منها عند التخطيط من التطبيق.
-export type MealieRecipeSummary = { id?: string; slug?: string; name?: string; description?: string };
+export type MealieRecipeSummary = { id?: string; recipe_id?: string; slug?: string; name?: string; description?: string };
 
 function recipesData(configEntryId: string, searchTerms?: string, resultLimit = 25): Record<string, unknown> {
   const data: Record<string, unknown> = { config_entry_id: configEntryId, result_limit: resultLimit };
@@ -112,13 +112,23 @@ function recipesData(configEntryId: string, searchTerms?: string, resultLimit = 
   return data;
 }
 
-// الرد ممكن يكون {recipes:[…]} أو {items:[…]} أو مصفوفة مباشرة — بنتعامل مع الكل.
-function extractRecipes(response: unknown): MealieRecipeSummary[] {
-  if (Array.isArray(response)) return response as MealieRecipeSummary[];
+// الرد القياسي: response.recipes.items[]. بندعم كمان أشكال بديلة (مصفوفة مباشرة،
+// أو {recipes:[…]}، أو {items:[…]}) لأمان الاختلاف بين النسخ.
+function toArray(v: unknown): MealieRecipeSummary[] | null {
+  if (Array.isArray(v)) return v as MealieRecipeSummary[];
+  if (v && typeof v === 'object' && Array.isArray((v as Record<string, unknown>).items)) {
+    return (v as Record<string, unknown>).items as MealieRecipeSummary[];
+  }
+  return null;
+}
+export function extractRecipes(response: unknown): MealieRecipeSummary[] {
+  const direct = toArray(response);
+  if (direct) return direct;
   if (response && typeof response === 'object') {
     const o = response as Record<string, unknown>;
     for (const key of ['recipes', 'items', 'result']) {
-      if (Array.isArray(o[key])) return o[key] as MealieRecipeSummary[];
+      const arr = toArray(o[key]);
+      if (arr) return arr;
     }
   }
   return [];
