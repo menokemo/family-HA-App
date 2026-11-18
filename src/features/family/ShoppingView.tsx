@@ -85,7 +85,7 @@ export function ShoppingView({ lists, settings, canManage = true }: Props) {
         <TextInput style={[s.input, s.small]} placeholder={i18n.t('unit')} placeholderTextColor={colors.muted} value={unit} onChangeText={setUnit} />
         <PressableScale onPress={add} disabled={!name.trim() || busy} style={[s.addBtn, { opacity: name.trim() && !busy ? 1 : 0.4 }]}><Ionicons name="add" size={22} color="#fff" /></PressableScale>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.cats}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.chipsOuter} contentContainerStyle={s.cats}>
         {SHOP_CATS.map(c => {
           const sel = cat === c;
           return (
@@ -126,7 +126,8 @@ function makeStyles(colors: Palette) {
     input: { backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, borderRadius: 11, paddingHorizontal: 11, paddingVertical: 9, color: colors.text, fontSize: 14 },
     small: { width: 58, textAlign: 'center', paddingHorizontal: 4 },
     addBtn: { width: 40, height: 40, borderRadius: 11, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-    cats: { gap: 7, paddingHorizontal: 14, paddingVertical: 10 },
+    chipsOuter: { flexGrow: 0, flexShrink: 0 },
+    cats: { gap: 7, paddingHorizontal: 14, paddingVertical: 10, alignItems: 'center' },
     catChip: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
     catChipText: { color: colors.muted, fontSize: 12, fontWeight: '600' },
     list: { paddingHorizontal: 14, paddingTop: 2 },

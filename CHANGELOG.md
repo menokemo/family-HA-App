@@ -6,6 +6,9 @@
 
 ## العربية
 
+### [2.35.1] — 2026-11-18  (تعديل JS — بييجي من metro) — **إصلاح: شرائط الأقسام/الأفراد كانت بتتمطّط**
+- في المشتريات (شريط الأقسام) والمهام (شريط الأفراد) كانوا بيظهروا أعمدة طويلة فاضية بدل صف فوق — السبب `ScrollView horizontal` من غير `flexGrow:0`. اتظبط، فالشكل بقى منظم.
+
 ### [2.35.0] — 2026-11-18  (تعديل JS — بييجي من metro، **من غير مكوّن جديد**) — **منظّم «لمّتنا»: شاشة الأفراد**
 - موديول **الأفراد** (في «المزيد») بقى جاهز — كارت لكل فرد فيه صورته ولونه، **دوره** (مدير/بالغ/طفل)، **في البيت/بره** (من حالة كيان person)، تاريخ ميلاده، وعدد مهامه المفتوحة.
 - بيقرا من اللي عندك خلاص (أفراد + بروفايلات + مهام) — مفيش تحديث مكوّن مطلوب. البيانات بتتدار من لوحة المكوّن (الأدمن).
@@ -1130,6 +1133,9 @@
 ---
 
 ## English
+
+### [2.35.1] — 2026-11-18  (JS change — comes from metro) — **Fix: category/member strips were stretching full-height**
+- In Shopping (category strip) and Chores (member strip), the chips rendered as tall empty columns instead of a row — caused by a horizontal `ScrollView` without `flexGrow:0`. Fixed, so the layout reads tidy.
 
 ### [2.35.0] — 2026-11-18  (JS change — comes from metro, **no new component**) — **"لمّتنا" organizer: members screen**
 - The **Members** module (under "More") is ready — a card per member with their photo and colour, **role** (manager/adult/child), **at home / away** (from the person entity's state), birthday, and their open-chores count.

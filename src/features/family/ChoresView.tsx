@@ -58,7 +58,7 @@ export function ChoresView({ states, settings, canManage = true }: Props) {
           <Ionicons name="add" size={22} color="#fff" />
         </PressableScale>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.pick}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.pickOuter} contentContainerStyle={s.pick}>
         <PressableScale style={[s.who, !assignee && { borderColor: colors.primary, backgroundColor: colors.primary + '18' }]} onPress={() => setAssignee(undefined)}>
           <View style={[s.whoAll, { backgroundColor: colors.muted }]}><Ionicons name="people" size={13} color="#fff" /></View>
           <Text style={[s.whoName, !assignee && { color: colors.primary }]}>{i18n.t('anyone')}</Text>
@@ -93,7 +93,8 @@ function makeStyles(colors: Palette) {
     addBar: { flexDirection: 'row', gap: 10, paddingHorizontal: 14, paddingTop: 10 },
     input: { flex: 1, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, color: colors.text, fontSize: 15 },
     addBtn: { width: 42, height: 42, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-    pick: { gap: 10, paddingHorizontal: 14, paddingVertical: 10 },
+    pickOuter: { flexGrow: 0, flexShrink: 0 },
+    pick: { gap: 10, paddingHorizontal: 14, paddingVertical: 10, alignItems: 'center' },
     who: { alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, width: 62 },
     whoAll: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
     whoName: { color: colors.muted, fontSize: 11, fontWeight: '600' },

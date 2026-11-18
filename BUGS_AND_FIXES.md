@@ -13,6 +13,15 @@ repeats the same diagnosis or the same mistake.
 
 ### ✅ مشاكل حُلَّت
 
+**شرائط الأقسام/الأفراد بتتمطّط لطول الشاشة (2.35.1)** — في المشتريات شريط الأقسام
+(خضار/ألبان/…) وفي المهام شريط الأفراد كانوا بيظهروا **أعمدة طويلة فاضية** بدل صف صغير
+فوق، فالشكل بان «مش منظم». السبب: `ScrollView horizontal` جوه حاوية `flex:1`، ومن غير
+`flexGrow:0/flexShrink:0` بياخد المساحة الرأسية المتبقية، والعناصر جواه بتتمطّط (الـrow
+افتراضيًا `alignItems: stretch`). **الحل:** أضفنا `style={{flexGrow:0,flexShrink:0}}` على
+الـScrollView الأفقي + `alignItems:'center'` في الـcontentContainer (نفس حل شريط الأيام في
+الأجندة سابقًا). **الدرس:** أي `ScrollView horizontal` جوه عمود `flex:1` لازم ياخد
+`flexGrow:0/flexShrink:0` وإلا هيتمطّط.
+
 **التقاويم القديمة فضلت ظاهرة في HA بعد تحديث المكوّن (المكوّن v0.9.2)** —
 ميجريشن v0.9 مسح **بيانات** التقاويم القديمة من الـ`.storage` وبطّل ينشئها، بس
 الكيانات نفسها (`calendar.secure_family_birthdays/events/appointments` + تقاويم
