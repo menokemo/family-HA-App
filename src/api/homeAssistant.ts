@@ -1,57 +1,11 @@
 import type { ConnectionSettings, HaEntity } from '../types/homeAssistant';
 import { buildRecurringEventCommand, type RecurringEventInput } from './calendarCommands';
-import { refreshAccessToken } from './oauth';
-import { getLiveSettings, updateLiveSettings } from '../storage/liveSettings';
 import { normalizeUrl } from './url';
+import { getLiveSettings } from '../storage/liveSettings';
+import { ensureFreshToken, request, callService } from './client';
+import { wsCommand } from './wsClient';
 
 export { normalizeUrl };
-const headers = (token: string) => ({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' });
-
-async function readError(response: Response): Promise<string> {
-  const text = await response.text();
-  if (!text) return `HTTP ${response.status}`;
-  try {
-    const parsed = JSON.parse(text) as { message?: string; error?: string };
-    return parsed.message ?? parsed.error ?? `HTTP ${response.status}: ${text.slice(0, 500)}`;
-  } catch { return `HTTP ${response.status}: ${text.slice(0, 500)}`; }
-}
-
-const REFRESH_MARGIN_MS = 60_000; // نجدد قبل الانتهاء بدقيقة، تجنبًا لسباق الوقت أثناء الطلب نفسه
-let refreshInFlight: Promise<string> | null = null;
-
-/** بترجع توكن صالح للاستخدام - لو الإعدادات OAuth والتوكن قرّب ينتهي، تجدده تلقائيًا أولًا. */
-export async function ensureFreshToken(settings: ConnectionSettings): Promise<string> {
-  if (settings.authMethod !== 'oauth' || !settings.refreshToken) return settings.token;
-  const expiresAt = settings.tokenExpiresAt ?? 0;
-  if (Date.now() < expiresAt - REFRESH_MARGIN_MS && settings.accessToken) return settings.accessToken;
-  if (!refreshInFlight) {
-    refreshInFlight = (async () => {
-      try {
-        const fresh = await refreshAccessToken(settings.baseUrl, settings.refreshToken!);
-        const patch = { accessToken: fresh.access_token, tokenExpiresAt: Date.now() + fresh.expires_in * 1000 };
-        const live = getLiveSettings();
-        if (live && live.baseUrl === settings.baseUrl) await updateLiveSettings(patch);
-        return fresh.access_token;
-      } finally {
-        refreshInFlight = null;
-      }
-    })();
-  }
-  return refreshInFlight;
-}
-
-async function request(settings: ConnectionSettings, path: string, init?: RequestInit): Promise<Response> {
-  const token = await ensureFreshToken(settings);
-  const response = await fetch(`${normalizeUrl(settings.baseUrl)}${path}`, {
-    ...init,
-    headers: { ...headers(token), ...(init?.headers ?? {}) },
-  });
-  // بنضيف الـ method + المسار لرسالة الخطأ عشان أي 401/غيره يبان مصدره بالظبط
-  // (بدل "Unauthorized" مجرّدة مش معروف جاية من أنهي نداء).
-  if (!response.ok) throw new Error(`${await readError(response)} · ${init?.method ?? 'GET'} ${path.split('?')[0]}`);
-  return response;
-}
-
 export async function testConnection(settings: ConnectionSettings): Promise<void> { await request(settings, '/api/'); }
 export async function getStates(settings: ConnectionSettings): Promise<HaEntity[]> { return (await request(settings, '/api/states')).json() as Promise<HaEntity[]>; }
 
@@ -385,82 +339,6 @@ export async function createCalendarEvent(settings: ConnectionSettings, entityId
   await request(settings, '/api/services/calendar/create_event', { method: 'POST', body: JSON.stringify({ entity_id: entityId, ...data }) });
 }
 
-// ===== تكامل Mealie الرسمي =====
-// خدمات Mealie محتاجة config_entry_id مش entity_id — بنجيبه من سجل الكيانات.
-// بنكتشفه تلقائيًا من أي كيان Mealie، فمفيش أي اسم ثابت متخزّن في التطبيق.
-export async function getEntityConfigEntryId(settings: ConnectionSettings, entityId: string): Promise<string | null> {
-  const res = (await wsCommand(settings, { type: 'config/entity_registry/get', entity_id: entityId })) as
-    | { config_entry_id?: string | null }
-    | null;
-  return res?.config_entry_id ?? null;
-}
-
-// إضافة/تعيين وجبة في خطة Mealie (ملاحظة نصية أو وصفة). الخدمة بتضيف مدخل جديد.
-export async function mealieSetMealplan(
-  settings: ConnectionSettings,
-  configEntryId: string,
-  data: { date: string; entry_type: string; recipe_id?: string; note_title?: string; note_text?: string },
-): Promise<void> {
-  await request(settings, '/api/services/mealie/set_mealplan', {
-    method: 'POST',
-    body: JSON.stringify({ config_entry_id: configEntryId, ...data }),
-  });
-}
-
-// تعيين وجبة عشوائية من وصفات Mealie لليوم/الخانة المحددة.
-export async function mealieSetRandomMealplan(
-  settings: ConnectionSettings,
-  configEntryId: string,
-  data: { date: string; entry_type: string },
-): Promise<void> {
-  await request(settings, '/api/services/mealie/set_random_mealplan', {
-    method: 'POST',
-    body: JSON.stringify({ config_entry_id: configEntryId, ...data }),
-  });
-}
-
-// عنصر خطة أكل من Mealie: إما وصفة (recipe) أو ملاحظة نصية (title).
-export type MealieMealplanEntry = {
-  date?: string;
-  entry_type?: string;
-  title?: string;
-  text?: string;
-  recipe?: { id?: string; slug?: string; name?: string } | null;
-};
-
-// خطة أكل يوم واحد — بنستخدم return_response (نفس باترون سيرفسات secure_family).
-export async function mealieGetMealplan(settings: ConnectionSettings, configEntryId: string, date: string): Promise<MealieMealplanEntry[]> {
-  const r = (await wsCommand(settings, {
-    type: 'call_service', domain: 'mealie', service: 'get_mealplan',
-    service_data: { config_entry_id: configEntryId, start_date: date, end_date: date }, return_response: true,
-  })) as { response?: { mealplan?: MealieMealplanEntry[] } } | null;
-  return r?.response?.mealplan ?? [];
-}
-
-type RecipeIngredient = { display?: string; note?: string; food?: { name?: string } | null; quantity?: number | null; unit?: { name?: string } | null };
-
-// مكوّنات وصفة بالنص الجاهز (display)، ومع بناء احتياطي لو display فاضي.
-export async function mealieGetRecipeIngredients(settings: ConnectionSettings, configEntryId: string, recipeId: string): Promise<string[]> {
-  const r = (await wsCommand(settings, {
-    type: 'call_service', domain: 'mealie', service: 'get_recipe',
-    service_data: { config_entry_id: configEntryId, recipe_id: recipeId }, return_response: true,
-  })) as { response?: { recipe?: { recipeIngredient?: RecipeIngredient[] } } } | null;
-  const list = r?.response?.recipe?.recipeIngredient ?? [];
-  return list
-    .map(ing => {
-      const d = (ing.display ?? '').trim();
-      if (d) return d;
-      const parts = [ing.quantity != null ? String(ing.quantity) : '', ing.unit?.name ?? '', ing.food?.name ?? '', ing.note ?? '']
-        .map(x => x.trim()).filter(Boolean);
-      return parts.join(' ').trim();
-    })
-    .filter(Boolean);
-}
-
-// ===== شبكة العيلة (الحائط/الشات/المهام) عبر سيرفسات مكوّن secure_family =====
-async function callService(settings: ConnectionSettings, domain: string, service: string, data: Record<string, unknown>): Promise<void> {
-  await request(settings, `/api/services/${domain}/${service}`, { method: 'POST', body: JSON.stringify(data) });
-}
 export const wallPost = (s: ConnectionSettings, text: string) => callService(s, 'secure_family', 'wall_post', { text });
 export const chatSend = (s: ConnectionSettings, text: string) => callService(s, 'secure_family', 'chat_send', { text });
 export const choreAdd = (s: ConnectionSettings, title: string, assignee?: string) => callService(s, 'secure_family', 'chore_add', assignee ? { title, assignee } : { title });
@@ -479,50 +357,6 @@ export async function createRecurringCalendarEvent(settings: ConnectionSettings,
 }
 
 export type TodoItem = { uid: string; summary: string; status: 'needs_action' | 'completed'; due?: string; description?: string };
-
-function wsUrl(baseUrl: string) {
-  return `${normalizeUrl(baseUrl).replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:')}/api/websocket`;
-}
-
-export async function wsCommand(settings: ConnectionSettings, payload: Record<string, unknown>): Promise<unknown> {
-  const token = await ensureFreshToken(settings);
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const finish = (fn: () => void) => { if (settled) return; settled = true; fn(); };
-    let socket: WebSocket;
-    try {
-      socket = new WebSocket(wsUrl(settings.baseUrl));
-    } catch (e) {
-      finish(() => reject(e instanceof Error ? e : new Error('Failed to open WebSocket')));
-      return;
-    }
-    let id = 0;
-    const timer = setTimeout(() => {
-      finish(() => { try { socket.close(); } catch { /* ignore */ } reject(new Error('WebSocket request timed out')); });
-    }, 8000);
-    socket.onmessage = event => {
-      try {
-        const message = JSON.parse(String(event.data)) as Record<string, unknown>;
-        if (message.type === 'auth_required') { socket.send(JSON.stringify({ type: 'auth', access_token: token })); return; }
-        if (message.type === 'auth_ok') { id = Math.floor(Math.random() * 1000000) + 1; socket.send(JSON.stringify({ id, ...payload })); return; }
-        if (message.type === 'auth_invalid') { clearTimeout(timer); finish(() => { socket.close(); reject(new Error('Authentication failed')); }); return; }
-        if (message.type === 'result' && message.id === id) {
-          clearTimeout(timer);
-          finish(() => {
-            socket.close();
-            if (message.success === false) reject(new Error(String((message.error as { message?: string } | undefined)?.message ?? 'Command failed')));
-            else resolve(message.result);
-          });
-        }
-      } catch (e) {
-        clearTimeout(timer);
-        finish(() => reject(e instanceof Error ? e : new Error('Failed to parse WebSocket response')));
-      }
-    };
-    socket.onerror = () => { clearTimeout(timer); finish(() => reject(new Error('WebSocket connection failed'))); };
-    socket.onclose = () => { clearTimeout(timer); finish(() => reject(new Error('WebSocket closed before a response arrived'))); };
-  });
-}
 
 export async function getTodoItems(settings: ConnectionSettings, entityId: string): Promise<TodoItem[]> {
   const result = (await wsCommand(settings, { type: 'call_service', domain: 'todo', service: 'get_items', target: { entity_id: entityId }, return_response: true })) as {
@@ -626,3 +460,7 @@ export function findAlarmoEntities(states: HaEntity[]): HaEntity[] {
   return states.filter(x => x.entity_id.startsWith('alarm_control_panel.')).sort((a,b) => Number(isAlarmo(b))-Number(isAlarmo(a)));
 }
 function isAlarmo(entity: HaEntity): boolean { return `${entity.entity_id} ${String(entity.attributes.friendly_name ?? '')}`.toLowerCase().includes('alarmo'); }
+
+// إعادة تصدير للحفاظ على الواجهة العامة (import من './api/homeAssistant' يفضل شغال).
+export { ensureFreshToken, wsCommand };
+export * from './mealieApi';

@@ -7,6 +7,11 @@
 ## العربية
 
 ### صيانة — 2026-11-18 — **تنظيف جودة الكود (داخلي، مش محتاج نشر OTA)**
+- **(3/4) تقسيم `homeAssistant.ts` (628 سطر) لوحدات:**
+  - استخراج طبقة النقل الأساسية لـ `client.ts` (ensureFreshToken, request, callService)، وعميل الـ WebSocket لـ `wsClient.ts` (wsCommand)، وتكامل Mealie لـ `mealieApi.ts`.
+  - اتجاه الاعتماد في خط واحد (client ← wsClient ← mealieApi ← homeAssistant) — **مفيش دوّارة استيراد**.
+  - `homeAssistant.ts` بقى **barrel** بيعيد تصدير الكل، فكل `import … from './api/homeAssistant'` فضل شغّال من غير أي تغيير في المستهلكين.
+  - النتيجة: `homeAssistant.ts` من **628 → 465 سطر** (+ client 57 + wsClient 49 + mealieApi 78). tsc نظيف، 93 تست ناجح.
 - **(2/4) تقسيم ملفات الخريطة وتقليل التكرار:**
   - `PeopleMapWeb.tsx` كان بيعيد تعريف ~15 helper موجودين أصلاً في `mapShared.ts` (coord, haversine, bearing, distance, etaText, timeAgo, placeLabel, reverseGeocode، وثوابت الحركة، وأنواع Motion/RouteMode). اتشالت واتجابت بالاستيراد من المصدر المشترك.
   - استخراج `mapHtml` (222 سطر — قالب HTML/MapLibre للـ WebView) لملف مستقل `mapWebTemplate.ts` نقلًا حرفيًا.
