@@ -116,7 +116,6 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onAudioCha
     const pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
 
     const log = (message: string) => {
-      // eslint-disable-next-line no-console
       console.log('[WebRTC]', camera.entity_id, message);
     };
 

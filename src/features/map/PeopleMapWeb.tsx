@@ -144,7 +144,7 @@ function placeLabel(p: HaEntity, addrMap: Record<string, string>, motion?: Motio
   return addrMap[p.entity_id] || i18n.t('placeAway');
 }
 
-export function PeopleMapWeb({ people, home, states, selectedPersonId, settings }: Props) {
+export function PeopleMapWeb({ people, states, selectedPersonId, settings }: Props) {
   const { colors, resolvedMode } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
 

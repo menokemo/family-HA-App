@@ -22,7 +22,7 @@ const RING_TIMEOUT_MS = 45000;
  *    backchannel)، الرفض بيقفل.
  *  • بعد الرد: أزرار كتم المايك · كتم الصوت الوارد · إنهاء المكالمة.
  */
-export function DoorbellScreen({ camera, settings, states, onClose }: Props) {
+export function DoorbellScreen({ camera, settings, onClose }: Props) {
   const [answered, setAnswered] = useState(false);
   const [micMuted, setMicMuted] = useState(false);
   const [speakerMuted, setSpeakerMuted] = useState(false);
