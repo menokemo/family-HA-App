@@ -725,6 +725,15 @@ appointments → planner، و**تقاويم الأفراد `person_*` القدي
   - **حدود/ملاحظات:** مفيش حسّاس «أكل النهاردة» (الخطة من التقاويم). التكامل الرسمي بقى فيه `delete_mealplan` و
     `update_mealplan` (+ `get_recipes`, `get_shopping_list_items`, `parse_ingredient`) — فحذف/استبدال وجبة من التطبيق
     بقى **ممكن مستقبلًا** (مؤجّل، مش محتاجينه دلوقتي).
+
+### بنية طبقة الـAPI وملفات الخريطة (تحديث جودة — 2026-11-18)
+- **طبقة الـAPI** (`src/api/`) اتقسمت من ملف واحد ضخم (`homeAssistant.ts` كان 628 سطر) لوحدات باتجاه اعتماد واحد (مفيش دوّارة استيراد):
+  - `client.ts` — النقل الأساسي: `ensureFreshToken` / `request` / `callService`.
+  - `wsClient.ts` — عميل WebSocket (`wsCommand`).
+  - `mealieApi.ts` — تكامل Mealie.
+  - `homeAssistant.ts` بقى **barrel** بيعيد تصدير الكل، فكل `import … from './api/homeAssistant'` فضل شغّال زي ما هو (مفيش تغيير في المستهلكين).
+- **ملفات الخريطة** (`src/features/map/`): المنطق المشترك كله في `mapShared.ts`؛ `PeopleMapWeb.tsx` اتشال منه التكرار (كان بيعيد تعريف ~15 helper) واستُخرج قالب الـWebView لـ `mapWebTemplate.ts` (1058 → 772 سطر). `PeopleMapNative.tsx` بيستورد المشترك من `mapShared`.
+- **اللينت:** `npm run lint` شغّال دلوقتي (ESLint 8) وأخضر (صفر أخطاء). القاعدة `exhaustive-deps` إرشادية (warn) لأن الـeffects بتعتمد على مفاتيح مشتقة مقصودة.
 - **م٢ب:** مطابقة الفورمات للـPDF (إضافة موعد بكل الحقول: نهاية/مكان/تكرار/تذكير/ملاحظات؛ مهمة
   بوصف/أولوية/تصنيف/تكرار). التكرار والمهام الأغنى محتاجين توسعة سكيمة في المكوّن.
 
