@@ -37,7 +37,7 @@ export function ShoppingView({ lists, settings, canManage = true }: Props) {
     setLoading(true);
     return getTodoItems(settings, list.entity_id).then(its => { setItems(its); setLoading(false); }).catch(() => setLoading(false));
   };
-  useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [list?.entity_id, listState, settings.baseUrl, settings.token]);
+  useEffect(() => { void load(); }, [list?.entity_id, listState, settings.baseUrl, settings.token]);
 
   const add = async () => {
     const n = name.trim();

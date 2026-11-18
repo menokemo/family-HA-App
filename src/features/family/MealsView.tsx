@@ -93,7 +93,7 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
       .then(parts => setMeals(parts.flat()))
       .finally(() => setLoading(false));
   };
-  useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [weekKey, settings.baseUrl, settings.token, mealie]);
+  useEffect(() => { void load(); }, [weekKey, settings.baseUrl, settings.token, mealie]);
 
   // تجميع: يوم → خانة → كل الوجبات (Mealie ممكن يكون فيه أكتر من مدخل للخانة).
   const byDaySlot = useMemo(() => {

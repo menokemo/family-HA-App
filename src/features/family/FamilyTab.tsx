@@ -196,7 +196,7 @@ function EntityPickerModal({
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const [local, setLocal] = useState(selectedIds);
-  useEffect(() => { if (visible) setLocal(selectedIds); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [visible]);
+  useEffect(() => { if (visible) setLocal(selectedIds); }, [visible]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>

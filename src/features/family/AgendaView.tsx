@@ -110,7 +110,7 @@ export function AgendaView({ calendars, states, settings, canManage = true }: Pr
         .catch(() => [] as Ev[])),
     ).then(lists => { setEvents(lists.flat()); setLoading(false); });
   };
-  useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [calKey, winKey, settings.baseUrl, settings.token]);
+  useEffect(() => { void load(); }, [calKey, winKey, settings.baseUrl, settings.token]);
 
   const byDay = useMemo(() => {
     const m: Record<string, Ev[]> = {};
