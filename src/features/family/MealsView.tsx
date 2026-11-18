@@ -15,6 +15,7 @@ import {
   mealieGetRecipe,
   mealieGetRecipeIngredients,
   mealieGetRecipes,
+  mealieGetRecipesRaw,
   mealieImportRecipe,
   mealieSetMealplan,
   mealieSetRandomMealplan,
@@ -323,6 +324,11 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
             if (!cfg) throw new Error(i18n.t('mealieNoConfig')); // الخطأ بيظهر في الشيت للتشخيص
             return mealieGetRecipes(settings, cfg, q);
           }}
+          onRaw={async q => {
+            const cfg = await resolveCfg();
+            if (!cfg) return 'no config_entry_id';
+            return mealieGetRecipesRaw(settings, cfg, q).catch(e => (e instanceof Error ? e.message : String(e)));
+          }}
           onPick={async recipe => {
             const cfg = await resolveCfg();
             const rid = recipe.slug ?? recipe.id;
@@ -339,8 +345,9 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
 }
 
 // ===== منتقي وصفات Mealie: بحث في المكتبة واختيار للتخطيط =====
-function RecipePickerSheet({ onSearch, onPick, onClose }: {
+function RecipePickerSheet({ onSearch, onRaw, onPick, onClose }: {
   onSearch: (q: string) => Promise<MealieRecipeSummary[]>;
+  onRaw: (q: string) => Promise<string>;
   onPick: (r: MealieRecipeSummary) => void;
   onClose: () => void;
 }) {
@@ -351,11 +358,15 @@ function RecipePickerSheet({ onSearch, onPick, onClose }: {
   const [loading, setLoading] = useState(true);
   const [picking, setPicking] = useState(false);
   const [err, setErr] = useState('');
+  const [raw, setRaw] = useState('');
 
   const run = async (q: string) => {
-    setLoading(true); setErr('');
-    try { setResults(await onSearch(q)); }
-    catch (e) { setErr(e instanceof Error ? e.message : String(e)); setResults([]); }
+    setLoading(true); setErr(''); setRaw('');
+    try {
+      const list = await onSearch(q);
+      setResults(list);
+      if (!list.length) setRaw(await onRaw(q)); // لو فاضي نجيب الرد الخام للتشخيص
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setResults([]); }
     finally { setLoading(false); }
   };
   useEffect(() => { void run(''); /* بحث أولي بكل الوصفات */ }, []);
@@ -411,6 +422,7 @@ function RecipePickerSheet({ onSearch, onPick, onClose }: {
             <View style={{ paddingVertical: 24, alignItems: 'center', gap: 6 }}>
               <Text style={s.hintCenter}>{err ? i18n.t('mealieError') : i18n.t('noRecipesFound')}</Text>
               {err ? <Text style={s.errText} numberOfLines={4}>{err}</Text> : null}
+              {!err && raw ? <Text style={s.errText} numberOfLines={8}>{raw}</Text> : null}
             </View>
           )}
         </View>

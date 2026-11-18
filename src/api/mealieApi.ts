@@ -105,18 +105,43 @@ export async function mealieGetRecipeIngredients(settings: ConnectionSettings, c
 
 // بحث في مكتبة وصفات Mealie — للاختيار منها عند التخطيط من التطبيق.
 export type MealieRecipeSummary = { id?: string; slug?: string; name?: string; description?: string };
+
+function recipesData(configEntryId: string, searchTerms?: string, resultLimit = 25): Record<string, unknown> {
+  const data: Record<string, unknown> = { config_entry_id: configEntryId, result_limit: resultLimit };
+  if (searchTerms && searchTerms.trim()) data.search_terms = searchTerms.trim();
+  return data;
+}
+
+// الرد ممكن يكون {recipes:[…]} أو {items:[…]} أو مصفوفة مباشرة — بنتعامل مع الكل.
+function extractRecipes(response: unknown): MealieRecipeSummary[] {
+  if (Array.isArray(response)) return response as MealieRecipeSummary[];
+  if (response && typeof response === 'object') {
+    const o = response as Record<string, unknown>;
+    for (const key of ['recipes', 'items', 'result']) {
+      if (Array.isArray(o[key])) return o[key] as MealieRecipeSummary[];
+    }
+  }
+  return [];
+}
+
 export async function mealieGetRecipes(
   settings: ConnectionSettings,
   configEntryId: string,
   searchTerms?: string,
   resultLimit = 25,
 ): Promise<MealieRecipeSummary[]> {
-  const data: Record<string, unknown> = { config_entry_id: configEntryId, result_limit: resultLimit };
-  if (searchTerms && searchTerms.trim()) data.search_terms = searchTerms.trim();
   const r = (await wsCommand(settings, {
-    type: 'call_service', domain: 'mealie', service: 'get_recipes', service_data: data, return_response: true,
-  })) as { response?: { recipes?: MealieRecipeSummary[] } } | null;
-  return r?.response?.recipes ?? [];
+    type: 'call_service', domain: 'mealie', service: 'get_recipes', service_data: recipesData(configEntryId, searchTerms, resultLimit), return_response: true,
+  })) as { response?: unknown } | null;
+  return extractRecipes(r?.response);
+}
+
+// تشخيص: الرد الخام (مقطوع) لما نحتاج نعرف شكله بالظبط.
+export async function mealieGetRecipesRaw(settings: ConnectionSettings, configEntryId: string, searchTerms?: string): Promise<string> {
+  const r = await wsCommand(settings, {
+    type: 'call_service', domain: 'mealie', service: 'get_recipes', service_data: recipesData(configEntryId, searchTerms), return_response: true,
+  });
+  return JSON.stringify(r ?? null).slice(0, 700);
 }
 
 // حذف مدخل من خطة Mealie.
