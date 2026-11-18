@@ -57,12 +57,14 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
 
   const mealieCals = useMemo(() => findMealieCalendars(states), [states]);
   const mealie = mealieCals.length > 0;
-  // في وضع Mealie بنعرض الخانات اللي ليها تقويم فعلاً، بالترتيب المعتاد.
+  const [meals, setMeals] = useState<Meal[]>([]);
+
+  // في وضع Mealie بنعرض الخانات اللي ليها تقويم أو ليها وجبة في البيانات.
   const slots = useMemo<MealSlot[]>(() => {
     if (!mealie) return LOCAL_SLOTS;
-    const present = new Set(mealieCals.map(c => c.slot));
+    const present = new Set<MealSlot>([...mealieCals.map(c => c.slot), ...meals.map(m => m.slot)]);
     return (['breakfast', 'lunch', 'dinner', 'side'] as MealSlot[]).filter(x => present.has(x));
-  }, [mealie, mealieCals]);
+  }, [mealie, mealieCals, meals]);
 
   // قائمة التسوّق الهدف: نفضّل قائمة Mealie لو موجودة.
   const groceryList = useMemo(() => {
@@ -71,7 +73,6 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
   }, [states, lists]);
 
   const [weekStart, setWeekStart] = useState<Date>(mondayOf(new Date()));
-  const [meals, setMeals] = useState<Meal[]>([]);
   const [loading, setLoading] = useState(true);
   const [edit, setEdit] = useState<{ day: Date; slot: MealSlot } | null>(null);
   const [toast, setToast] = useState<string>('');
@@ -82,10 +83,15 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
 
   const weekKey = dayKey(weekStart);
 
-  // نحلّل config_entry_id بتاع Mealie مرّة واحدة ونخزّنه.
+  // نحلّل config_entry_id بتاع Mealie مرّة واحدة ونخزّنه — بنجرّب أكتر من كيان (تقويم/قائمة) لحد ما نلاقيه.
   const resolveCfg = async (): Promise<string | null> => {
     if (cfgRef.current !== undefined) return cfgRef.current;
-    const id = await getEntityConfigEntryId(settings, mealieCals[0].entity.entity_id).catch(() => null);
+    const candidates = [...mealieCals.map(c => c.entity.entity_id), ...findMealieTodos(states).map(t => t.entity_id)];
+    let id: string | null = null;
+    for (const ent of candidates) {
+      id = await getEntityConfigEntryId(settings, ent).catch(() => null);
+      if (id) break;
+    }
     cfgRef.current = id;
     return id;
   };
@@ -94,21 +100,37 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
     setLoading(true);
     try {
       if (mealie) {
-        const cfg = await resolveCfg();
-        if (!cfg) { setMeals([]); return; }
-        const entries = await mealieGetMealplan(settings, cfg, dayKey(weekStart), dayKey(addDays(weekStart, 6))).catch(() => []);
-        setMeals(
-          entries
-            .filter(e => typeof e.entry_type === 'string' && isKnownSlot(e.entry_type))
-            .map(e => ({
-              day: (e.date ?? '').slice(0, 10),
-              slot: e.entry_type as MealSlot,
-              summary: (e.recipe?.name ?? e.title ?? '').trim(),
-              mealplanId: e.mealplan_id != null ? String(e.mealplan_id) : e.id != null ? String(e.id) : undefined,
-              recipeId: e.recipe?.id ?? e.recipe?.slug,
-            }))
-            .filter(m => m.day && m.summary),
-        );
+        const start = weekStart;
+        const end = addDays(weekStart, 7);
+        // العرض من تقاويم Mealie (بترجّع الخطة بثبات)، والمعرّفات من get_mealplan لتفعيل الحذف/التفاصيل.
+        const [calMeals, plan] = await Promise.all([
+          Promise.all(
+            mealieCals.map(c =>
+              getCalendarEvents(settings, c.entity.entity_id, start.toISOString(), end.toISOString())
+                .then(list => list.map(e => ({ day: eventDayKey(e.start) ?? '', slot: c.slot, summary: e.summary } as Meal)))
+                .catch(() => [] as Meal[]),
+            ),
+          ).then(parts => parts.flat().filter(m => m.day && m.summary)),
+          (async () => {
+            const cfg = await resolveCfg();
+            if (!cfg) return [];
+            return mealieGetMealplan(settings, cfg, dayKey(weekStart), dayKey(addDays(weekStart, 6))).catch(() => []);
+          })(),
+        ]);
+
+        const planMeals: Meal[] = plan
+          .filter(e => typeof e.entry_type === 'string' && isKnownSlot(e.entry_type))
+          .map(e => ({
+            day: (e.date ?? '').slice(0, 10),
+            slot: e.entry_type as MealSlot,
+            summary: (e.recipe?.name ?? e.title ?? '').trim(),
+            mealplanId: e.mealplan_id != null ? String(e.mealplan_id) : e.id != null ? String(e.id) : undefined,
+            recipeId: e.recipe?.id ?? e.recipe?.slug,
+          }))
+          .filter(m => m.day && m.summary);
+
+        // get_mealplan أغنى (فيه المعرّفات) فنفضّله لو رجّع بيانات، وإلا نعرض من التقاويم.
+        setMeals(planMeals.length ? planMeals : calMeals);
       } else if (localCalendar) {
         const list = await getCalendarEvents(settings, localCalendar.entity_id, weekStart.toISOString(), addDays(weekStart, 7).toISOString()).catch(() => []);
         setMeals(
