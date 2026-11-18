@@ -4,8 +4,17 @@ import { request } from './client';
 import { wsCommand } from './wsClient';
 
 // ===== تكامل Mealie الرسمي =====
-// خدمات Mealie محتاجة config_entry_id مش entity_id — بنجيبه من سجل الكيانات.
-// بنكتشفه تلقائيًا من أي كيان Mealie، فمفيش أي اسم ثابت متخزّن في التطبيق.
+// خدمات Mealie محتاجة config_entry_id مش entity_id — بنجيبه بطريقتين (الأضمن أول).
+// مفيش أي اسم ثابت متخزّن في التطبيق — الدومين "mealie" بس هو الثابت القياسي.
+
+// الأضمن: من قائمة مدخلات الإعداد مباشرةً بالدومين.
+export async function mealieConfigEntryId(settings: ConnectionSettings): Promise<string | null> {
+  const r = (await wsCommand(settings, { type: 'config_entries/get' })) as Array<{ entry_id?: string; domain?: string }> | null;
+  const entry = Array.isArray(r) ? r.find(e => e.domain === 'mealie') : undefined;
+  return entry?.entry_id ?? null;
+}
+
+// بديل: config_entry_id بتاع كيان Mealie من سجل الكيانات.
 export async function getEntityConfigEntryId(settings: ConnectionSettings, entityId: string): Promise<string | null> {
   const res = (await wsCommand(settings, { type: 'config/entity_registry/get', entity_id: entityId })) as
     | { config_entry_id?: string | null }
@@ -92,6 +101,22 @@ export async function mealieGetRecipe(settings: ConnectionSettings, configEntryI
 // مكوّنات وصفة فقط (غلاف رفيع حوالين mealieGetRecipe لتدفّق «ضيف للتسوّق»).
 export async function mealieGetRecipeIngredients(settings: ConnectionSettings, configEntryId: string, recipeId: string): Promise<string[]> {
   return (await mealieGetRecipe(settings, configEntryId, recipeId)).ingredients;
+}
+
+// بحث في مكتبة وصفات Mealie — للاختيار منها عند التخطيط من التطبيق.
+export type MealieRecipeSummary = { id?: string; slug?: string; name?: string; description?: string };
+export async function mealieGetRecipes(
+  settings: ConnectionSettings,
+  configEntryId: string,
+  searchTerms?: string,
+  resultLimit = 25,
+): Promise<MealieRecipeSummary[]> {
+  const data: Record<string, unknown> = { config_entry_id: configEntryId, result_limit: resultLimit };
+  if (searchTerms && searchTerms.trim()) data.search_terms = searchTerms.trim();
+  const r = (await wsCommand(settings, {
+    type: 'call_service', domain: 'mealie', service: 'get_recipes', service_data: data, return_response: true,
+  })) as { response?: { recipes?: MealieRecipeSummary[] } } | null;
+  return r?.response?.recipes ?? [];
 }
 
 // حذف مدخل من خطة Mealie.

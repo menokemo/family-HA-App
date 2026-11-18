@@ -9,15 +9,18 @@ import {
   deleteCalendarEvent,
   getCalendarEvents,
   getEntityConfigEntryId,
+  mealieConfigEntryId,
   mealieDeleteMealplan,
   mealieGetMealplan,
   mealieGetRecipe,
   mealieGetRecipeIngredients,
+  mealieGetRecipes,
   mealieImportRecipe,
   mealieSetMealplan,
   mealieSetRandomMealplan,
   type CalendarEvent,
   type MealieRecipe,
+  type MealieRecipeSummary,
 } from '../../api/homeAssistant';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { PressableScale } from '../../components/PressableScale';
@@ -78,6 +81,7 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
   const [toast, setToast] = useState<string>('');
   const [ing, setIng] = useState<{ title: string; items: string[] } | null>(null);
   const [details, setDetails] = useState<{ title: string; recipe: MealieRecipe } | null>(null);
+  const [browsing, setBrowsing] = useState(false); // منتقي وصفات Mealie مفتوح
   const [busy, setBusy] = useState(false); // حارس للعمليات اللحظية (مكوّنات/تفاصيل/حذف)
   const cfgRef = useRef<string | null | undefined>(undefined); // config_entry_id بتاع Mealie (undefined = لسه محلّلناش)
 
@@ -86,11 +90,13 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
   // نحلّل config_entry_id بتاع Mealie مرّة واحدة ونخزّنه — بنجرّب أكتر من كيان (تقويم/قائمة) لحد ما نلاقيه.
   const resolveCfg = async (): Promise<string | null> => {
     if (cfgRef.current !== undefined) return cfgRef.current;
-    const candidates = [...mealieCals.map(c => c.entity.entity_id), ...findMealieTodos(states).map(t => t.entity_id)];
-    let id: string | null = null;
-    for (const ent of candidates) {
-      id = await getEntityConfigEntryId(settings, ent).catch(() => null);
-      if (id) break;
+    let id = await mealieConfigEntryId(settings).catch(() => null);
+    if (!id) {
+      const candidates = [...mealieCals.map(c => c.entity.entity_id), ...findMealieTodos(states).map(t => t.entity_id)];
+      for (const ent of candidates) {
+        id = await getEntityConfigEntryId(settings, ent).catch(() => null);
+        if (id) break;
+      }
     }
     cfgRef.current = id;
     return id;
@@ -292,6 +298,7 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
           onAddToShopping={m => void pickIngredients(m)}
           onDetails={m => void showDetails(m)}
           onDelete={deleteMeal}
+          onBrowse={() => setBrowsing(true)}
           onClose={() => setEdit(null)}
           onDone={() => { setEdit(null); void load(); }}
         />
@@ -309,7 +316,97 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
 
       {ing ? <IngredientsSheet title={ing.title} items={ing.items} onAdd={addIngredients} onClose={() => setIng(null)} /> : null}
       {details ? <RecipeDetailsSheet title={details.title} recipe={details.recipe} onClose={() => setDetails(null)} /> : null}
+      {browsing && edit ? (
+        <RecipePickerSheet
+          onSearch={async q => {
+            const cfg = await resolveCfg();
+            if (!cfg) { showToast(i18n.t('mealieNoConfig')); return []; }
+            return mealieGetRecipes(settings, cfg, q).catch(() => []);
+          }}
+          onPick={async recipe => {
+            const cfg = await resolveCfg();
+            const rid = recipe.slug ?? recipe.id;
+            if (!cfg || !rid) { showToast(i18n.t('saveError')); return; }
+            try { await mealieSetMealplan(settings, cfg, { date: dayKey(edit.day), entry_type: edit.slot, recipe_id: String(rid) }); }
+            catch { showToast(i18n.t('saveError')); return; }
+            setBrowsing(false); setEdit(null); void load();
+          }}
+          onClose={() => setBrowsing(false)}
+        />
+      ) : null}
     </View>
+  );
+}
+
+// ===== منتقي وصفات Mealie: بحث في المكتبة واختيار للتخطيط =====
+function RecipePickerSheet({ onSearch, onPick, onClose }: {
+  onSearch: (q: string) => Promise<MealieRecipeSummary[]>;
+  onPick: (r: MealieRecipeSummary) => void;
+  onClose: () => void;
+}) {
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<MealieRecipeSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [picking, setPicking] = useState(false);
+
+  const run = async (q: string) => { setLoading(true); try { setResults(await onSearch(q)); } finally { setLoading(false); } };
+  useEffect(() => { void run(''); /* بحث أولي بكل الوصفات */ }, []);
+
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <View style={s.backdrop}>
+        <View style={[s.sheet, { maxHeight: '88%' }]}>
+          <View style={s.sheetHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+              <Ionicons name="book-outline" size={18} color={colors.primary} />
+              <Text style={[s.sheetTitle, { textTransform: 'none', flex: 1 }]}>{i18n.t('chooseRecipe')}</Text>
+            </View>
+            <PressableScale onPress={onClose}><Ionicons name="close" size={22} color={colors.text} /></PressableScale>
+          </View>
+
+          <View style={s.importRow}>
+            <TextInput
+              style={[s.input, { flex: 1, minHeight: 44 }]}
+              placeholder={i18n.t('searchRecipes')}
+              placeholderTextColor={colors.muted}
+              value={query}
+              onChangeText={setQuery}
+              autoCapitalize="none"
+              returnKeyType="search"
+              onSubmitEditing={() => void run(query)}
+            />
+            <PressableScale style={s.importBtn} onPress={() => void run(query)}>
+              <Ionicons name="search" size={18} color={colors.black} />
+            </PressableScale>
+          </View>
+
+          {loading ? (
+            <View style={{ paddingVertical: 28 }}><ActivityIndicator color={colors.primary} /></View>
+          ) : results.length ? (
+            <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: 6, paddingVertical: 2 }} keyboardShouldPersistTaps="handled">
+              {results.map((r, i) => (
+                <PressableScale
+                  key={r.slug ?? r.id ?? i}
+                  style={s.recipeRow}
+                  disabled={picking}
+                  onPress={() => { if (picking) return; setPicking(true); onPick(r); }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.entryName} numberOfLines={1}>{r.name ?? r.slug}</Text>
+                    {r.description ? <Text style={s.recipeDesc} numberOfLines={2}>{r.description}</Text> : null}
+                  </View>
+                  <Ionicons name="add-circle" size={22} color={colors.primary} />
+                </PressableScale>
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={{ paddingVertical: 28, alignItems: 'center' }}><Text style={s.hintCenter}>{i18n.t('noRecipesFound')}</Text></View>
+          )}
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -403,7 +500,7 @@ function RecipeDetailsSheet({ title, recipe, onClose }: { title: string; recipe:
 }
 
 // ===== Mealie: محرّر الخانة — عرض/حذف/تفاصيل الموجود + إضافة (ملاحظة/عشوائي/استيراد بلينك) =====
-function MealieSlotModal({ day, slot, entries, onAddNote, onRandom, onImport, onAddToShopping, onDetails, onDelete, onClose, onDone }: {
+function MealieSlotModal({ day, slot, entries, onAddNote, onRandom, onImport, onAddToShopping, onDetails, onDelete, onBrowse, onClose, onDone }: {
   day: Date; slot: MealSlot; entries: Meal[];
   onAddNote: (text: string) => Promise<boolean>;
   onRandom: () => Promise<boolean>;
@@ -411,6 +508,7 @@ function MealieSlotModal({ day, slot, entries, onAddNote, onRandom, onImport, on
   onAddToShopping: (m: Meal) => void;
   onDetails: (m: Meal) => void;
   onDelete: (m: Meal) => Promise<boolean>;
+  onBrowse: () => void;
   onClose: () => void; onDone: () => void;
 }) {
   const { colors } = useTheme();
@@ -455,6 +553,10 @@ function MealieSlotModal({ day, slot, entries, onAddNote, onRandom, onImport, on
             ) : null}
 
             <Text style={s.addHeading}>{i18n.t('addMeal')}</Text>
+            <PressableScale style={s.browseBtn} onPress={onBrowse}>
+              <Ionicons name="book-outline" size={18} color={colors.black} />
+              <Text style={s.browseText}>{i18n.t('chooseRecipe')}</Text>
+            </PressableScale>
             <TextInput style={s.input} placeholder={i18n.t('mealPlaceholder')} placeholderTextColor={colors.muted} value={text} onChangeText={setText} multiline />
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <PressableScale style={[s.save, { backgroundColor: meta.color, flex: 1, opacity: busy || !text.trim() ? 0.6 : 1 }]} onPress={() => text.trim() && void run(() => onAddNote(text.trim()))}>
@@ -579,6 +681,11 @@ function makeStyles(colors: Palette) {
     randomText: { color: colors.text, fontWeight: '700', fontSize: 13 },
     importRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     importBtn: { width: 48, height: 44, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+    browseBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, paddingVertical: 13, backgroundColor: colors.primary },
+    browseText: { color: colors.black, fontWeight: '800', fontSize: 15 },
+    recipeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 11 },
+    recipeDesc: { color: colors.muted, fontSize: 12, marginTop: 2, lineHeight: 16 },
+    hintCenter: { color: colors.muted, fontSize: 13, fontWeight: '600' },
     ingRow: { flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 11 },
     check: { width: 22, height: 22, borderRadius: 7, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
     ingText: { color: colors.text, fontSize: 14, fontWeight: '600', flex: 1 },

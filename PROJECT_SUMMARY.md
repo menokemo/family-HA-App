@@ -722,6 +722,10 @@ appointments → planner، و**تقاويم الأفراد `person_*` القدي
     (كلها متعلّمة مسبقًا) → تضيف المختار لقائمة Mealie. السلسلة: `get_mealplan` (خطة اليوم) → وصفة الخانة →
     `get_recipe` → `recipeIngredient[].display` → `todo.add_item`. (API: `mealieGetMealplan`, `mealieGetRecipeIngredients`.)
     ملاحظة بدون وصفة → يضيف اسم الوجبة.
+  - **اختيار من وصفات Mealie (منفّذ — 2.39.0):** زرار «اختر من وصفاتك» في محرّر الخانة → شيت بحث (`get_recipes` بـ
+    `search_terms`/`result_limit`) → اختيار وصفة بيخطّطها على الخانة (`set_mealplan` بـ `recipe_id`). التخطيط بالكامل من
+    التطبيق من غير فتح Mealie. حلّ `config_entry_id` بقى من `config_entries/get` بالدومين (الأضمن) مع fallback لسجل الكيانات.
+  - **تحميل هجين (2.38.1):** العرض من تقاويم Mealie + المعرّفات من `get_mealplan`؛ أي مصدر بيرجّع بيانات بيتعرض.
   - **تفاصيل/حذف/استيراد (منفّذ — 2.38.0):** مصدر بيانات وضع Mealie اتحوّل لـ `get_mealplan` (نداء أسبوعي واحد بيرجّع
     `mealplan_id` + `recipe`)، فاتفتحت: **عرض تفاصيل الوصفة** (`get_recipe` → مكوّنات + خطوات)، **حذف وجبة**
     (`delete_mealplan`)، و**استيراد وصفة بلينك** (`import_recipe` + تخطيط فوري بـ `set_mealplan`). API:
