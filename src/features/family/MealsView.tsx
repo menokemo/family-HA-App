@@ -320,8 +320,8 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
         <RecipePickerSheet
           onSearch={async q => {
             const cfg = await resolveCfg();
-            if (!cfg) { showToast(i18n.t('mealieNoConfig')); return []; }
-            return mealieGetRecipes(settings, cfg, q).catch(() => []);
+            if (!cfg) throw new Error(i18n.t('mealieNoConfig')); // الخطأ بيظهر في الشيت للتشخيص
+            return mealieGetRecipes(settings, cfg, q);
           }}
           onPick={async recipe => {
             const cfg = await resolveCfg();
@@ -350,8 +350,14 @@ function RecipePickerSheet({ onSearch, onPick, onClose }: {
   const [results, setResults] = useState<MealieRecipeSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [picking, setPicking] = useState(false);
+  const [err, setErr] = useState('');
 
-  const run = async (q: string) => { setLoading(true); try { setResults(await onSearch(q)); } finally { setLoading(false); } };
+  const run = async (q: string) => {
+    setLoading(true); setErr('');
+    try { setResults(await onSearch(q)); }
+    catch (e) { setErr(e instanceof Error ? e.message : String(e)); setResults([]); }
+    finally { setLoading(false); }
+  };
   useEffect(() => { void run(''); /* بحث أولي بكل الوصفات */ }, []);
 
   return (
@@ -402,7 +408,10 @@ function RecipePickerSheet({ onSearch, onPick, onClose }: {
               ))}
             </ScrollView>
           ) : (
-            <View style={{ paddingVertical: 28, alignItems: 'center' }}><Text style={s.hintCenter}>{i18n.t('noRecipesFound')}</Text></View>
+            <View style={{ paddingVertical: 24, alignItems: 'center', gap: 6 }}>
+              <Text style={s.hintCenter}>{err ? i18n.t('mealieError') : i18n.t('noRecipesFound')}</Text>
+              {err ? <Text style={s.errText} numberOfLines={4}>{err}</Text> : null}
+            </View>
           )}
         </View>
       </View>
@@ -686,6 +695,7 @@ function makeStyles(colors: Palette) {
     recipeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 11 },
     recipeDesc: { color: colors.muted, fontSize: 12, marginTop: 2, lineHeight: 16 },
     hintCenter: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+    errText: { color: colors.danger, fontSize: 12, textAlign: 'center', paddingHorizontal: 20, lineHeight: 17 },
     ingRow: { flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 11 },
     check: { width: 22, height: 22, borderRadius: 7, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
     ingText: { color: colors.text, fontSize: 14, fontWeight: '600', flex: 1 },
