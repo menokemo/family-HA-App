@@ -332,9 +332,9 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
           onPick={async recipe => {
             const cfg = await resolveCfg();
             const rid = recipe.slug ?? recipe.recipe_id ?? recipe.id;
-            if (!cfg || !rid) { showToast(i18n.t('saveError')); return; }
-            try { await mealieSetMealplan(settings, cfg, { date: dayKey(edit.day), entry_type: edit.slot, recipe_id: String(rid) }); }
-            catch { showToast(i18n.t('saveError')); return; }
+            if (!cfg) throw new Error(i18n.t('mealieNoConfig'));
+            if (!rid) throw new Error('recipe id missing');
+            await mealieSetMealplan(settings, cfg, { date: dayKey(edit.day), entry_type: edit.slot, recipe_id: String(rid) });
             setBrowsing(false); setEdit(null); void load();
           }}
           onClose={() => setBrowsing(false)}
@@ -348,7 +348,7 @@ export function MealsView({ states, lists, settings, localCalendar }: Props) {
 function RecipePickerSheet({ onSearch, onRaw, onPick, onClose }: {
   onSearch: (q: string) => Promise<MealieRecipeSummary[]>;
   onRaw: (q: string) => Promise<string>;
-  onPick: (r: MealieRecipeSummary) => void;
+  onPick: (r: MealieRecipeSummary) => Promise<void>;
   onClose: () => void;
 }) {
   const { colors } = useTheme();
@@ -370,6 +370,13 @@ function RecipePickerSheet({ onSearch, onRaw, onPick, onClose }: {
     finally { setLoading(false); }
   };
   useEffect(() => { void run(''); /* بحث أولي بكل الوصفات */ }, []);
+
+  const pick = async (r: MealieRecipeSummary) => {
+    if (picking) return;
+    setPicking(true); setErr('');
+    try { await onPick(r); } // نجاح → الشيت بيتقفل؛ فشل → نعرض الخطأ ونوقف المؤشّر
+    catch (e) { setErr(e instanceof Error ? e.message : String(e)); setPicking(false); }
+  };
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
@@ -404,6 +411,7 @@ function RecipePickerSheet({ onSearch, onRaw, onPick, onClose }: {
               <ActivityIndicator color={colors.primary} /><Text style={s.hintCenter}>{i18n.t('adding')}</Text>
             </View>
           ) : null}
+          {err && results.length ? <Text style={[s.errText, { paddingVertical: 8 }]} numberOfLines={4}>{err}</Text> : null}
           {loading ? (
             <View style={{ paddingVertical: 28 }}><ActivityIndicator color={colors.primary} /></View>
           ) : results.length ? (
@@ -413,7 +421,7 @@ function RecipePickerSheet({ onSearch, onRaw, onPick, onClose }: {
                   key={r.slug ?? r.recipe_id ?? r.id ?? i}
                   style={s.recipeRow}
                   disabled={picking}
-                  onPress={() => { if (picking) return; setPicking(true); onPick(r); }}
+                  onPress={() => void pick(r)}
                 >
                   <View style={{ flex: 1 }}>
                     <Text style={s.entryName} numberOfLines={1}>{r.name ?? r.slug}</Text>

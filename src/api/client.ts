@@ -40,12 +40,27 @@ export async function ensureFreshToken(settings: ConnectionSettings): Promise<st
   return refreshInFlight;
 }
 
-export async function request(settings: ConnectionSettings, path: string, init?: RequestInit): Promise<Response> {
+// مهلة افتراضية 30ث لأي نداء REST — تمنع التعليق للأبد لو السيرفر (أو خدمة
+// خارجية زي Mealie ورا الخدمة) بطيء أو علّق.
+export async function request(settings: ConnectionSettings, path: string, init?: RequestInit, timeoutMs = 30000): Promise<Response> {
   const token = await ensureFreshToken(settings);
-  const response = await fetch(`${normalizeUrl(settings.baseUrl)}${path}`, {
-    ...init,
-    headers: { ...headers(token), ...(init?.headers ?? {}) },
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let response: Response;
+  try {
+    response = await fetch(`${normalizeUrl(settings.baseUrl)}${path}`, {
+      ...init,
+      headers: { ...headers(token), ...(init?.headers ?? {}) },
+      signal: controller.signal,
+    });
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new Error(`Request timed out · ${init?.method ?? 'GET'} ${path.split('?')[0]}`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
   // بنضيف الـ method + المسار لرسالة الخطأ عشان أي 401/غيره يبان مصدره بالظبط
   // (بدل "Unauthorized" مجرّدة مش معروف جاية من أنهي نداء).
   if (!response.ok) throw new Error(`${await readError(response)} · ${init?.method ?? 'GET'} ${path.split('?')[0]}`);
