@@ -12,6 +12,7 @@ import { WallView } from './WallView';
 import { ChatView } from './ChatView';
 import { ChoresView } from './ChoresView';
 import { ShoppingView } from './ShoppingView';
+import { MembersView } from './MembersView';
 import { PressableScale } from '../../components/PressableScale';
 import { Card } from '../../components/Card';
 import { canManage, myRole } from './roles';
@@ -109,6 +110,8 @@ export function FamilyTab({ states, settings, onSettingsChange }: Props) {
               <MealsView mealsCalendar={mealsCalendar} lists={lists} settings={settings} />
             ) : moduleOpen === 'wall' ? (
               <WallView calendars={calendars} states={states} settings={settings} canManage={manage} />
+            ) : moduleOpen === 'members' ? (
+              <MembersView states={states} settings={settings} />
             ) : moduleOpen ? (
               <ComingSoon icon="construct-outline" label={moduleTitle(moduleOpen)} />
             ) : null}
@@ -160,7 +163,7 @@ function MoreMenu({ hasMeals, onOpen }: { hasMeals: boolean; onOpen: (m: Module)
   if (hasMeals) items.push({ key: 'meals', icon: 'restaurant-outline', label: i18n.t('meals'), soon: false });
   items.push(
     { key: 'wall', icon: 'newspaper-outline', label: i18n.t('wall'), soon: false },
-    { key: 'members', icon: 'people-outline', label: i18n.t('members'), soon: true },
+    { key: 'members', icon: 'people-outline', label: i18n.t('members'), soon: false },
     { key: 'budget', icon: 'wallet-outline', label: i18n.t('budget'), soon: true },
     { key: 'notes', icon: 'document-text-outline', label: i18n.t('notes'), soon: true },
     { key: 'routines', icon: 'repeat-outline', label: i18n.t('routines'), soon: true },

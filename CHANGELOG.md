@@ -6,6 +6,10 @@
 
 ## العربية
 
+### [2.35.0] — 2026-11-18  (تعديل JS — بييجي من metro، **من غير مكوّن جديد**) — **منظّم «لمّتنا»: شاشة الأفراد**
+- موديول **الأفراد** (في «المزيد») بقى جاهز — كارت لكل فرد فيه صورته ولونه، **دوره** (مدير/بالغ/طفل)، **في البيت/بره** (من حالة كيان person)، تاريخ ميلاده، وعدد مهامه المفتوحة.
+- بيقرا من اللي عندك خلاص (أفراد + بروفايلات + مهام) — مفيش تحديث مكوّن مطلوب. البيانات بتتدار من لوحة المكوّن (الأدمن).
+
 ### [2.34.0] — 2026-11-17  (تعديل JS — بييجي من metro، **من غير مكوّن**) — **منظّم «لمّتنا»: موديول المشتريات**
 - **تبويب المشتريات** بقى شغّال — قائمة تسوّق على **قوائم HA القياسية (`todo`)**، فمايحتاجش المكوّن خالص.
 - إضافة صنف بـ**كمية + وحدة + قسم** (خضار/ألبان/لحوم/مخبوزات/منظفات/أخرى)، شطب «تم الشراء»، مسح (الطفل لأ). تجميع بالأقسام + قسم «تم الشراء».
@@ -1126,6 +1130,10 @@
 ---
 
 ## English
+
+### [2.35.0] — 2026-11-18  (JS change — comes from metro, **no new component**) — **"لمّتنا" organizer: members screen**
+- The **Members** module (under "More") is ready — a card per member with their photo and colour, **role** (manager/adult/child), **at home / away** (from the person entity's state), birthday, and their open-chores count.
+- Reads what you already have (people + profiles + chores) — no component update needed. The data is managed by an admin in the component panel.
 
 ### [2.34.0] — 2026-11-17  (JS change — comes from metro, **no component**) — **"لمّتنا" organizer: shopping module**
 - The **Shopping tab** now works — a shopping list on **standard HA `todo` lists**, so it needs no component at all.
