@@ -6,6 +6,12 @@
 
 ## العربية
 
+### [2.37.0] — 2026-11-18  (تعديل JS — بييجي من metro، **من غير مكوّن جديد**) — **مكوّنات الوجبة → قائمة التسوّق**
+- ضغط السلة على وجبة Mealie بقى **يجيب مكوّنات وصفتها** ويفتح شيت فيه كل المكوّنات **متعلّمة مسبقًا** — تشيل اللي عندك وتضيف الباقي بضغطة لقائمة Mealie.
+- السلسلة استاندرد: `mealie.get_mealplan` (خطة اليوم) → معرفة وصفة الخانة → `mealie.get_recipe` → `recipeIngredient[].display` → إضافة بـ `todo.add_item`. كله عبر `return_response` (نفس باترون الخدمات الموجود).
+- لو الوجبة ملاحظة بدون وصفة (أو مفيش مكوّنات) → بيرجع للسلوك القديم: يضيف اسم الوجبة.
+- API: `mealieGetMealplan`, `mealieGetRecipeIngredients` (مع بناء احتياطي لو `display` فاضي).
+
 ### [2.36.0] — 2026-11-18  (تعديل JS — بييجي من metro، **من غير مكوّن جديد**) — **تكامل Mealie القياسي (كشف تلقائي)**
 - التطبيق بقى يكتشف تكامل **Mealie الرسمي** في Home Assistant **تلقائيًا بالبادئة** (`todo.mealie_*` / `calendar.mealie_*`) — **من غير أسماء كيانات مكتوبة بإيد** (`mealie.ts` + تست 4).
 - **موديول الأكل**: لو Mealie متركّب → بيقرا تقويمات الوجبات الأربعة (فطار/غدا/عشا/جانبي) ويعرض خطة الأسبوع، وبيكتب رجوع في Mealie عبر خدمة `mealie.set_mealplan` (ملاحظة نصية) أو `mealie.set_random_mealplan` (وجبة عشوائية). `config_entry_id` بيتكشف تلقائيًا من سجل الكيانات. لو Mealie مش متركّب → بيرجع لتقويم المكوّن المحلي زي ما كان.
@@ -1140,6 +1146,12 @@
 ---
 
 ## English
+
+### [2.37.0] — 2026-11-18  (JS change — comes from metro, **no new component**) — **Meal ingredients → shopping list**
+- The cart button on a Mealie meal now **fetches its recipe ingredients** and opens a sheet with all of them **pre-checked** — uncheck what you have, add the rest to the Mealie list in one tap.
+- Standard chain: `mealie.get_mealplan` (that day) → resolve the slot's recipe → `mealie.get_recipe` → `recipeIngredient[].display` → add via `todo.add_item`. All over `return_response` (the existing service pattern).
+- Note-only meals (or recipes with no ingredients) fall back to the old behavior: add the meal name.
+- API: `mealieGetMealplan`, `mealieGetRecipeIngredients` (with a fallback build when `display` is empty).
 
 ### [2.36.0] — 2026-11-18  (JS change — comes from metro, **no new component**) — **Standard Mealie integration (auto-detect)**
 - The app now auto-detects the **official Mealie integration** in Home Assistant **by entity prefix** (`todo.mealie_*` / `calendar.mealie_*`) — **no hardcoded entity names** (`mealie.ts` + 4 tests).

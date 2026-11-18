@@ -419,6 +419,44 @@ export async function mealieSetRandomMealplan(
   });
 }
 
+// عنصر خطة أكل من Mealie: إما وصفة (recipe) أو ملاحظة نصية (title).
+export type MealieMealplanEntry = {
+  date?: string;
+  entry_type?: string;
+  title?: string;
+  text?: string;
+  recipe?: { id?: string; slug?: string; name?: string } | null;
+};
+
+// خطة أكل يوم واحد — بنستخدم return_response (نفس باترون سيرفسات secure_family).
+export async function mealieGetMealplan(settings: ConnectionSettings, configEntryId: string, date: string): Promise<MealieMealplanEntry[]> {
+  const r = (await wsCommand(settings, {
+    type: 'call_service', domain: 'mealie', service: 'get_mealplan',
+    service_data: { config_entry_id: configEntryId, start_date: date, end_date: date }, return_response: true,
+  })) as { response?: { mealplan?: MealieMealplanEntry[] } } | null;
+  return r?.response?.mealplan ?? [];
+}
+
+type RecipeIngredient = { display?: string; note?: string; food?: { name?: string } | null; quantity?: number | null; unit?: { name?: string } | null };
+
+// مكوّنات وصفة بالنص الجاهز (display)، ومع بناء احتياطي لو display فاضي.
+export async function mealieGetRecipeIngredients(settings: ConnectionSettings, configEntryId: string, recipeId: string): Promise<string[]> {
+  const r = (await wsCommand(settings, {
+    type: 'call_service', domain: 'mealie', service: 'get_recipe',
+    service_data: { config_entry_id: configEntryId, recipe_id: recipeId }, return_response: true,
+  })) as { response?: { recipe?: { recipeIngredient?: RecipeIngredient[] } } } | null;
+  const list = r?.response?.recipe?.recipeIngredient ?? [];
+  return list
+    .map(ing => {
+      const d = (ing.display ?? '').trim();
+      if (d) return d;
+      const parts = [ing.quantity != null ? String(ing.quantity) : '', ing.unit?.name ?? '', ing.food?.name ?? '', ing.note ?? '']
+        .map(x => x.trim()).filter(Boolean);
+      return parts.join(' ').trim();
+    })
+    .filter(Boolean);
+}
+
 // ===== شبكة العيلة (الحائط/الشات/المهام) عبر سيرفسات مكوّن secure_family =====
 async function callService(settings: ConnectionSettings, domain: string, service: string, data: Record<string, unknown>): Promise<void> {
   await request(settings, `/api/services/${domain}/${service}`, { method: 'POST', body: JSON.stringify(data) });
