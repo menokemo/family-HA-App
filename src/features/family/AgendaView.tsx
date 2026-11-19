@@ -151,6 +151,9 @@ export function AgendaView({ calendars, states, settings, canManage = true }: Pr
             {timeLabel(e.start)}
             {showFor ? `  ·  ${i18n.t('forShort')} ${who.subject!.name.split(' ')[0]}` : ''}
           </Text>
+          {splitEventMeta(e.description).note ? (
+            <Text style={s.rowNote} numberOfLines={2}>{splitEventMeta(e.description).note}</Text>
+          ) : null}
         </View>
         {who.holiday ? (
           <View style={[s.holidayBadge, { backgroundColor: HOLIDAY_COLOR + '22' }]}><Ionicons name="flag" size={15} color={HOLIDAY_COLOR} /></View>
@@ -297,15 +300,16 @@ function AddEventSheet({ targets, persons, profiles, settings, initialDay, myNam
   const [minute, setMinute] = useState('00');
   const [target, setTarget] = useState<Target>(targets[0]);
   const [subject, setSubject] = useState<HaEntity | undefined>(undefined);
+  const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
-  const strip = useMemo(() => Array.from({ length: 14 }, (_, i) => addDays(startOfDay(new Date()), i)), []);
   const isAnnual = target.key === 'annual';
+  const pad2 = (n: number) => String(n).padStart(2, '0');
 
   const save = async () => {
     if (!title.trim() || saving) return;
     setSaving(true);
     const subjectName = subject ? String(subject.attributes.friendly_name ?? subject.entity_id) : undefined;
-    const description = joinEventMeta(myName, subjectName);
+    const description = joinEventMeta(myName, subjectName, note.trim() || undefined);
     try {
       if (isAnnual) {
         // مناسبة سنوية = يوم كامل (المكوّن بيخلّيها تتكرر سنويًا تلقائيًا).
@@ -329,6 +333,7 @@ function AddEventSheet({ targets, persons, profiles, settings, initialDay, myNam
             <Text style={s.sheetTitle}>{i18n.t('addEvent')}</Text>
             <PressableScale onPress={onClose}><Ionicons name="close" size={22} color={colors.text} /></PressableScale>
           </View>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 6 }} keyboardShouldPersistTaps="handled">
           <TextInput style={s.input} placeholder={i18n.t('eventTitle')} placeholderTextColor={colors.muted} value={title} onChangeText={setTitle} autoFocus />
 
           {targets.length > 1 ? (
@@ -367,33 +372,81 @@ function AddEventSheet({ targets, persons, profiles, settings, initialDay, myNam
           </ScrollView>
 
           <Text style={s.fieldLabel}>{i18n.t('day')}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
-            {strip.map(d => {
-              const sel = dayKey(d) === dayKey(day);
-              return (
-                <PressableScale key={dayKey(d)} style={[s.dayPick, sel && s.dayPickSel]} onPress={() => setDay(d)}>
-                  <Text style={[s.dayPickDow, sel && s.dayPickSelText]}>{d.toLocaleDateString(locale(), { weekday: 'short' })}</Text>
-                  <Text style={[s.dayPickNum, sel && s.dayPickSelText]}>{d.getDate()}</Text>
-                </PressableScale>
-              );
-            })}
-          </ScrollView>
+          <MonthPicker selected={day} onPick={setDay} />
 
           {!isAnnual ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
-              <Ionicons name="time-outline" size={20} color={colors.muted} />
-              <TextInput style={[s.input, s.timeInput]} keyboardType="number-pad" maxLength={2} value={hour} onChangeText={setHour} />
-              <Text style={s.colon}>:</Text>
-              <TextInput style={[s.input, s.timeInput]} keyboardType="number-pad" maxLength={2} value={minute} onChangeText={setMinute} />
-            </View>
+            <>
+              <Text style={s.fieldLabel}>{i18n.t('time')}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 7, paddingVertical: 2, alignItems: 'center' }}>
+                {['07:00', '08:00', '09:00', '12:00', '13:00', '18:00', '20:00'].map(t => {
+                  const [th, tm] = t.split(':');
+                  const sel = th === hour && tm === minute;
+                  return (
+                    <PressableScale key={t} style={[s.timeChip, sel && { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => { setHour(th); setMinute(tm); }}>
+                      <Text style={[s.timeChipText, sel && { color: colors.black }]}>{t}</Text>
+                    </PressableScale>
+                  );
+                })}
+              </ScrollView>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                <Ionicons name="time-outline" size={20} color={colors.muted} />
+                <TextInput style={[s.input, s.timeInput]} keyboardType="number-pad" maxLength={2} value={hour} onChangeText={v => setHour(v)} onBlur={() => setHour(pad2(Math.min(23, Math.max(0, parseInt(hour, 10) || 0))))} />
+                <Text style={s.colon}>:</Text>
+                <TextInput style={[s.input, s.timeInput]} keyboardType="number-pad" maxLength={2} value={minute} onChangeText={v => setMinute(v)} onBlur={() => setMinute(pad2(Math.min(59, Math.max(0, parseInt(minute, 10) || 0))))} />
+              </View>
+            </>
           ) : null}
+
+          <Text style={s.fieldLabel}>{i18n.t('noteOptional')}</Text>
+          <TextInput style={[s.input, { minHeight: 56, textAlignVertical: 'top' }]} placeholder={i18n.t('notePlaceholder')} placeholderTextColor={colors.muted} value={note} onChangeText={setNote} multiline />
 
           <PressableScale style={[s.save, { backgroundColor: target.color, opacity: title.trim() && !saving ? 1 : 0.5 }]} onPress={save}>
             <Text style={s.saveText}>{saving ? '…' : i18n.t('saveEvent')}</Text>
           </PressableScale>
+          </ScrollView>
         </View>
       </View>
     </Modal>
+  );
+}
+
+// منتقي تاريخ شهري بـ JS صافي (من غير مكتبة أصلية) — نتيجة شهر بأسهم، تختار أي يوم.
+function MonthPicker({ selected, onPick }: { selected: Date; onPick: (d: Date) => void }) {
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
+  const [month, setMonth] = useState<Date>(startOfMonth(selected));
+  const daysInMonth = endOfMonth(month).getDate();
+  const firstDow = (startOfMonth(month).getDay() + 6) % 7; // الإثنين = 0
+  const cells: (Date | null)[] = [];
+  for (let i = 0; i < firstDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(month.getFullYear(), month.getMonth(), d));
+  const weekdays = Array.from({ length: 7 }, (_, i) => addDays(new Date(2024, 0, 1), i).toLocaleDateString(locale(), { weekday: 'narrow' })); // 2024-01-01 = إثنين
+  const todayKey = dayKey(startOfDay(new Date()));
+
+  return (
+    <View style={s.mp}>
+      <View style={s.mpHead}>
+        <PressableScale style={s.mpNav} onPress={() => setMonth(startOfMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1)))}><Ionicons name="chevron-back" size={18} color={colors.text} /></PressableScale>
+        <Text style={s.mpTitle}>{month.toLocaleDateString(locale(), { month: 'long', year: 'numeric' })}</Text>
+        <PressableScale style={s.mpNav} onPress={() => setMonth(startOfMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1)))}><Ionicons name="chevron-forward" size={18} color={colors.text} /></PressableScale>
+      </View>
+      <View style={s.mpGrid}>
+        {weekdays.map((w, i) => <View key={'w' + i} style={s.mpCell}><Text style={s.mpDow}>{w}</Text></View>)}
+        {cells.map((d, i) => {
+          if (!d) return <View key={'e' + i} style={s.mpCell} />;
+          const k = dayKey(d);
+          const sel = k === dayKey(selected);
+          const isToday = k === todayKey;
+          return (
+            <PressableScale key={k} style={s.mpCell} onPress={() => onPick(d)}>
+              <View style={[s.mpDay, sel && { backgroundColor: colors.primary }, !sel && isToday && { borderColor: colors.primary, borderWidth: 1 }]}>
+                <Text style={[s.mpDayText, sel && { color: colors.black, fontWeight: '800' }]}>{d.getDate()}</Text>
+              </View>
+            </PressableScale>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 
@@ -438,7 +491,7 @@ function makeStyles(colors: Palette) {
     dot: { width: 5, height: 5, borderRadius: 3 },
     monthDivider: { height: 1, backgroundColor: colors.border, marginVertical: 8, marginHorizontal: 14 },
     backdrop: { flex: 1, backgroundColor: 'rgba(4,8,14,.6)', justifyContent: 'flex-end' },
-    sheet: { backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, gap: 8 },
+    sheet: { backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, gap: 8, maxHeight: '92%' },
     sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
     sheetTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
     fieldLabel: { color: colors.muted, fontSize: 12, fontWeight: '700', marginTop: 10, marginBottom: 2 },
@@ -450,11 +503,18 @@ function makeStyles(colors: Palette) {
     who2: { alignItems: 'center', gap: 4, paddingVertical: 7, paddingHorizontal: 10, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, width: 64 },
     whoFamily: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
     whoName: { color: colors.muted, fontSize: 11, fontWeight: '600' },
-    dayPick: { width: 46, paddingVertical: 7, borderRadius: 12, alignItems: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-    dayPickSel: { backgroundColor: colors.primary, borderColor: colors.primary },
-    dayPickDow: { color: colors.muted, fontSize: 10, fontWeight: '600' },
-    dayPickNum: { color: colors.text, fontSize: 16, fontWeight: '800', marginTop: 2 },
-    dayPickSelText: { color: colors.black },
+    rowNote: { color: colors.muted, fontSize: 12.5, marginTop: 3, lineHeight: 17 },
+    timeChip: { paddingVertical: 7, paddingHorizontal: 13, borderRadius: 11, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+    timeChipText: { color: colors.text, fontSize: 13, fontWeight: '700' },
+    mp: { backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 8 },
+    mpHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, paddingBottom: 6 },
+    mpNav: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceElevated },
+    mpTitle: { color: colors.text, fontSize: 14.5, fontWeight: '800', textTransform: 'capitalize' },
+    mpGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+    mpCell: { width: `${100 / 7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
+    mpDow: { color: colors.muted, fontSize: 11, fontWeight: '700' },
+    mpDay: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+    mpDayText: { color: colors.text, fontSize: 14, fontWeight: '600' },
     save: { borderRadius: 14, padding: 14, alignItems: 'center', marginTop: 14 },
     saveText: { color: '#fff', fontWeight: '800', fontSize: 15 },
   });
