@@ -10,13 +10,13 @@ import { MemberAvatar } from './MemberAvatar';
 import { readProfiles } from './profiles';
 import { readSocial, resolvePoster, type Chore, type SocialPost } from './social';
 
-type Section = 'home' | 'calendar' | 'tasks' | 'shopping' | 'more';
-type Props = { calendars: HaEntity[]; states: HaEntity[]; settings: ConnectionSettings; onOpenSection: (s: Section) => void };
+type Section = 'home' | 'calendar' | 'tasks' | 'kitchen';
+type Props = { calendars: HaEntity[]; states: HaEntity[]; settings: ConnectionSettings; onOpenSection: (s: Section) => void; onOpenNotes: () => void };
 
 function isAllDay(start: string) { return /^\d{4}-\d{2}-\d{2}$/.test(start); }
 function evTime(start: string) { if (isAllDay(start)) return i18n.t('allDay'); const d = new Date(start); return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString(i18n.locale || 'en', { hour: '2-digit', minute: '2-digit' }); }
 
-export function FamilyDashboard({ calendars, states, settings, onOpenSection }: Props) {
+export function FamilyDashboard({ calendars, states, settings, onOpenSection, onOpenNotes }: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
   const persons = useMemo(() => states.filter(e => e.entity_id.startsWith('person.')), [states]);
@@ -106,8 +106,8 @@ export function FamilyDashboard({ calendars, states, settings, onOpenSection }: 
       ))}
 
       {latestPost ? (
-        <PressableScale style={[s.wall, { backgroundColor: colors.primary + '14', borderColor: colors.primary + '33' }]} onPress={() => onOpenSection('more')}>
-          <View style={s.wallHead}><Ionicons name="megaphone-outline" size={15} color={colors.primary} /><Text style={[s.wallFrom, { color: colors.primary }]}>{i18n.t('fromWall')} · {resolvePoster(latestPost, persons, profiles).name.split(' ')[0]}</Text></View>
+        <PressableScale style={[s.wall, { backgroundColor: colors.primary + '14', borderColor: colors.primary + '33' }]} onPress={onOpenNotes}>
+          <View style={s.wallHead}><Ionicons name="reader-outline" size={15} color={colors.primary} /><Text style={[s.wallFrom, { color: colors.primary }]}>{i18n.t('quickNotes')} · {resolvePoster(latestPost, persons, profiles).name.split(' ')[0]}</Text></View>
           <Text style={s.wallText} numberOfLines={2}>{latestPost.text}</Text>
         </PressableScale>
       ) : null}
