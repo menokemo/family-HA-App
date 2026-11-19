@@ -139,22 +139,26 @@ export function AgendaView({ calendars, states, settings, canManage = true }: Pr
 
   const row = (e: Ev): ReactElement => {
     const who = resolveWho(e);
+    const meta = splitEventMeta(e.description);
     // الصورة على اليمين = المنشئ لو موجود، وإلا صاحب «خاص بمين» (زي الميلاد المتولّد).
     const right = who.creator ?? who.subject;
     // علامة «لـ فلان» تحت العنوان بس لما في منشئ **و** خاص-بمين مختلفين.
     const showFor = who.creator && who.subject;
     const barColor = who.holiday ? HOLIDAY_COLOR : (who.subject?.color ?? who.creator?.color ?? colors.primary);
+    // أيقونة النوع على الشمال: عطلة؟ وإلا نوع المُدخَل (عيد ميلاد/ميعاد/مناسبة)،
+    // ولو حدث قديم من غير نوع: يوم-كامل → مناسبة، وإلا ميعاد.
+    const rowIcon = who.holiday ? 'flag' : (meta.kind ? KIND_META[meta.kind].icon : (isAllDay(e.start) ? KIND_META.occasion.icon : KIND_META.appointment.icon));
     return (
       <PressableScale key={(e.uid ?? '') + e.start} onPress={() => setDetail(e)} style={s.row}>
-        <View style={[s.bar, { backgroundColor: barColor }]} />
+        <View style={[s.rowIcon, { backgroundColor: barColor + '22' }]}><Ionicons name={rowIcon} size={17} color={barColor} /></View>
         <View style={{ flex: 1 }}>
           <Text style={s.rowTitle} numberOfLines={1}>{e.summary || i18n.t('untitled')}</Text>
           <Text style={s.rowTime} numberOfLines={1}>
             {timeLabel(e.start)}
             {showFor ? `  ·  ${i18n.t('forShort')} ${who.subject!.name.split(' ')[0]}` : ''}
           </Text>
-          {splitEventMeta(e.description).note ? (
-            <Text style={s.rowNote} numberOfLines={2}>{splitEventMeta(e.description).note}</Text>
+          {meta.note ? (
+            <Text style={s.rowNote} numberOfLines={2}>{meta.note}</Text>
           ) : null}
         </View>
         {who.holiday ? (
@@ -653,7 +657,7 @@ function makeStyles(colors: Palette) {
     selDayLabel: { color: colors.text, fontSize: 15, fontWeight: '800', paddingHorizontal: 16, paddingBottom: 2, textTransform: 'capitalize' },
     list: { padding: 14, paddingTop: 6, gap: 4 },
     row: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 9, paddingHorizontal: 2 },
-    bar: { width: 4, height: 34, borderRadius: 3 },
+    rowIcon: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
     rowTitle: { color: colors.text, fontSize: 14.5, fontWeight: '600' },
     rowTime: { color: colors.muted, fontSize: 11.5, marginTop: 1 },
     by: { alignItems: 'center', width: 46 },
