@@ -1,46 +1,42 @@
 import { joinEventMeta, splitEventMeta } from '../src/features/family/creator';
 
-describe('event meta (creator + subject)', () => {
+describe('event meta (creator + subject + fields)', () => {
   it('returns empty for undefined/empty', () => {
     expect(splitEventMeta(undefined)).toEqual({});
     expect(splitEventMeta('')).toEqual({});
   });
 
-  it('joins and splits creator only', () => {
-    const d = joinEventMeta('Mena', undefined);
-    expect(d).toBe('·by:Mena');
-    expect(splitEventMeta(d)).toEqual({ createdBy: 'Mena', forWhom: undefined });
-  });
-
-  it('joins and splits subject only', () => {
-    const d = joinEventMeta(undefined, 'Sara');
-    expect(d).toBe('·for:Sara');
-    expect(splitEventMeta(d)).toEqual({ createdBy: undefined, forWhom: 'Sara' });
-  });
-
-  it('round-trips both creator and subject', () => {
-    const d = joinEventMeta('Mena', 'Sara');
+  it('round-trips creator and subject', () => {
+    const d = joinEventMeta({ createdBy: 'Mena', forWhom: 'Sara' });
     expect(splitEventMeta(d)).toEqual({ createdBy: 'Mena', forWhom: 'Sara' });
   });
 
-  it('returns undefined when nothing to store', () => {
-    expect(joinEventMeta(undefined, undefined)).toBeUndefined();
+  it('carries note, location, reminder and kind', () => {
+    const d = joinEventMeta({ createdBy: 'Mena', forWhom: 'Sara', note: 'Bring papers', location: 'Clinic', remind: 60, kind: 'appointment' });
+    expect(splitEventMeta(d)).toEqual({ createdBy: 'Mena', forWhom: 'Sara', note: 'Bring papers', location: 'Clinic', remind: 60, kind: 'appointment' });
+  });
+
+  it('note only', () => {
+    const d = joinEventMeta({ note: 'Just a note' });
+    expect(d).toBe('Just a note');
+    expect(splitEventMeta(d)).toEqual({ note: 'Just a note' });
+  });
+
+  it('reminder 0 (at time) is preserved, not dropped', () => {
+    const d = joinEventMeta({ kind: 'appointment', remind: 0 });
+    expect(splitEventMeta(d).remind).toBe(0);
+  });
+
+  it('ignores an unknown kind', () => {
+    expect(splitEventMeta('·kind:weird').kind).toBeUndefined();
   });
 
   it('is tolerant of names with spaces', () => {
-    const d = joinEventMeta('Abou Mena', 'Mother Maria');
+    const d = joinEventMeta({ createdBy: 'Abou Mena', forWhom: 'Mother Maria' });
     expect(splitEventMeta(d)).toEqual({ createdBy: 'Abou Mena', forWhom: 'Mother Maria' });
   });
 
-  it('carries an optional note before the meta', () => {
-    const d = joinEventMeta('Mena', 'Sara', 'Bring the documents');
-    expect(d).toBe('Bring the documents\n·by:Mena\n·for:Sara');
-    expect(splitEventMeta(d)).toEqual({ createdBy: 'Mena', forWhom: 'Sara', note: 'Bring the documents' });
-  });
-
-  it('note only, no meta', () => {
-    const d = joinEventMeta(undefined, undefined, 'Just a note');
-    expect(d).toBe('Just a note');
-    expect(splitEventMeta(d)).toEqual({ note: 'Just a note' });
+  it('returns undefined when nothing to store', () => {
+    expect(joinEventMeta({})).toBeUndefined();
   });
 });

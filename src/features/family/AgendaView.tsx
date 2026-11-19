@@ -7,7 +7,7 @@ import { createCalendarEvent, deleteCalendarEvent, getCalendarEvents, type Calen
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { PressableScale } from '../../components/PressableScale';
 import { MemberAvatar, personColor } from './MemberAvatar';
-import { joinEventMeta, splitEventMeta } from './creator';
+import { joinEventMeta, splitEventMeta, type EventKind, type EventMeta } from './creator';
 import { profileColor, readProfiles, type Profiles } from './profiles';
 
 type Props = { calendars: HaEntity[]; states: HaEntity[]; settings: ConnectionSettings; canManage?: boolean };
@@ -49,6 +49,8 @@ export function AgendaView({ calendars, states, settings, canManage = true }: Pr
   const [events, setEvents] = useState<Ev[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [detail, setDetail] = useState<Ev | null>(null);
+  const [editing, setEditing] = useState<Ev | null>(null);
   const [view, setView] = useState<'agenda' | 'month'>('agenda');
   const [selectedDay, setSelectedDay] = useState<Date>(startOfDay(new Date()));
   const [anchor, setAnchor] = useState<Date>(startOfMonth(new Date()));
@@ -143,7 +145,7 @@ export function AgendaView({ calendars, states, settings, canManage = true }: Pr
     const showFor = who.creator && who.subject;
     const barColor = who.holiday ? HOLIDAY_COLOR : (who.subject?.color ?? who.creator?.color ?? colors.primary);
     return (
-      <PressableScale key={(e.uid ?? '') + e.start} onLongPress={() => onDelete(e)} style={s.row}>
+      <PressableScale key={(e.uid ?? '') + e.start} onPress={() => setDetail(e)} style={s.row}>
         <View style={[s.bar, { backgroundColor: barColor }]} />
         <View style={{ flex: 1 }}>
           <Text style={s.rowTitle} numberOfLines={1}>{e.summary || i18n.t('untitled')}</Text>
@@ -234,7 +236,32 @@ export function AgendaView({ calendars, states, settings, canManage = true }: Pr
         </PressableScale>
       ) : null}
 
-      {adding ? <AddEventSheet targets={targets} persons={persons} profiles={profiles} settings={settings} initialDay={selectedDay} myName={myName} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); void load(); }} /> : null}
+      {adding || editing ? (
+        <EventSheet
+          targets={targets}
+          persons={persons}
+          profiles={profiles}
+          settings={settings}
+          initialDay={selectedDay}
+          myName={myName}
+          edit={editing ?? undefined}
+          onClose={() => { setAdding(false); setEditing(null); }}
+          onSaved={() => { setAdding(false); setEditing(null); void load(); }}
+        />
+      ) : null}
+
+      {detail ? (
+        <EventDetailSheet
+          event={detail}
+          who={resolveWho(detail)}
+          meta={splitEventMeta(detail.description)}
+          readOnly={kindById[detail.calendarId] === 'holidays'}
+          settings={settings}
+          onEdit={() => { setEditing(detail); setDetail(null); }}
+          onDelete={() => { const e = detail; setDetail(null); onDelete(e); }}
+          onClose={() => setDetail(null)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -291,119 +318,276 @@ function MonthView({ anchor, selectedDay, byDay, colorOf, onPrev, onNext, onSele
   );
 }
 
-function AddEventSheet({ targets, persons, profiles, settings, initialDay, myName, onClose, onSaved }: { targets: Target[]; persons: HaEntity[]; profiles: Profiles; settings: ConnectionSettings; initialDay: Date; myName?: string; onClose: () => void; onSaved: () => void }) {
+const REMIND_OPTS: { min: number; key: string }[] = [
+  { min: -1, key: 'remindNone' },
+  { min: 0, key: 'remindAtTime' },
+  { min: 10, key: 'remind10m' },
+  { min: 60, key: 'remind1h' },
+  { min: 1440, key: 'remind1d' },
+];
+
+function remindLabel(min: number): string {
+  if (min < 0) return i18n.t('remindNone');
+  if (min === 0) return i18n.t('remindAtTime');
+  if (min === 10) return i18n.t('remind10m');
+  if (min === 60) return i18n.t('remind1h');
+  if (min === 1440) return i18n.t('remind1d');
+  return `${min} ${i18n.t('min')}`;
+}
+
+const KIND_META: Record<EventKind, { icon: string; key: string }> = {
+  birthday: { icon: 'gift', key: 'kindBirthday' },
+  appointment: { icon: 'calendar', key: 'kindAppointment' },
+  occasion: { icon: 'sparkles', key: 'kindOccasion' },
+};
+
+// فورم موحّد للإضافة والتعديل، بأنواع سريعة (عيد ميلاد/ميعاد/مناسبة) تظبط الحقول.
+function EventSheet({ targets, persons, profiles, settings, initialDay, myName, edit, onClose, onSaved }: {
+  targets: Target[]; persons: HaEntity[]; profiles: Profiles; settings: ConnectionSettings; initialDay: Date; myName?: string;
+  edit?: Ev; onClose: () => void; onSaved: () => void;
+}) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
-  const [title, setTitle] = useState('');
-  const [day, setDay] = useState<Date>(startOfDay(initialDay));
-  const [hour, setHour] = useState('09');
-  const [minute, setMinute] = useState('00');
-  const [target, setTarget] = useState<Target>(targets[0]);
-  const [subject, setSubject] = useState<HaEntity | undefined>(undefined);
-  const [note, setNote] = useState('');
-  const [saving, setSaving] = useState(false);
-  const isAnnual = target.key === 'annual';
   const pad2 = (n: number) => String(n).padStart(2, '0');
+  const annualTarget = targets.find(t => t.key === 'annual');
+  const plannerTarget = targets.find(t => t.key === 'planner') ?? targets[0];
+
+  const editMeta = edit ? splitEventMeta(edit.description) : undefined;
+  const editStart = edit ? new Date(edit.start) : undefined;
+  const editAllDay = edit ? isAllDay(edit.start) : false;
+  const initKind: EventKind = editMeta?.kind ?? (edit ? (editAllDay ? 'occasion' : 'appointment') : 'appointment');
+
+  const [kind, setKind] = useState<EventKind>(initKind);
+  const [title, setTitle] = useState(edit && initKind !== 'birthday' ? edit.summary : '');
+  const [who, setWho] = useState(edit ? (editMeta?.forWhom ?? (initKind === 'birthday' ? edit.summary : '')) : '');
+  const [day, setDay] = useState<Date>(startOfDay(editStart && !Number.isNaN(editStart.getTime()) ? editStart : initialDay));
+  const [hour, setHour] = useState(editStart && !editAllDay ? pad2(editStart.getHours()) : '09');
+  const [minute, setMinute] = useState(editStart && !editAllDay ? pad2(editStart.getMinutes()) : '00');
+  const [repeatYearly, setRepeatYearly] = useState<boolean>(edit ? edit.calendarId === annualTarget?.calendarId : false);
+  const [location, setLocation] = useState(editMeta?.location ?? '');
+  const [remind, setRemind] = useState<number>(editMeta?.remind ?? -1);
+  const [note, setNote] = useState(editMeta?.note ?? '');
+  const [saving, setSaving] = useState(false);
+
+  const isBirthday = kind === 'birthday';
+  const isAppt = kind === 'appointment';
+  const allDay = !isAppt;
+  const summaryText = (isBirthday ? who : title).trim();
+  const canSave = summaryText.length > 0 && !saving;
+
+  const resolveTarget = (): Target | undefined => {
+    if (isAppt) return plannerTarget;
+    if (isBirthday) return annualTarget ?? plannerTarget;
+    return (repeatYearly ? annualTarget : plannerTarget) ?? plannerTarget;
+  };
 
   const save = async () => {
-    if (!title.trim() || saving) return;
+    const target = resolveTarget();
+    if (!canSave || !target) return;
     setSaving(true);
-    const subjectName = subject ? String(subject.attributes.friendly_name ?? subject.entity_id) : undefined;
-    const description = joinEventMeta(myName, subjectName, note.trim() || undefined);
+    const meta: EventMeta = {
+      createdBy: editMeta?.createdBy ?? myName,
+      forWhom: who.trim() || undefined,
+      location: !isBirthday && location.trim() ? location.trim() : undefined,
+      remind: remind >= 0 ? remind : undefined,
+      kind,
+      note: note.trim() || undefined,
+    };
+    const description = joinEventMeta(meta);
     try {
-      if (isAnnual) {
-        // مناسبة سنوية = يوم كامل (المكوّن بيخلّيها تتكرر سنويًا تلقائيًا).
-        await createCalendarEvent(settings, target.calendarId, { summary: title.trim(), start_date: dayKey(day), end_date: dayKey(addDays(day, 1)), description });
+      if (edit?.uid) await deleteCalendarEvent(settings, edit.calendarId, edit.uid).catch(() => {});
+      if (allDay) {
+        await createCalendarEvent(settings, target.calendarId, { summary: summaryText, start_date: dayKey(day), end_date: dayKey(addDays(day, 1)), description });
       } else {
         const h = Math.min(23, Math.max(0, parseInt(hour, 10) || 0));
         const m = Math.min(59, Math.max(0, parseInt(minute, 10) || 0));
         const start = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, m, 0);
         const end = new Date(start.getTime() + 60 * 60 * 1000);
-        await createCalendarEvent(settings, target.calendarId, { summary: title.trim(), start_date_time: start.toISOString(), end_date_time: end.toISOString(), description });
+        await createCalendarEvent(settings, target.calendarId, { summary: summaryText, start_date_time: start.toISOString(), end_date_time: end.toISOString(), description });
       }
       onSaved();
     } catch { setSaving(false); }
   };
+
+  const whoChips = (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 10, paddingVertical: 2 }} keyboardShouldPersistTaps="handled">
+      {persons.map(p => {
+        const name = String(p.attributes.friendly_name ?? p.entity_id);
+        const sel = who === name;
+        const c = profileColor(p.entity_id, profiles) ?? personColor(p.entity_id);
+        return (
+          <PressableScale key={p.entity_id} style={[s.who2, sel && { borderColor: c, backgroundColor: c + '18' }]} onPress={() => setWho(sel ? '' : name)}>
+            <MemberAvatar person={p} settings={settings} size={26} color={c} />
+            <Text style={[s.whoName, sel && { color: c }]} numberOfLines={1}>{name.split(' ')[0]}</Text>
+          </PressableScale>
+        );
+      })}
+    </ScrollView>
+  );
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={s.backdrop}>
         <View style={s.sheet}>
           <View style={s.sheetHeader}>
-            <Text style={s.sheetTitle}>{i18n.t('addEvent')}</Text>
+            <Text style={s.sheetTitle}>{edit ? i18n.t('editEvent') : i18n.t('addEvent')}</Text>
             <PressableScale onPress={onClose}><Ionicons name="close" size={22} color={colors.text} /></PressableScale>
           </View>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 6 }} keyboardShouldPersistTaps="handled">
-          <TextInput style={s.input} placeholder={i18n.t('eventTitle')} placeholderTextColor={colors.muted} value={title} onChangeText={setTitle} autoFocus />
 
-          {targets.length > 1 ? (
-            <>
-              <Text style={s.fieldLabel}>{i18n.t('calendar')}</Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {targets.map(t => {
-                  const sel = target.key === t.key;
-                  return (
-                    <PressableScale key={t.key} style={[s.typeChip, sel && { borderColor: t.color, backgroundColor: t.color + '18' }]} onPress={() => setTarget(t)}>
-                      <Ionicons name={t.key === 'annual' ? 'gift' : 'reader'} size={16} color={sel ? t.color : colors.muted} />
-                      <Text style={[s.typeChipText, sel && { color: t.color }]}>{t.label}</Text>
-                    </PressableScale>
-                  );
-                })}
-              </View>
-            </>
-          ) : null}
+            <View style={s.kindRow}>
+              {(['birthday', 'appointment', 'occasion'] as EventKind[]).map(k => {
+                const sel = kind === k;
+                return (
+                  <PressableScale key={k} style={[s.kindBtn, sel && { borderColor: colors.primary, backgroundColor: colors.primary + '18' }]} onPress={() => setKind(k)}>
+                    <Ionicons name={KIND_META[k].icon + (sel ? '' : '-outline')} size={18} color={sel ? colors.primary : colors.muted} />
+                    <Text style={[s.kindText, sel && { color: colors.primary }]} numberOfLines={1}>{i18n.t(KIND_META[k].key)}</Text>
+                  </PressableScale>
+                );
+              })}
+            </View>
 
-          <Text style={s.fieldLabel}>{i18n.t('forWhomOptional')}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 2 }}>
-            <PressableScale style={[s.who2, !subject && { borderColor: colors.primary, backgroundColor: colors.primary + '18' }]} onPress={() => setSubject(undefined)}>
-              <View style={[s.whoFamily, { backgroundColor: colors.muted }]}><Ionicons name="remove" size={15} color="#fff" /></View>
-              <Text style={[s.whoName, !subject && { color: colors.primary }]} numberOfLines={1}>{i18n.t('noneOption')}</Text>
+            {isBirthday ? (
+              <>
+                <Text style={s.fieldLabel}>{i18n.t('whoseBirthday')}</Text>
+                <TextInput style={s.input} placeholder={i18n.t('birthdayNamePlaceholder')} placeholderTextColor={colors.muted} value={who} onChangeText={setWho} autoFocus />
+                {whoChips}
+              </>
+            ) : (
+              <TextInput style={s.input} placeholder={i18n.t('eventTitle')} placeholderTextColor={colors.muted} value={title} onChangeText={setTitle} autoFocus />
+            )}
+
+            <Text style={s.fieldLabel}>{i18n.t('day')}</Text>
+            <MonthPicker selected={day} onPick={setDay} />
+
+            {isAppt ? (
+              <>
+                <Text style={s.fieldLabel}>{i18n.t('time')}</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 7, paddingVertical: 2, alignItems: 'center' }}>
+                  {['07:00', '08:00', '09:00', '12:00', '13:00', '18:00', '20:00'].map(t => {
+                    const [th, tm] = t.split(':');
+                    const sel = th === hour && tm === minute;
+                    return (
+                      <PressableScale key={t} style={[s.timeChip, sel && { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => { setHour(th); setMinute(tm); }}>
+                        <Text style={[s.timeChipText, sel && { color: colors.black }]}>{t}</Text>
+                      </PressableScale>
+                    );
+                  })}
+                </ScrollView>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                  <Ionicons name="time-outline" size={20} color={colors.muted} />
+                  <TextInput style={[s.input, s.timeInput]} keyboardType="number-pad" maxLength={2} value={hour} onChangeText={setHour} onBlur={() => setHour(pad2(Math.min(23, Math.max(0, parseInt(hour, 10) || 0))))} />
+                  <Text style={s.colon}>:</Text>
+                  <TextInput style={[s.input, s.timeInput]} keyboardType="number-pad" maxLength={2} value={minute} onChangeText={setMinute} onBlur={() => setMinute(pad2(Math.min(59, Math.max(0, parseInt(minute, 10) || 0))))} />
+                </View>
+              </>
+            ) : null}
+
+            {kind === 'occasion' ? (
+              <PressableScale style={s.toggleRow2} onPress={() => setRepeatYearly(v => !v)}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="repeat" size={18} color={colors.muted} />
+                  <Text style={s.toggleText}>{i18n.t('repeatYearly')}</Text>
+                </View>
+                <View style={[s.switchTrack, repeatYearly && { backgroundColor: colors.primary }]}>
+                  <View style={[s.switchKnob, repeatYearly && { alignSelf: 'flex-end' }]} />
+                </View>
+              </PressableScale>
+            ) : null}
+
+            {!isBirthday ? (
+              <>
+                <Text style={s.fieldLabel}>{i18n.t('locationOptional')}</Text>
+                <TextInput style={s.input} placeholder={i18n.t('locationPlaceholder')} placeholderTextColor={colors.muted} value={location} onChangeText={setLocation} />
+                <Text style={s.fieldLabel}>{i18n.t('forWhomOptional')}</Text>
+                {whoChips}
+              </>
+            ) : null}
+
+            <Text style={s.fieldLabel}>{i18n.t('reminder')}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 7, paddingVertical: 2 }}>
+              {REMIND_OPTS.map(o => {
+                const sel = remind === o.min;
+                return (
+                  <PressableScale key={o.key} style={[s.timeChip, sel && { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => setRemind(o.min)}>
+                    <Text style={[s.timeChipText, sel && { color: colors.black }]}>{i18n.t(o.key)}</Text>
+                  </PressableScale>
+                );
+              })}
+            </ScrollView>
+            {remind >= 0 ? <Text style={s.remindHint}>{i18n.t('reminderPhase2')}</Text> : null}
+
+            <Text style={s.fieldLabel}>{i18n.t('noteOptional')}</Text>
+            <TextInput style={[s.input, { minHeight: 52, textAlignVertical: 'top' }]} placeholder={i18n.t('notePlaceholder')} placeholderTextColor={colors.muted} value={note} onChangeText={setNote} multiline />
+
+            <PressableScale style={[s.save, { backgroundColor: colors.primary, opacity: canSave ? 1 : 0.5 }]} onPress={save}>
+              <Text style={s.saveText}>{saving ? '…' : i18n.t('save')}</Text>
             </PressableScale>
-            {persons.map(p => {
-              const sel = subject?.entity_id === p.entity_id;
-              const c = profileColor(p.entity_id, profiles) ?? personColor(p.entity_id);
-              return (
-                <PressableScale key={p.entity_id} style={[s.who2, sel && { borderColor: c, backgroundColor: c + '18' }]} onPress={() => setSubject(p)}>
-                  <MemberAvatar person={p} settings={settings} size={28} color={c} />
-                  <Text style={[s.whoName, sel && { color: c }]} numberOfLines={1}>{String(p.attributes.friendly_name ?? p.entity_id).split(' ')[0]}</Text>
-                </PressableScale>
-              );
-            })}
           </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
-          <Text style={s.fieldLabel}>{i18n.t('day')}</Text>
-          <MonthPicker selected={day} onPick={setDay} />
+// بطاقة تفاصيل الموعد عند الضغط عليه، مع تعديل/حذف (الأعياد عرض-فقط).
+function EventDetailSheet({ event, who, meta, readOnly, settings, onEdit, onDelete, onClose }: {
+  event: Ev; who: Who; meta: EventMeta; readOnly: boolean; settings: ConnectionSettings;
+  onEdit: () => void; onDelete: () => void; onClose: () => void;
+}) {
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
+  void settings;
+  const allDay = isAllDay(event.start);
+  const d = new Date(allDay ? event.start + 'T12:00:00' : event.start);
+  const whenStr = Number.isNaN(d.getTime()) ? '' :
+    d.toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' }) +
+    (allDay ? '' : ` · ${d.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })}`);
+  const km = meta.kind ? KIND_META[meta.kind] : undefined;
+  const headColor = who.holiday ? HOLIDAY_COLOR : (who.subject?.color ?? who.creator?.color ?? colors.primary);
 
-          {!isAnnual ? (
-            <>
-              <Text style={s.fieldLabel}>{i18n.t('time')}</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 7, paddingVertical: 2, alignItems: 'center' }}>
-                {['07:00', '08:00', '09:00', '12:00', '13:00', '18:00', '20:00'].map(t => {
-                  const [th, tm] = t.split(':');
-                  const sel = th === hour && tm === minute;
-                  return (
-                    <PressableScale key={t} style={[s.timeChip, sel && { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => { setHour(th); setMinute(tm); }}>
-                      <Text style={[s.timeChipText, sel && { color: colors.black }]}>{t}</Text>
-                    </PressableScale>
-                  );
-                })}
-              </ScrollView>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                <Ionicons name="time-outline" size={20} color={colors.muted} />
-                <TextInput style={[s.input, s.timeInput]} keyboardType="number-pad" maxLength={2} value={hour} onChangeText={v => setHour(v)} onBlur={() => setHour(pad2(Math.min(23, Math.max(0, parseInt(hour, 10) || 0))))} />
-                <Text style={s.colon}>:</Text>
-                <TextInput style={[s.input, s.timeInput]} keyboardType="number-pad" maxLength={2} value={minute} onChangeText={v => setMinute(v)} onBlur={() => setMinute(pad2(Math.min(59, Math.max(0, parseInt(minute, 10) || 0))))} />
+  const rows: { icon: string; text: string }[] = [];
+  if (whenStr) rows.push({ icon: 'calendar-outline', text: whenStr });
+  if (who.holiday) rows.push({ icon: 'flag-outline', text: i18n.t('holiday') });
+  if (meta.forWhom) rows.push({ icon: 'person-outline', text: `${i18n.t('forShort')} ${meta.forWhom}` });
+  if (meta.location) rows.push({ icon: 'location-outline', text: meta.location });
+  if (meta.remind != null) rows.push({ icon: 'notifications-outline', text: remindLabel(meta.remind) });
+  if (meta.createdBy) rows.push({ icon: 'create-outline', text: `${i18n.t('byShort')} ${meta.createdBy}` });
+  if (meta.note) rows.push({ icon: 'document-text-outline', text: meta.note });
+
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <View style={s.backdrop}>
+        <View style={s.sheet}>
+          <View style={s.sheetHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, flex: 1 }}>
+              <View style={[s.detailIcon, { backgroundColor: headColor + '22' }]}>
+                <Ionicons name={who.holiday ? 'flag' : (km?.icon ?? 'calendar')} size={18} color={headColor} />
               </View>
-            </>
+              <Text style={s.detailTitle} numberOfLines={2}>{event.summary || i18n.t('untitled')}</Text>
+            </View>
+            <PressableScale onPress={onClose}><Ionicons name="close" size={22} color={colors.text} /></PressableScale>
+          </View>
+
+          <View style={{ gap: 10, marginTop: 4 }}>
+            {rows.map((r, i) => (
+              <View key={i} style={s.detailRow}>
+                <Ionicons name={r.icon} size={18} color={colors.muted} />
+                <Text style={s.detailText}>{r.text}</Text>
+              </View>
+            ))}
+          </View>
+
+          {!readOnly ? (
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+              <PressableScale style={[s.save, { flex: 1, backgroundColor: colors.primary }]} onPress={onEdit}>
+                <Text style={s.saveText}>{i18n.t('edit')}</Text>
+              </PressableScale>
+              <PressableScale style={s.deleteBtn} onPress={onDelete}>
+                <Ionicons name="trash-outline" size={20} color={colors.danger} />
+              </PressableScale>
+            </View>
           ) : null}
-
-          <Text style={s.fieldLabel}>{i18n.t('noteOptional')}</Text>
-          <TextInput style={[s.input, { minHeight: 56, textAlignVertical: 'top' }]} placeholder={i18n.t('notePlaceholder')} placeholderTextColor={colors.muted} value={note} onChangeText={setNote} multiline />
-
-          <PressableScale style={[s.save, { backgroundColor: target.color, opacity: title.trim() && !saving ? 1 : 0.5 }]} onPress={save}>
-            <Text style={s.saveText}>{saving ? '…' : i18n.t('saveEvent')}</Text>
-          </PressableScale>
-          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -506,6 +690,19 @@ function makeStyles(colors: Palette) {
     rowNote: { color: colors.muted, fontSize: 12.5, marginTop: 3, lineHeight: 17 },
     timeChip: { paddingVertical: 7, paddingHorizontal: 13, borderRadius: 11, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
     timeChipText: { color: colors.text, fontSize: 13, fontWeight: '700' },
+    kindRow: { flexDirection: 'row', gap: 7 },
+    kindBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+    kindText: { color: colors.muted, fontSize: 11.5, fontWeight: '700' },
+    toggleRow2: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, marginTop: 4 },
+    toggleText: { color: colors.text, fontSize: 14, fontWeight: '700' },
+    switchTrack: { width: 44, height: 26, borderRadius: 13, backgroundColor: colors.border, padding: 3, justifyContent: 'center' },
+    switchKnob: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff' },
+    remindHint: { color: colors.muted, fontSize: 11, lineHeight: 15, marginTop: -2 },
+    detailIcon: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+    detailTitle: { color: colors.text, fontSize: 18, fontWeight: '800', flex: 1 },
+    detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 11, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 11 },
+    detailText: { color: colors.text, fontSize: 14.5, flex: 1, lineHeight: 20 },
+    deleteBtn: { width: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.danger + '18' },
     mp: { backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 8 },
     mpHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, paddingBottom: 6 },
     mpNav: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceElevated },
