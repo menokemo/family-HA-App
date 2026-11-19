@@ -6,6 +6,17 @@
 
 ## العربية
 
+### [2.43.0] — 2026-11-19  (تعديل JS) — **فورم المهام: قسم + تاريخ + ملاحظة + أيقونات**
+- فورم إضافة المهمة اتطوّر لمستوى فورم التقويم — **تطبيق بس، من غير أي تعديل على المكوّن**:
+  - **أقسام بأيقونات:** مطبخ 🍽️ / حمّام 💧 / غسيل 👕 / غرفة نوم 🛏️ / صالة 📺 / برّه 🍃 / صيانة 🔧 / أخرى — تختار القسم بضغطة.
+  - **تاريخ اختياري** (منتقي شهري JS صافي، نفس بتاع التقويم) — والمهمة المتأخّرة بتتلوّن أحمر.
+  - **ملاحظة اختيارية** بتظهر تحت عنوان المهمة.
+  - كل صف مهمة بقى بيعرض **أيقونة قسمه** + شارة التاريخ + صاحبها. (المهام القديمة بدون تفاصيل بتظهر زي ما هي.)
+- **التخزين:** التفاصيل بتتخبّى جوه نص الـ`title` بعلامات `·cat:` `·due:` `·note:` وتتفك للعرض — نفس أسلوب التقويم والتسوّق بالظبط (`chore.ts` + ٦ تستات).
+- **تنظيف:** `MonthPicker` اتنقل لملف مشترك (`MonthPicker.tsx`) + مساعدات التاريخ في `dates.ts`، والتقويم بقى بيستوردهم بدل التكرار. tsc نظيف، ١٠٤ تست، لينت أخضر.
+- **التسوّق والملاحظات:** اتراجعوا — فورماتهم كاملة وعملية خلاص فمحتاجوش شغل.
+- **التكرار التلقائي** (جدول نظافة/صيانة بيتولّد لوحده) لسه مؤجّل لمرحلة المكوّن (Phase 2) لأنه محتاج تخزين في المكوّن.
+
 ### [2.42.1] — 2026-11-19  (تعديل JS) — **أيقونة النوع في صفوف التقويم**
 - كل موعد في القايمة بقى بيعرض **أيقونة نوعه** (🎁 عيد ميلاد / 🗓️ ميعاد / ✨ مناسبة / 🚩 عطلة) بدل الشريط الملوّن — تعرف النوع بنظرة. (الأحداث القديمة بدون نوع: يوم-كامل → مناسبة، وإلا ميعاد.)
 
@@ -1240,6 +1251,17 @@
 ---
 
 ## English
+
+### [2.43.0] — 2026-11-19  (JS change) — **Chores form: category + due date + note + icons**
+- The add-chore form was raised to the calendar form's level — **app-only, no component change**:
+  - **Categories with icons:** Kitchen / Bathroom / Laundry / Bedroom / Living room / Outdoor / Maintenance / Other — tap to pick.
+  - **Optional due date** (pure-JS month picker, the same one the calendar uses); overdue chores turn red.
+  - **Optional note** shown under the chore title.
+  - Each chore row now shows its **category icon** + due badge + assignee. (Old chores with no details render unchanged.)
+- **Storage:** details are hidden inside the `title` text with `·cat:` `·due:` `·note:` markers and split back out for display — the same pattern the calendar and shopping already use (`chore.ts` + 6 tests).
+- **Cleanup:** `MonthPicker` was extracted to a shared file (`MonthPicker.tsx`) with date helpers in `dates.ts`; the calendar now imports them instead of duplicating. tsc clean, 104 tests, lint green.
+- **Shopping & Notes:** reviewed — their forms are already complete and practical, so no work needed.
+- **Auto-recurring** chores (a self-regenerating cleaning/maintenance schedule) stay deferred to the component phase (Phase 2) since they need component storage.
 
 ### [2.37.0] — 2026-11-18  (JS change — comes from metro, **no new component**) — **Meal ingredients → shopping list**
 - The cart button on a Mealie meal now **fetches its recipe ingredients** and opens a sheet with all of them **pre-checked** — uncheck what you have, add the rest to the Mealie list in one tap.

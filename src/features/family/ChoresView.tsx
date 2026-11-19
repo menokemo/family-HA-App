@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTheme, type Palette } from '../../theme';
 import { i18n } from '../../i18n';
@@ -9,8 +9,15 @@ import { PressableScale } from '../../components/PressableScale';
 import { MemberAvatar, personColor } from './MemberAvatar';
 import { readProfiles, profileColor } from './profiles';
 import { readSocial, resolvePoster, type Chore } from './social';
+import { CHORE_CATS, choreIcon, joinChoreMeta, splitChoreMeta, type ChoreCat } from './chore';
+import { MonthPicker } from './MonthPicker';
+import { dayKey, locale, startOfDay } from './dates';
 
 type Props = { states: HaEntity[]; settings: ConnectionSettings; canManage?: boolean };
+
+const catLabel = (c: ChoreCat) => i18n.t('choreCat_' + c);
+const dueLabel = (d: Date) => d.toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
+const parseDue = (k?: string) => (k ? new Date(k + 'T00:00:00') : null);
 
 export function ChoresView({ states, settings, canManage = true }: Props) {
   const { colors } = useTheme();
@@ -20,20 +27,28 @@ export function ChoresView({ states, settings, canManage = true }: Props) {
   const chores = useMemo(() => readSocial<Chore>(states, 'chores').slice().reverse(), [states]);
   const open = chores.filter(c => !c.done);
   const done = chores.filter(c => c.done);
+  const todayKey = dayKey(startOfDay(new Date()));
 
   const [title, setTitle] = useState('');
   const [assignee, setAssignee] = useState<HaEntity | undefined>(undefined);
+  const [cat, setCat] = useState<ChoreCat>('other');
+  const [due, setDue] = useState<Date | null>(null);
+  const [note, setNote] = useState('');
+  const [showCal, setShowCal] = useState(false);
   const [adding, setAdding] = useState(false);
 
+  const reset = () => { setTitle(''); setAssignee(undefined); setCat('other'); setDue(null); setNote(''); };
   const add = async () => {
     const t = title.trim();
     if (!t || adding) return;
     setAdding(true);
-    try { await choreAdd(settings, t, assignee?.entity_id); setTitle(''); setAssignee(undefined); } finally { setAdding(false); }
+    const combined = joinChoreMeta(t, { cat, due: due ? dayKey(due) : undefined, note });
+    try { await choreAdd(settings, combined, assignee?.entity_id); reset(); } finally { setAdding(false); }
   };
   const onDelete = (c: Chore) => {
     if (!canManage) return; // الطفل مايحذفش
-    Alert.alert(c.title, '', [
+    const { title: shown } = splitChoreMeta(c.title);
+    Alert.alert(shown, '', [
       { text: i18n.t('cancel'), style: 'cancel' },
       { text: i18n.t('delete'), style: 'destructive', onPress: () => { void socialDelete(settings, 'chores', c.id).catch(() => {}); } },
     ]);
@@ -41,10 +56,22 @@ export function ChoresView({ states, settings, canManage = true }: Props) {
 
   const row = (c: Chore) => {
     const who = resolvePoster(c, persons, profiles);
+    const { title: shown, meta } = splitChoreMeta(c.title);
+    const overdue = !c.done && meta.due && meta.due < todayKey;
     return (
       <PressableScale key={c.id} style={s.row} onPress={() => void choreSet(settings, c.id, !c.done).catch(() => {})} onLongPress={() => onDelete(c)}>
         <Ionicons name={c.done ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={c.done ? colors.safe : colors.muted} />
-        <Text style={[s.title, c.done && s.titleDone]} numberOfLines={1}>{c.title}</Text>
+        <View style={[s.catDot, { backgroundColor: colors.surfaceElevated }]}><Ionicons name={choreIcon(meta.cat)} size={13} color={colors.muted} /></View>
+        <View style={s.rowMid}>
+          <Text style={[s.title, c.done && s.titleDone]} numberOfLines={1}>{shown}</Text>
+          {meta.note ? <Text style={s.note} numberOfLines={1}>{meta.note}</Text> : null}
+        </View>
+        {meta.due ? (
+          <View style={[s.dueBadge, overdue && { backgroundColor: colors.danger + '22' }]}>
+            <Ionicons name="calendar-outline" size={11} color={overdue ? colors.danger : colors.muted} />
+            <Text style={[s.dueText, overdue && { color: colors.danger }]}>{dueLabel(parseDue(meta.due)!)}</Text>
+          </View>
+        ) : null}
         <MemberAvatar person={who.person} name={who.name} settings={settings} size={24} color={who.color} />
       </PressableScale>
     );
@@ -58,6 +85,28 @@ export function ChoresView({ states, settings, canManage = true }: Props) {
           <Ionicons name="add" size={22} color="#fff" />
         </PressableScale>
       </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.pickOuter} contentContainerStyle={s.pick}>
+        {CHORE_CATS.map(c => {
+          const sel = cat === c.key;
+          return (
+            <PressableScale key={c.key} style={[s.catChip, sel && { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => setCat(c.key)}>
+              <Ionicons name={c.icon} size={13} color={sel ? colors.black : colors.muted} />
+              <Text style={[s.catChipText, sel && { color: colors.black }]}>{catLabel(c.key)}</Text>
+            </PressableScale>
+          );
+        })}
+      </ScrollView>
+
+      <View style={s.detailBar}>
+        <PressableScale style={[s.duePill, due && { borderColor: colors.primary, backgroundColor: colors.primary + '18' }]} onPress={() => setShowCal(true)}>
+          <Ionicons name="calendar-outline" size={14} color={due ? colors.primary : colors.muted} />
+          <Text style={[s.duePillText, due && { color: colors.primary }]}>{due ? dueLabel(due) : i18n.t('addDue')}</Text>
+          {due ? <PressableScale onPress={() => setDue(null)} hitSlop={8}><Ionicons name="close" size={13} color={colors.primary} /></PressableScale> : null}
+        </PressableScale>
+        <TextInput style={s.noteInput} placeholder={i18n.t('notePlaceholder')} placeholderTextColor={colors.muted} value={note} onChangeText={setNote} />
+      </View>
+
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.pickOuter} contentContainerStyle={s.pick}>
         <PressableScale style={[s.who, !assignee && { borderColor: colors.primary, backgroundColor: colors.primary + '18' }]} onPress={() => setAssignee(undefined)}>
           <View style={[s.whoAll, { backgroundColor: colors.muted }]}><Ionicons name="people" size={13} color="#fff" /></View>
@@ -84,6 +133,14 @@ export function ChoresView({ states, settings, canManage = true }: Props) {
         {done.map(row)}
         <View style={{ height: 24 }} />
       </ScrollView>
+
+      <Modal visible={showCal} transparent animationType="fade" onRequestClose={() => setShowCal(false)}>
+        <PressableScale style={s.backdrop} onPress={() => setShowCal(false)}>
+          <View style={s.sheet} onStartShouldSetResponder={() => true}>
+            <MonthPicker selected={due ?? new Date()} onPick={d => { setDue(d); setShowCal(false); }} />
+          </View>
+        </PressableScale>
+      </Modal>
     </View>
   );
 }
@@ -94,16 +151,29 @@ function makeStyles(colors: Palette) {
     input: { flex: 1, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, color: colors.text, fontSize: 15 },
     addBtn: { width: 42, height: 42, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
     pickOuter: { flexGrow: 0, flexShrink: 0 },
-    pick: { gap: 10, paddingHorizontal: 14, paddingVertical: 10, alignItems: 'center' },
+    pick: { gap: 8, paddingHorizontal: 14, paddingVertical: 8, alignItems: 'center' },
+    catChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 6, paddingHorizontal: 11, borderRadius: 13, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+    catChipText: { color: colors.muted, fontSize: 12, fontWeight: '600' },
+    detailBar: { flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingTop: 2, paddingBottom: 2, alignItems: 'center' },
+    duePill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 11, borderRadius: 11, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+    duePillText: { color: colors.muted, fontSize: 12.5, fontWeight: '600' },
+    noteInput: { flex: 1, backgroundColor: colors.surface, borderWidth: 0.5, borderColor: colors.border, borderRadius: 11, paddingHorizontal: 11, paddingVertical: 8, color: colors.text, fontSize: 13.5 },
     who: { alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, width: 62 },
     whoAll: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
     whoName: { color: colors.muted, fontSize: 11, fontWeight: '600' },
-    list: { padding: 14, paddingTop: 2, gap: 2 },
-    row: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 10, paddingHorizontal: 2 },
-    title: { flex: 1, color: colors.text, fontSize: 15 },
+    list: { padding: 14, paddingTop: 4, gap: 2 },
+    row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 2 },
+    catDot: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+    rowMid: { flex: 1 },
+    title: { color: colors.text, fontSize: 15 },
     titleDone: { color: colors.muted, textDecorationLine: 'line-through' },
+    note: { color: colors.muted, fontSize: 12, marginTop: 1 },
+    dueBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingVertical: 3, paddingHorizontal: 7, borderRadius: 9, backgroundColor: colors.surfaceElevated },
+    dueText: { color: colors.muted, fontSize: 11, fontWeight: '700' },
     sectionLabel: { color: colors.muted, fontSize: 12, fontWeight: '700', marginTop: 14, marginBottom: 2, marginLeft: 2 },
     empty: { alignItems: 'center', gap: 10, paddingVertical: 48 },
     emptyText: { color: colors.muted, fontSize: 14 },
+    backdrop: { flex: 1, backgroundColor: '#0008', justifyContent: 'center', paddingHorizontal: 24 },
+    sheet: { backgroundColor: colors.background, borderRadius: 18, padding: 12 },
   });
 }

@@ -9,6 +9,8 @@ import { PressableScale } from '../../components/PressableScale';
 import { MemberAvatar, personColor } from './MemberAvatar';
 import { joinEventMeta, splitEventMeta, type EventKind, type EventMeta } from './creator';
 import { profileColor, readProfiles, type Profiles } from './profiles';
+import { MonthPicker } from './MonthPicker';
+import { addDays, dayKey, endOfMonth, locale, startOfDay, startOfMonth } from './dates';
 
 type Props = { calendars: HaEntity[]; states: HaEntity[]; settings: ConnectionSettings; canManage?: boolean };
 type Ev = CalendarEvent & { calendarId: string };
@@ -20,13 +22,7 @@ type Target = { key: 'annual' | 'planner'; label: string; color: string; calenda
 const STRIP_DAYS = 28;
 const HOLIDAY_COLOR = '#C9892F';
 const ANNUAL_COLOR = '#BA7517';
-const locale = () => i18n.locale || 'en';
-function startOfDay(d: Date) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
-function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
-function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
-function endOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
 function sameMonth(a: Date, b: Date) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth(); }
-function dayKey(d: Date) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 function isAllDay(start: string) { return /^\d{4}-\d{2}-\d{2}$/.test(start); }
 function eventDayKey(start: string): string | null { if (isAllDay(start)) return start; const d = new Date(start); return Number.isNaN(d.getTime()) ? null : dayKey(d); }
 function timeLabel(start: string): string { if (isAllDay(start)) return i18n.t('allDay'); const d = new Date(start); return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }); }
@@ -598,46 +594,6 @@ function EventDetailSheet({ event, who, meta, readOnly, settings, onEdit, onDele
   );
 }
 
-// منتقي تاريخ شهري بـ JS صافي (من غير مكتبة أصلية) — نتيجة شهر بأسهم، تختار أي يوم.
-function MonthPicker({ selected, onPick }: { selected: Date; onPick: (d: Date) => void }) {
-  const { colors } = useTheme();
-  const s = useMemo(() => makeStyles(colors), [colors]);
-  const [month, setMonth] = useState<Date>(startOfMonth(selected));
-  const daysInMonth = endOfMonth(month).getDate();
-  const firstDow = (startOfMonth(month).getDay() + 6) % 7; // الإثنين = 0
-  const cells: (Date | null)[] = [];
-  for (let i = 0; i < firstDow; i++) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(month.getFullYear(), month.getMonth(), d));
-  const weekdays = Array.from({ length: 7 }, (_, i) => addDays(new Date(2024, 0, 1), i).toLocaleDateString(locale(), { weekday: 'narrow' })); // 2024-01-01 = إثنين
-  const todayKey = dayKey(startOfDay(new Date()));
-
-  return (
-    <View style={s.mp}>
-      <View style={s.mpHead}>
-        <PressableScale style={s.mpNav} onPress={() => setMonth(startOfMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1)))}><Ionicons name="chevron-back" size={18} color={colors.text} /></PressableScale>
-        <Text style={s.mpTitle}>{month.toLocaleDateString(locale(), { month: 'long', year: 'numeric' })}</Text>
-        <PressableScale style={s.mpNav} onPress={() => setMonth(startOfMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1)))}><Ionicons name="chevron-forward" size={18} color={colors.text} /></PressableScale>
-      </View>
-      <View style={s.mpGrid}>
-        {weekdays.map((w, i) => <View key={'w' + i} style={s.mpCell}><Text style={s.mpDow}>{w}</Text></View>)}
-        {cells.map((d, i) => {
-          if (!d) return <View key={'e' + i} style={s.mpCell} />;
-          const k = dayKey(d);
-          const sel = k === dayKey(selected);
-          const isToday = k === todayKey;
-          return (
-            <PressableScale key={k} style={s.mpCell} onPress={() => onPick(d)}>
-              <View style={[s.mpDay, sel && { backgroundColor: colors.primary }, !sel && isToday && { borderColor: colors.primary, borderWidth: 1 }]}>
-                <Text style={[s.mpDayText, sel && { color: colors.black, fontWeight: '800' }]}>{d.getDate()}</Text>
-              </View>
-            </PressableScale>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
 function makeStyles(colors: Palette) {
   return StyleSheet.create({
     center: { alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 48 },
@@ -707,15 +663,6 @@ function makeStyles(colors: Palette) {
     detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 11, backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 11 },
     detailText: { color: colors.text, fontSize: 14.5, flex: 1, lineHeight: 20 },
     deleteBtn: { width: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.danger + '18' },
-    mp: { backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 8 },
-    mpHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, paddingBottom: 6 },
-    mpNav: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceElevated },
-    mpTitle: { color: colors.text, fontSize: 14.5, fontWeight: '800', textTransform: 'capitalize' },
-    mpGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-    mpCell: { width: `${100 / 7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
-    mpDow: { color: colors.muted, fontSize: 11, fontWeight: '700' },
-    mpDay: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-    mpDayText: { color: colors.text, fontSize: 14, fontWeight: '600' },
     save: { borderRadius: 14, padding: 14, alignItems: 'center', marginTop: 14 },
     saveText: { color: '#fff', fontWeight: '800', fontSize: 15 },
   });
