@@ -9,13 +9,14 @@ import { PressableScale } from '../../components/PressableScale';
 import { MemberAvatar, personColor } from './MemberAvatar';
 import { readProfiles, profileColor } from './profiles';
 import { readSocial, resolvePoster, type Chore } from './social';
-import { CHORE_CATS, choreIcon, joinChoreMeta, splitChoreMeta, type ChoreCat } from './chore';
+import { CHORE_CATS, choreIcon, readChore, REPEAT_OPTS, type ChoreCat, type ChoreRepeat } from './chore';
 import { MonthPicker } from './MonthPicker';
 import { dayKey, locale, startOfDay } from './dates';
 
 type Props = { states: HaEntity[]; settings: ConnectionSettings; canManage?: boolean };
 
 const catLabel = (c: ChoreCat) => i18n.t('choreCat_' + c);
+const repeatLabel = (r: ChoreRepeat) => i18n.t('choreRep_' + r);
 const dueLabel = (d: Date) => d.toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
 const parseDue = (k?: string) => (k ? new Date(k + 'T00:00:00') : null);
 
@@ -33,21 +34,30 @@ export function ChoresView({ states, settings, canManage = true }: Props) {
   const [assignee, setAssignee] = useState<HaEntity | undefined>(undefined);
   const [cat, setCat] = useState<ChoreCat>('other');
   const [due, setDue] = useState<Date | null>(null);
+  const [repeat, setRepeat] = useState<ChoreRepeat>('none');
   const [note, setNote] = useState('');
   const [showCal, setShowCal] = useState(false);
   const [adding, setAdding] = useState(false);
 
-  const reset = () => { setTitle(''); setAssignee(undefined); setCat('other'); setDue(null); setNote(''); };
+  const reset = () => { setTitle(''); setAssignee(undefined); setCat('other'); setDue(null); setRepeat('none'); setNote(''); };
   const add = async () => {
     const t = title.trim();
     if (!t || adding) return;
     setAdding(true);
-    const combined = joinChoreMeta(t, { cat, due: due ? dayKey(due) : undefined, note });
-    try { await choreAdd(settings, combined, assignee?.entity_id); reset(); } finally { setAdding(false); }
+    try {
+      await choreAdd(settings, t, {
+        assignee: assignee?.entity_id,
+        category: cat !== 'other' ? cat : undefined,
+        due: due ? dayKey(due) : undefined,
+        repeat,
+        note: note.trim() || undefined,
+      });
+      reset();
+    } finally { setAdding(false); }
   };
   const onDelete = (c: Chore) => {
     if (!canManage) return; // الطفل مايحذفش
-    const { title: shown } = splitChoreMeta(c.title);
+    const { title: shown } = readChore(c);
     Alert.alert(shown, '', [
       { text: i18n.t('cancel'), style: 'cancel' },
       { text: i18n.t('delete'), style: 'destructive', onPress: () => { void socialDelete(settings, 'chores', c.id).catch(() => {}); } },
@@ -56,20 +66,23 @@ export function ChoresView({ states, settings, canManage = true }: Props) {
 
   const row = (c: Chore) => {
     const who = resolvePoster(c, persons, profiles);
-    const { title: shown, meta } = splitChoreMeta(c.title);
-    const overdue = !c.done && meta.due && meta.due < todayKey;
+    const { title: shown, cat: rCat, due: rDue, note: rNote, repeat: rRepeat } = readChore(c);
+    const overdue = !c.done && rDue && rDue < todayKey;
     return (
       <PressableScale key={c.id} style={s.row} onPress={() => void choreSet(settings, c.id, !c.done).catch(() => {})} onLongPress={() => onDelete(c)}>
         <Ionicons name={c.done ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={c.done ? colors.safe : colors.muted} />
-        <View style={[s.catDot, { backgroundColor: colors.surfaceElevated }]}><Ionicons name={choreIcon(meta.cat)} size={13} color={colors.muted} /></View>
+        <View style={[s.catDot, { backgroundColor: colors.surfaceElevated }]}><Ionicons name={choreIcon(rCat)} size={13} color={colors.muted} /></View>
         <View style={s.rowMid}>
           <Text style={[s.title, c.done && s.titleDone]} numberOfLines={1}>{shown}</Text>
-          {meta.note ? <Text style={s.note} numberOfLines={1}>{meta.note}</Text> : null}
+          {rNote ? <Text style={s.note} numberOfLines={1}>{rNote}</Text> : null}
         </View>
-        {meta.due ? (
+        {rRepeat !== 'none' ? (
+          <View style={s.repBadge}><Ionicons name="repeat" size={11} color={colors.primary} /><Text style={s.repText}>{repeatLabel(rRepeat)}</Text></View>
+        ) : null}
+        {rDue ? (
           <View style={[s.dueBadge, overdue && { backgroundColor: colors.danger + '22' }]}>
             <Ionicons name="calendar-outline" size={11} color={overdue ? colors.danger : colors.muted} />
-            <Text style={[s.dueText, overdue && { color: colors.danger }]}>{dueLabel(parseDue(meta.due)!)}</Text>
+            <Text style={[s.dueText, overdue && { color: colors.danger }]}>{dueLabel(parseDue(rDue)!)}</Text>
           </View>
         ) : null}
         <MemberAvatar person={who.person} name={who.name} settings={settings} size={24} color={who.color} />
@@ -93,6 +106,18 @@ export function ChoresView({ states, settings, canManage = true }: Props) {
             <PressableScale key={c.key} style={[s.catChip, sel && { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => setCat(c.key)}>
               <Ionicons name={c.icon} size={13} color={sel ? colors.black : colors.muted} />
               <Text style={[s.catChipText, sel && { color: colors.black }]}>{catLabel(c.key)}</Text>
+            </PressableScale>
+          );
+        })}
+      </ScrollView>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.pickOuter} contentContainerStyle={s.pick}>
+        {REPEAT_OPTS.map(r => {
+          const sel = repeat === r.key;
+          return (
+            <PressableScale key={r.key} style={[s.catChip, sel && { backgroundColor: colors.primary, borderColor: colors.primary }]} onPress={() => setRepeat(r.key)}>
+              <Ionicons name={r.icon} size={13} color={sel ? colors.black : colors.muted} />
+              <Text style={[s.catChipText, sel && { color: colors.black }]}>{repeatLabel(r.key)}</Text>
             </PressableScale>
           );
         })}
@@ -170,6 +195,8 @@ function makeStyles(colors: Palette) {
     note: { color: colors.muted, fontSize: 12, marginTop: 1 },
     dueBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingVertical: 3, paddingHorizontal: 7, borderRadius: 9, backgroundColor: colors.surfaceElevated },
     dueText: { color: colors.muted, fontSize: 11, fontWeight: '700' },
+    repBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingVertical: 3, paddingHorizontal: 7, borderRadius: 9, backgroundColor: colors.primary + '18' },
+    repText: { color: colors.primary, fontSize: 11, fontWeight: '700' },
     sectionLabel: { color: colors.muted, fontSize: 12, fontWeight: '700', marginTop: 14, marginBottom: 2, marginLeft: 2 },
     empty: { alignItems: 'center', gap: 10, paddingVertical: 48 },
     emptyText: { color: colors.muted, fontSize: 14 },

@@ -1,5 +1,7 @@
-// بيانات إضافية للمهمة متخبّية في نص الـ title (قسم/تاريخ/ملاحظة) — من غير أي تعديل على المكوّن.
-// نفس فكرة creator.ts للمواعيد: علامات بـ «·» تتفك للعرض وتتجمّع للحفظ.
+// بيانات المهمة الإضافية (قسم/تاريخ/تكرار/ملاحظة).
+// من المكوّن v0.10.0 بتيجي كحقول حقيقية على عنصر المهمة. المهام القديمة (قبل
+// التحديث) كانت بتخبّي القسم/التاريخ/الملاحظة في نص الـtitle بعلامات «·» —
+// بنفضل نقراها كـ fallback عشان تفضل ظاهرة صح.
 export type ChoreCat =
   | 'kitchen' | 'bathroom' | 'laundry' | 'bedroom' | 'living' | 'outdoor' | 'maintenance' | 'other';
 
@@ -14,27 +16,33 @@ export const CHORE_CATS: { key: ChoreCat; icon: string }[] = [
   { key: 'other', icon: 'ellipsis-horizontal' },
 ];
 
+export type ChoreRepeat = 'none' | 'daily' | 'weekly' | 'monthly';
+
+export const REPEAT_OPTS: { key: ChoreRepeat; icon: string }[] = [
+  { key: 'none', icon: 'remove-circle-outline' },
+  { key: 'daily', icon: 'today-outline' },
+  { key: 'weekly', icon: 'calendar-outline' },
+  { key: 'monthly', icon: 'calendar-number-outline' },
+];
+
 export type ChoreMeta = { cat?: ChoreCat; due?: string; note?: string };
 
-const M = { cat: '·cat:', due: '·due:', note: '·note:' };
 const CAT_KEYS = new Set<string>(CHORE_CATS.map(c => c.key));
-const DUE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const REPEAT_KEYS = new Set<string>(REPEAT_OPTS.map(r => r.key));
 
 export function choreIcon(cat?: ChoreCat): string {
   return CHORE_CATS.find(c => c.key === (cat ?? 'other'))?.icon ?? 'ellipsis-horizontal';
 }
 
-// بيجمّع العنوان الظاهر مع العلامات في نص واحد يتحفظ. «note» دايمًا آخر حاجة لأنها ممكن تحتوي مسافات.
-export function joinChoreMeta(title: string, meta: ChoreMeta): string {
-  let out = title.trim();
-  if (meta.cat && meta.cat !== 'other') out += ` ${M.cat}${meta.cat}`;
-  if (meta.due && DUE_RE.test(meta.due)) out += ` ${M.due}${meta.due}`;
-  const note = meta.note?.trim();
-  if (note) out += ` ${M.note}${note}`;
-  return out;
+export function asCat(v?: string | null): ChoreCat | undefined {
+  return v && CAT_KEYS.has(v) ? (v as ChoreCat) : undefined;
 }
 
-// بيفك النص المحفوظ لعنوان ظاهر + بيانات. صيغة قديمة من غير علامات بترجع زي ما هي.
+export function asRepeat(v?: string | null): ChoreRepeat {
+  return v && REPEAT_KEYS.has(v) ? (v as ChoreRepeat) : 'none';
+}
+
+// بيفك العنوان القديم اللي فيه علامات لعنوان ظاهر + بيانات. عنوان من غير علامات بيرجع زي ما هو.
 export function splitChoreMeta(raw: string): { title: string; meta: ChoreMeta } {
   const idx = raw.search(/\s·(?:cat|due|note):/);
   if (idx < 0) return { title: raw.trim(), meta: {} };
@@ -55,4 +63,20 @@ export function splitChoreMeta(raw: string): { title: string; meta: ChoreMeta } 
   if (dueMatch) meta.due = dueMatch[1];
 
   return { title, meta };
+}
+
+export type ResolvedChore = { title: string; cat?: ChoreCat; due?: string; note?: string; repeat: ChoreRepeat };
+
+// الحقول الحقيقية (مكوّن جديد) لها الأولوية، والعلامات في العنوان (مهام قديمة) fallback.
+export function readChore(c: {
+  title: string; category?: string | null; due?: string | null; repeat?: string | null; note?: string | null;
+}): ResolvedChore {
+  const legacy = splitChoreMeta(c.title);
+  return {
+    title: legacy.title,
+    cat: asCat(c.category) ?? legacy.meta.cat,
+    due: (c.due || undefined) ?? legacy.meta.due,
+    note: (c.note || undefined) ?? legacy.meta.note,
+    repeat: asRepeat(c.repeat),
+  };
 }

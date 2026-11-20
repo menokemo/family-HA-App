@@ -4,7 +4,7 @@ import { profileColor, type Profiles } from './profiles';
 
 // عناصر شبكة العيلة زي ما المكوّن بيخزّنها (person = entity_id لكيان person أو null).
 export type SocialPost = { id: string; ts: number; person?: string | null; name: string; text: string };
-export type Chore = { id: string; ts: number; person?: string | null; name: string; title: string; done: boolean };
+export type Chore = { id: string; ts: number; person?: string | null; name: string; title: string; done: boolean; category?: string | null; due?: string | null; repeat?: string | null; note?: string | null };
 
 // بيقرا قسم (wall/chat/chores) من كيان السينسور بتاعه — بيتحدّث لحظيًا مع الحالة.
 export function readSocial<T>(states: HaEntity[], section: 'wall' | 'chat' | 'chores'): T[] {

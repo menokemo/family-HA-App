@@ -1,31 +1,16 @@
-import { joinChoreMeta, splitChoreMeta } from '../src/features/family/chore';
+import { asRepeat, readChore, splitChoreMeta } from '../src/features/family/chore';
 
-describe('chore meta round-trip', () => {
+describe('splitChoreMeta (legacy marker parsing)', () => {
   it('keeps a plain title with no markers', () => {
     expect(splitChoreMeta('Vacuum the hall')).toEqual({ title: 'Vacuum the hall', meta: {} });
   });
 
-  it('joins and splits category, due and note', () => {
-    const raw = joinChoreMeta('Mop floor', { cat: 'kitchen', due: '2026-11-25', note: 'use the strong soap' });
-    const { title, meta } = splitChoreMeta(raw);
+  it('parses category, due and note from markers', () => {
+    const { title, meta } = splitChoreMeta('Mop floor ·cat:kitchen ·due:2026-11-25 ·note:use the strong soap');
     expect(title).toBe('Mop floor');
     expect(meta.cat).toBe('kitchen');
     expect(meta.due).toBe('2026-11-25');
     expect(meta.note).toBe('use the strong soap');
-  });
-
-  it('omits the default "other" category from storage', () => {
-    const raw = joinChoreMeta('Take out trash', { cat: 'other' });
-    expect(raw).toBe('Take out trash');
-    expect(splitChoreMeta(raw).meta.cat).toBeUndefined();
-  });
-
-  it('allows a note that contains spaces and marker-like text', () => {
-    const raw = joinChoreMeta('Fix tap', { cat: 'maintenance', note: 'ask dad about the ·part first' });
-    const { title, meta } = splitChoreMeta(raw);
-    expect(title).toBe('Fix tap');
-    expect(meta.cat).toBe('maintenance');
-    expect(meta.note).toBe('ask dad about the ·part first');
   });
 
   it('ignores an unknown category and a malformed date', () => {
@@ -33,8 +18,37 @@ describe('chore meta round-trip', () => {
     expect(meta.cat).toBeUndefined();
     expect(meta.due).toBeUndefined();
   });
+});
 
-  it('drops an empty note and empty category', () => {
-    expect(joinChoreMeta('Dust shelves', { note: '   ' })).toBe('Dust shelves');
+describe('asRepeat', () => {
+  it('accepts known values and defaults the rest to none', () => {
+    expect(asRepeat('weekly')).toBe('weekly');
+    expect(asRepeat('monthly')).toBe('monthly');
+    expect(asRepeat('bogus')).toBe('none');
+    expect(asRepeat(null)).toBe('none');
+    expect(asRepeat(undefined)).toBe('none');
+  });
+});
+
+describe('readChore (field-first, legacy fallback)', () => {
+  it('prefers real fields from the new component', () => {
+    const r = readChore({ title: 'Clean bath', category: 'bathroom', due: '2026-12-01', repeat: 'weekly', note: 'soap' });
+    expect(r).toEqual({ title: 'Clean bath', cat: 'bathroom', due: '2026-12-01', note: 'soap', repeat: 'weekly' });
+  });
+
+  it('falls back to title markers for a legacy chore with no fields', () => {
+    const r = readChore({ title: 'Mop floor ·cat:kitchen ·due:2026-11-25 ·note:rinse well' });
+    expect(r.title).toBe('Mop floor');
+    expect(r.cat).toBe('kitchen');
+    expect(r.due).toBe('2026-11-25');
+    expect(r.note).toBe('rinse well');
+    expect(r.repeat).toBe('none');
+  });
+
+  it('strips no markers from a clean new-style title', () => {
+    const r = readChore({ title: 'Take out trash', repeat: 'daily' });
+    expect(r.title).toBe('Take out trash');
+    expect(r.cat).toBeUndefined();
+    expect(r.repeat).toBe('daily');
   });
 });

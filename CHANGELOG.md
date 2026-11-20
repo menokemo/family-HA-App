@@ -6,6 +6,15 @@
 
 ## العربية
 
+### [2.44.0] — 2026-11-20  (تعديل JS + **يتطلّب المكوّن v0.10.0**) — **مهام متكرّرة (جدول نظافة/صيانة)**
+- بنكمّل مرحلة المكوّن: المهام بقت تدعم **التكرار**.
+  - منتقي **تكرار** جديد في الفورم: مرة واحدة / يومي / أسبوعي / شهري (بأيقونات).
+  - المهمة المتكرّرة أول ما تتعمل ✅ بتتنقل لميعادها الجاي وترجع مفتوحة — عنصر واحد حيّ لكل مهمة (مش بتتكدّس في «المكتمل»). ده السلوك المتّفق عليه.
+  - صف المهمة بيعرض **شارة تكرار** 🔁 جنب شارة التاريخ.
+- **تنظيف للتخزين:** القسم/التاريخ/الملاحظة بقت **حقول حقيقية** على المهمة (جايّة من المكوّن)، مش متخبّية في نص العنوان. المهام القديمة اللي فيها علامات بتتقرا كـ fallback (`readChore`) فمفيش حاجة بتضيع. شِلنا `joinChoreMeta` اللي مابقاش له لازمة.
+- **⚠️ ترتيب التحديث مهم:** سكيمة سيرفسات المكوّن صارمة، فلازم **تحدّث المكوّن لـ v0.10.0 (HACS + إعادة تشغيل HA) قبل** نشر التطبيق ده. لو نشرت التطبيق والمكوّن لسه قديم، إضافة مهمة فيها حقول جديدة هتفشل.
+- `tsc` نظيف · ١٠٥ تست · لينت أخضر · مفيش بصمة.
+
 ### [2.43.0] — 2026-11-19  (تعديل JS) — **فورم المهام: قسم + تاريخ + ملاحظة + أيقونات**
 - فورم إضافة المهمة اتطوّر لمستوى فورم التقويم — **تطبيق بس، من غير أي تعديل على المكوّن**:
   - **أقسام بأيقونات:** مطبخ 🍽️ / حمّام 💧 / غسيل 👕 / غرفة نوم 🛏️ / صالة 📺 / برّه 🍃 / صيانة 🔧 / أخرى — تختار القسم بضغطة.
@@ -1251,6 +1260,15 @@
 ---
 
 ## English
+
+### [2.44.0] — 2026-11-20  (JS change + **requires component v0.10.0**) — **Recurring chores (cleaning/maintenance schedule)**
+- Component phase continues: chores now support **recurrence**.
+  - New **repeat** picker in the form: once / daily / weekly / monthly (with icons).
+  - Completing a recurring chore ✅ moves it to its next due date and reopens it — one living item per recurring task (it does not pile up under "completed"). This is the agreed behavior.
+  - The chore row shows a **repeat badge** 🔁 next to the due badge.
+- **Storage cleanup:** category/due/note are now **real fields** on the chore (coming from the component), no longer hidden in the title text. Old chores with markers are still read via a fallback (`readChore`), so nothing is lost. Removed the now-unused `joinChoreMeta`.
+- **⚠️ Deploy order matters:** the component's service schema is strict, so you must **update the component to v0.10.0 (HACS + restart HA) before** shipping this app build. Deploying the app against the old component would make adding a chore with the new fields fail.
+- tsc clean · 105 tests · lint green.
 
 ### [2.43.0] — 2026-11-19  (JS change) — **Chores form: category + due date + note + icons**
 - The add-chore form was raised to the calendar form's level — **app-only, no component change**:

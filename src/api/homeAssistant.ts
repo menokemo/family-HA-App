@@ -341,7 +341,16 @@ export async function createCalendarEvent(settings: ConnectionSettings, entityId
 
 export const wallPost = (s: ConnectionSettings, text: string) => callService(s, 'secure_family', 'wall_post', { text });
 export const chatSend = (s: ConnectionSettings, text: string) => callService(s, 'secure_family', 'chat_send', { text });
-export const choreAdd = (s: ConnectionSettings, title: string, assignee?: string) => callService(s, 'secure_family', 'chore_add', assignee ? { title, assignee } : { title });
+export type ChoreAddOpts = { assignee?: string; category?: string; due?: string; repeat?: string; note?: string };
+export const choreAdd = (s: ConnectionSettings, title: string, opts: ChoreAddOpts = {}) => {
+  const data: Record<string, unknown> = { title };
+  if (opts.assignee) data.assignee = opts.assignee;
+  if (opts.category) data.category = opts.category;
+  if (opts.due) data.due = opts.due;
+  if (opts.repeat && opts.repeat !== 'none') data.repeat = opts.repeat;
+  if (opts.note) data.note = opts.note;
+  return callService(s, 'secure_family', 'chore_add', data);
+};
 export const choreSet = (s: ConnectionSettings, choreId: string, done: boolean) => callService(s, 'secure_family', 'chore_set', { chore_id: choreId, done });
 export const socialDelete = (s: ConnectionSettings, section: 'wall' | 'chat' | 'chores', itemId: string) => callService(s, 'secure_family', 'social_delete', { section, item_id: itemId });
 
