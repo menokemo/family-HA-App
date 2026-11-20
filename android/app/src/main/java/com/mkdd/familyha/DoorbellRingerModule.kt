@@ -4,6 +4,8 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -24,6 +26,10 @@ class DoorbellRingerModule(private val reactContext: ReactApplicationContext) :
 
   private var player: MediaPlayer? = null
   private var vibrator: Vibrator? = null
+  private val handler = Handler(Looper.getMainLooper())
+  // هل إحنا في وضع الرنين المتكرر؟ (غير المعاينة اللي بتشتغل مرة واحدة)
+  private var ringing = false
+  private var currentTone: String? = null
 
   override fun getName() = "DoorbellRinger"
 
@@ -33,7 +39,8 @@ class DoorbellRingerModule(private val reactContext: ReactApplicationContext) :
     else -> R.raw.doorbell_ding_dong
   }
 
-  private fun play(tone: String?, loop: Boolean) {
+  // بتشغّل النغمة مرة واحدة، وتنادي onDone لما تخلص.
+  private fun playOnce(tone: String?, onDone: (() -> Unit)?) {
     stopPlayer()
     val attrs = AudioAttributes.Builder()
       .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
@@ -45,13 +52,23 @@ class DoorbellRingerModule(private val reactContext: ReactApplicationContext) :
         setAudioAttributes(attrs)
         setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
         afd.close()
-        isLooping = loop
-        setOnCompletionListener { if (!loop) stopPlayer() }
+        isLooping = false
+        setOnCompletionListener {
+          stopPlayer()
+          onDone?.invoke()
+        }
         prepare()
         start()
       }
     } catch (e: Exception) {
       // فشل التشغيل — نتجاهل بهدوء (مفيش صوت أفضل من كراش)
+    }
+  }
+
+  // رنين متكرر بفاصل هادي بين النغمة والتانية (بدل التكرار الملتصق المزعج).
+  private fun ringLoop() {
+    playOnce(currentTone) {
+      if (ringing) handler.postDelayed({ if (ringing) ringLoop() }, RING_GAP_MS)
     }
   }
 
@@ -88,19 +105,26 @@ class DoorbellRingerModule(private val reactContext: ReactApplicationContext) :
 
   @ReactMethod
   fun startRinging(tone: String?) {
-    play(tone, true)
+    ringing = true
+    currentTone = tone
+    ringLoop()
     startVibration()
   }
 
   @ReactMethod
   fun stopRinging() {
+    ringing = false
+    handler.removeCallbacksAndMessages(null)
     stopPlayer()
     stopVibration()
   }
 
   @ReactMethod
   fun preview(tone: String?) {
-    play(tone, false)
+    // معاينة: مرة واحدة بس، من غير تكرار.
+    ringing = false
+    handler.removeCallbacksAndMessages(null)
+    playOnce(tone, null)
   }
 
   /**
@@ -128,5 +152,10 @@ class DoorbellRingerModule(private val reactContext: ReactApplicationContext) :
   override fun invalidate() {
     stopRinging()
     super.invalidate()
+  }
+
+  companion object {
+    // الفاصل بين نهاية النغمة وبداية التكرار اللي بعدها (مللي ثانية).
+    private const val RING_GAP_MS = 1200L
   }
 }

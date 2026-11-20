@@ -24,7 +24,8 @@ const RING_TIMEOUT_MS = 45000;
  */
 export function DoorbellScreen({ camera, settings, onClose }: Props) {
   const [answered, setAnswered] = useState(false);
-  const [micMuted, setMicMuted] = useState(false);
+  // المايك يبدأ مقفول — يفتح بس لما المستخدم يدوس زر المايك بعد الرد.
+  const [micMuted, setMicMuted] = useState(true);
   const [speakerMuted, setSpeakerMuted] = useState(false);
   const [liveFailed, setLiveFailed] = useState(false);
   const token = typeof camera.attributes.access_token === 'string' ? camera.attributes.access_token : undefined;

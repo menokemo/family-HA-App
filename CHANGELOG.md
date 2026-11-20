@@ -6,6 +6,14 @@
 
 ## العربية
 
+### [2.45.0] — 2026-11-20  (تعديل JS + **native للنغمة** + **يتطلّب المكوّن v0.11.0**) — **اختيار أفراد العيلة + إصلاحات جرس الباب**
+- **اختيار أفراد العيلة (يتطلّب المكوّن v0.11.0):** الأدمن بيختار من لوحة المكوّن مين من الـpersons يظهر في تبويب العيلة (حقل "أفراد العيلة"). التطبيق بيفلتر بيه في كل مكان (المهام + "لمين" في التقويم + الشاشة الرئيسية + الملاحظات) عبر `familyMembers()`. فاضي = يظهر الكل (متوافق). الحقل بينتشر مع الكونفيج (`familyMemberIds`).
+- **جرس الباب — المايك مقفول افتراضيًا (C):** بعد الرد المايك بيبدأ **مكتوم**، ويفتح بس لما تدوس زر المايك. (كان بيفتح على طول.)
+- **جرس الباب — الكاميرا بتظهر فورًا (B):** في وضع الرنين (استقبال فقط) مابقناش نطلب صلاحية المايك — طلبها كان بيأخّر ظهور الفيديو الوارد لحد ما ترد على المنبثقة. دلوقتي الكاميرا بتوصل فورًا، والرد بيضيف الصوت بس.
+- **جرس الباب — فاصل في النغمة (D) — ⚠️ native، محتاج بناء APK:** النغمة كانت بتتكرّر ملتصقة بدون توقف (`isLooping`). دلوقتي بتتكرّر بفاصل ١.٢ ثانية بين النغمة والتانية. التعديل في `DoorbellRingerModule.kt`، فمحتاج **بناء APK جديد** (مش OTA).
+- **ترتيب:** المكوّن v0.11.0 الأول (HACS/zip + إعادة تشغيل HA) ثم التطبيق.
+- `tsc` نظيف · ١٠٥ تست · لينت أخضر · مفيش بصمة.
+
 ### [2.44.0] — 2026-11-20  (تعديل JS + **يتطلّب المكوّن v0.10.0**) — **مهام متكرّرة (جدول نظافة/صيانة)**
 - بنكمّل مرحلة المكوّن: المهام بقت تدعم **التكرار**.
   - منتقي **تكرار** جديد في الفورم: مرة واحدة / يومي / أسبوعي / شهري (بأيقونات).
@@ -1260,6 +1268,14 @@
 ---
 
 ## English
+
+### [2.45.0] — 2026-11-20  (JS + **native ringtone** + **requires component v0.11.0**) — **Family-member selection + doorbell fixes**
+- **Family-member selection (requires component v0.11.0):** the admin picks which person entities appear in the family tab (panel "Family members" field). The app filters everywhere (chores, calendar "for whom", dashboard, notes) via `familyMembers()`. Empty = show all (backward compatible). Published as `familyMemberIds`.
+- **Doorbell — mic muted by default (C):** after answering, the mic starts **muted** and only opens when you tap the mic button. (It used to open immediately.)
+- **Doorbell — camera shows immediately (B):** in ring (receive-only) mode we no longer request the mic permission — requesting it delayed the incoming video until the user dismissed the prompt. The camera now connects right away; answering just adds audio.
+- **Doorbell — ringtone gap (D) — ⚠️ native, needs an APK build:** the tone looped back-to-back with no pause (`isLooping`). It now repeats with a 1.2s gap. The change is in `DoorbellRingerModule.kt`, so it needs a **new APK build** (not OTA).
+- **Order:** component v0.11.0 first (HACS/zip + restart HA), then the app.
+- tsc clean · 105 tests · lint green.
 
 ### [2.44.0] — 2026-11-20  (JS change + **requires component v0.10.0**) — **Recurring chores (cleaning/maintenance schedule)**
 - Component phase continues: chores now support **recurrence**.

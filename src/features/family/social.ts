@@ -1,6 +1,14 @@
-import type { HaEntity } from '../../types/homeAssistant';
+import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { personColor } from './MemberAvatar';
 import { profileColor, type Profiles } from './profiles';
+
+// أفراد العيلة اللي يظهروا في التبويب: الأدمن بيختارهم في لوحة المكوّن
+// (familyMemberIds المنشور). فاضي = اعرض كل الـpersons (سلوك قديم، متوافق).
+export function familyMembers(states: HaEntity[], settings: ConnectionSettings): HaEntity[] {
+  const persons = states.filter(e => e.entity_id.startsWith('person.'));
+  const ids = settings.familyMemberIds;
+  return ids && ids.length ? persons.filter(p => ids.includes(p.entity_id)) : persons;
+}
 
 // عناصر شبكة العيلة زي ما المكوّن بيخزّنها (person = entity_id لكيان person أو null).
 export type SocialPost = { id: string; ts: number; person?: string | null; name: string; text: string };

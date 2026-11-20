@@ -8,7 +8,7 @@ import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { PressableScale } from '../../components/PressableScale';
 import { MemberAvatar, personColor } from './MemberAvatar';
 import { readProfiles, profileColor } from './profiles';
-import { readSocial, resolvePoster, type Chore } from './social';
+import { familyMembers, readSocial, resolvePoster, type Chore } from './social';
 import { CHORE_CATS, choreIcon, readChore, REPEAT_OPTS, type ChoreCat, type ChoreRepeat } from './chore';
 import { MonthPicker } from './MonthPicker';
 import { dayKey, locale, startOfDay } from './dates';
@@ -23,7 +23,7 @@ const parseDue = (k?: string) => (k ? new Date(k + 'T00:00:00') : null);
 export function ChoresView({ states, settings, canManage = true }: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
-  const persons = useMemo(() => states.filter(e => e.entity_id.startsWith('person.')), [states]);
+  const persons = useMemo(() => familyMembers(states, settings), [states, settings]);
   const profiles = useMemo(() => readProfiles(states), [states]);
   const chores = useMemo(() => readSocial<Chore>(states, 'chores').slice().reverse(), [states]);
   const open = chores.filter(c => !c.done);

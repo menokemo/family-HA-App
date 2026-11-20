@@ -8,7 +8,7 @@ import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
 import { PressableScale } from '../../components/PressableScale';
 import { MemberAvatar } from './MemberAvatar';
 import { readProfiles } from './profiles';
-import { readSocial, resolvePoster, type Chore, type SocialPost } from './social';
+import { familyMembers, readSocial, resolvePoster, type Chore, type SocialPost } from './social';
 
 type Section = 'home' | 'calendar' | 'tasks' | 'kitchen';
 type Props = { calendars: HaEntity[]; states: HaEntity[]; settings: ConnectionSettings; onOpenSection: (s: Section) => void; onOpenNotes: () => void };
@@ -19,7 +19,7 @@ function evTime(start: string) { if (isAllDay(start)) return i18n.t('allDay'); c
 export function FamilyDashboard({ calendars, states, settings, onOpenSection, onOpenNotes }: Props) {
   const { colors } = useTheme();
   const s = useMemo(() => makeStyles(colors), [colors]);
-  const persons = useMemo(() => states.filter(e => e.entity_id.startsWith('person.')), [states]);
+  const persons = useMemo(() => familyMembers(states, settings), [states, settings]);
   const profiles = useMemo(() => readProfiles(states), [states]);
   const me = persons.find(p => p.entity_id === settings.selectedPersonId);
   const myFirst = me ? String(me.attributes.friendly_name ?? '').split(' ')[0] : '';

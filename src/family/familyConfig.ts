@@ -27,6 +27,7 @@ export const FAMILY_CONFIG_FIELDS = [
   'disasterRadiusKm',
   'selectedCalendarIds',
   'selectedTodoIds',
+  'familyMemberIds', // مين من الـpersons يظهر في تبويب العيلة (فاضي = الكل)
   'backgroundMonitoringEnabled',
 ] as const;
 

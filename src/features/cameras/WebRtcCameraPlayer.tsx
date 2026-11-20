@@ -361,9 +361,12 @@ export function WebRtcCameraPlayer({ camera, settings, onUnavailable, onAudioCha
 
     const requestMediaPermissions = async () => {
       if (Platform.OS !== 'android') return true;
+      // وضع الاستقبال فقط (الجرس وهو بيرنّ) مابيلتقطش مايك ولا كاميرا محليين، فمش
+      // محتاج أي صلاحية. طلب صلاحية المايك هنا كان بيأخّر ظهور الفيديو الوارد لحد
+      // ما المستخدم يرد على المنبثقة — فبنطلبها بس في وضع الكلام (بعد الرد).
+      if (!talkRef.current) return true;
       try {
         const results = await PermissionsAndroid.requestMultiple([
-          PermissionsAndroid.PERMISSIONS.CAMERA,
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
         ]);
         return Object.values(results).every(r => r === PermissionsAndroid.RESULTS.GRANTED);

@@ -9,6 +9,7 @@ import { PressableScale } from '../../components/PressableScale';
 import { MemberAvatar, personColor } from './MemberAvatar';
 import { joinEventMeta, splitEventMeta, type EventKind, type EventMeta } from './creator';
 import { profileColor, readProfiles, type Profiles } from './profiles';
+import { familyMembers } from './social';
 import { MonthPicker } from './MonthPicker';
 import { addDays, dayKey, endOfMonth, locale, startOfDay, startOfMonth } from './dates';
 
@@ -51,7 +52,7 @@ export function AgendaView({ calendars, states, settings, canManage = true }: Pr
   const [selectedDay, setSelectedDay] = useState<Date>(startOfDay(new Date()));
   const [anchor, setAnchor] = useState<Date>(startOfMonth(new Date()));
 
-  const persons = useMemo(() => states.filter(e => e.entity_id.startsWith('person.')), [states]);
+  const persons = useMemo(() => familyMembers(states, settings), [states, settings]);
   const me = useMemo(() => persons.find(p => p.entity_id === settings.selectedPersonId), [persons, settings.selectedPersonId]);
   const myName = me ? String(me.attributes.friendly_name ?? me.entity_id) : undefined;
   const personByName = useMemo(() => new Map(persons.map(p => [String(p.attributes.friendly_name ?? p.entity_id), p])), [persons]);

@@ -27,6 +27,7 @@ export interface ConnectionSettings {
   selectedDashboardPath?: string;
   zoneWatchPersonIds?: string[];
   selectedCalendarIds?: string[];
+  familyMemberIds?: string[];
   selectedTodoIds?: string[];
   selectedPersonId?: string;
   familyConfigVersion?: number;
