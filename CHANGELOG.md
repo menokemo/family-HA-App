@@ -6,6 +6,9 @@
 
 ## العربية
 
+### [2.46.1] — 2026-11-21  (تعديل JS — OTA) — **مؤشّر "LIVE" في الخريطة الـnative**
+- الـbadge بتاع "LIVE" (نقطة حمرا + كلمة LIVE) كان في الخريطة الويب بس. ضفناه للخريطة الـnative كمان (`PeopleList`) — بيظهر جنب اسم الفرد المختار (غير نفسك) وقت التتبّع اللحظي شغّال. الخريطتين بقوا متّسقين.
+
 ### [2.46.0] — 2026-11-21  (تعديل JS — OTA) — **تتبّع لحظي سلس في الخريطة (زي Find Hub)**
 - **موقعي أنا:** تتبّع `watchLiveLocation` كان مخنوق (٢٥م / ٢٠ث) فنقطتي ماكانتش بتتحرك سلس. بقى **٦م / ~١-٢ث** طول ما الخريطة مفتوحة (بيقف أول ما تسيبها، وفلتر الدقة >٥٠م بيمنع تشويش الوقوف).
 - **باقي الأفراد — إصلاح مهم في الخريطة الـnative:** الخريطة الـnative **ماكانش فيها نبضة لايف خالص** — يعني الأفراد كانوا يفضلوا على الوضع البطيء (٦٠ث). ضفنا نفس نبضة الخريطة الويب: أول ما تختار فرد، جهازه يدخل الوضع اللحظي (دفع كل ~٢.٥-٥ث من الـnative).
@@ -1276,6 +1279,9 @@
 ---
 
 ## English
+
+### [2.46.1] — 2026-11-21  (JS change — OTA) — **"LIVE" badge on the native map**
+- The "LIVE" badge (red dot + LIVE label) existed only on the web map. Added it to the native map too (`PeopleList`) — it shows next to the selected member's name (not yourself) while live tracking is active. Both maps are now consistent.
 
 ### [2.46.0] — 2026-11-21  (JS change — OTA) — **Smooth live map tracking (Find Hub-like)**
 - **My own marker:** `watchLiveLocation` was throttled (25m / 20s) so the dot didn't follow smoothly. Now **6m / ~1-2s** while the map is open (stops when you leave it; the >50m accuracy filter still prevents standing-still jitter).

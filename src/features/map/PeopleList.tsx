@@ -139,6 +139,12 @@ export function PeopleList({
                     {String(p.attributes.friendly_name ?? p.entity_id)}
                   </Text>
                   {isMe ? <View style={s.meDot} /> : null}
+                  {isSel && !isMe ? (
+                    <View style={s.liveBadge}>
+                      <View style={s.liveDot} />
+                      <Text style={s.liveText}>{i18n.t('live')}</Text>
+                    </View>
+                  ) : null}
                 </View>
                 <View style={s.rowPlaceLine}>
                   {mo?.moving ? <Ionicons name={mo.speed >= 25 ? 'car' : 'walk'} size={12} color={colors.primary} /> : null}
@@ -302,6 +308,9 @@ const makeStyles = (c: Palette) =>
     rowNameLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     rowName: { color: c.text, fontWeight: '700', fontSize: 15, flexShrink: 1 },
     meDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#2a7bff' },
+    liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.danger, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+    liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#fff' },
+    liveText: { color: '#fff', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
     rowPlaceLine: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
     rowPlace: { color: c.muted, fontSize: 12.5, flexShrink: 1 },
     rowBattery: { alignItems: 'center', gap: 1, minWidth: 34 },
