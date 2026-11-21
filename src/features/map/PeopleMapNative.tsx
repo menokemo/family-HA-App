@@ -13,7 +13,7 @@ import { Image, Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import type { CameraRef } from '@maplibre/maplibre-react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import type { ConnectionSettings, HaEntity } from '../../types/homeAssistant';
-import { absoluteHaUrl, authHeaders, getPersonHistory, type HistoryPoint } from '../../api/homeAssistant';
+import { absoluteHaUrl, authHeaders, getPersonHistory, requestLiveLocation, type HistoryPoint } from '../../api/homeAssistant';
 import { requestLocationPermission, watchLiveLocation, type LiveLocation } from '../../native/liveLocation';
 import { useTheme } from '../../theme';
 import { PressableScale } from '../../components/PressableScale';
@@ -356,6 +356,19 @@ export function PeopleMapNative({ people, states, selectedPersonId, settings }: 
   const pickedPoint = picked ? points.find(p => p.id === picked) : undefined;
   const pickedCoordKey = pickedPoint ? `${pickedPoint.lng.toFixed(5)},${pickedPoint.lat.toFixed(5)}` : '';
   const myCoordKey = myCoord ? `${myCoord[0].toFixed(5)},${myCoord[1].toFixed(5)}` : '';
+
+  // لما تختار فرد، نطلب من جهازه يدخل الوضع اللحظي (دفع كل ~2.5-5ث) ونكرّر كل 25ث
+  // طول ما هو مختار. من غير ده كان الفرد بيفضل على الوضع البطيء (60ث) في الخريطة الـnative.
+  const liveActive = !!picked && picked !== mePerson?.entity_id;
+  useEffect(() => {
+    if (!liveActive || !picked) return;
+    const target = picked;
+    const ping = () => void requestLiveLocation(settings, target).catch(() => undefined);
+    ping();
+    const t = setInterval(ping, 25000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveActive, picked]);
   useEffect(() => {
     if (!picked || picked === mePerson?.entity_id || !myCoord || !pickedPoint) {
       setRouteInfo(null);

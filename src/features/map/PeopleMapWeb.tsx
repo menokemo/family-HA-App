@@ -270,7 +270,9 @@ export function PeopleMapWeb({ people, states, selectedPersonId, settings }: Pro
     const target = selected.entity_id;
     const ping = () => void requestLiveLocation(settings, target).catch(() => undefined);
     ping();
-    const t = setInterval(ping, 60000);
+    // كل 25ث (أقصر من مهلة الوضع السريع 120ث) عشان جهاز الفرد يفضل في الوضع
+    // اللحظي (دفع كل ~2.5-5ث) طول ما إنت فاتح كارته.
+    const t = setInterval(ping, 25000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveActive, selected?.entity_id]);

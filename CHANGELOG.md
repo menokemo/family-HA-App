@@ -6,6 +6,14 @@
 
 ## العربية
 
+### [2.46.0] — 2026-11-21  (تعديل JS — OTA) — **تتبّع لحظي سلس في الخريطة (زي Find Hub)**
+- **موقعي أنا:** تتبّع `watchLiveLocation` كان مخنوق (٢٥م / ٢٠ث) فنقطتي ماكانتش بتتحرك سلس. بقى **٦م / ~١-٢ث** طول ما الخريطة مفتوحة (بيقف أول ما تسيبها، وفلتر الدقة >٥٠م بيمنع تشويش الوقوف).
+- **باقي الأفراد — إصلاح مهم في الخريطة الـnative:** الخريطة الـnative **ماكانش فيها نبضة لايف خالص** — يعني الأفراد كانوا يفضلوا على الوضع البطيء (٦٠ث). ضفنا نفس نبضة الخريطة الويب: أول ما تختار فرد، جهازه يدخل الوضع اللحظي (دفع كل ~٢.٥-٥ث من الـnative).
+- **النبضة:** قرّبناها من ٦٠ث لـ٢٥ث في الخريطتين (أقصر من مهلة الوضع السريع ١٢٠ث) عشان التتبّع يفضل لحظي طول ما كارت الفرد مفتوح.
+- التتبّع اللحظي بيشتغل بس وقت الخريطة مفتوحة → أثر البطارية محدود.
+- ملاحظة: لو فرد لسه بيتأخّر، لازم يكون مفعّل "شارك موقعي" على جهازه. والوضع الأسرع من ٢.٥ث هو native (محتاج APK) — بس ٢.٥-٥ث دي قريبة من Find Hub أصلاً.
+- `tsc` نظيف · ١٠٥ تست · لينت أخضر · مفيش بصمة.
+
 ### [2.45.0] — 2026-11-20  (تعديل JS + **native للنغمة** + **يتطلّب المكوّن v0.11.0**) — **اختيار أفراد العيلة + إصلاحات جرس الباب**
 - **اختيار أفراد العيلة (يتطلّب المكوّن v0.11.0):** الأدمن بيختار من لوحة المكوّن مين من الـpersons يظهر في تبويب العيلة (حقل "أفراد العيلة"). التطبيق بيفلتر بيه في كل مكان (المهام + "لمين" في التقويم + الشاشة الرئيسية + الملاحظات) عبر `familyMembers()`. فاضي = يظهر الكل (متوافق). الحقل بينتشر مع الكونفيج (`familyMemberIds`).
 - **جرس الباب — المايك مقفول افتراضيًا (C):** بعد الرد المايك بيبدأ **مكتوم**، ويفتح بس لما تدوس زر المايك. (كان بيفتح على طول.)
@@ -1268,6 +1276,14 @@
 ---
 
 ## English
+
+### [2.46.0] — 2026-11-21  (JS change — OTA) — **Smooth live map tracking (Find Hub-like)**
+- **My own marker:** `watchLiveLocation` was throttled (25m / 20s) so the dot didn't follow smoothly. Now **6m / ~1-2s** while the map is open (stops when you leave it; the >50m accuracy filter still prevents standing-still jitter).
+- **Other members — key fix on the native map:** the native map had **no live ping at all**, so members stayed on the slow 60s mode. Added the same ping the web map uses: selecting a member puts their device into live mode (native push every ~2.5-5s).
+- **Ping cadence:** tightened from 60s to 25s on both maps (shorter than the 120s fast-mode TTL) so tracking stays live while a member's card is open.
+- Live tracking only runs while the map is open → bounded battery impact.
+- Note: a member must have "share my location" enabled on their device. Anything faster than ~2.5s is native (needs an APK) — but 2.5-5s is already Find Hub-comparable.
+- tsc clean · 105 tests · lint green.
 
 ### [2.45.0] — 2026-11-20  (JS + **native ringtone** + **requires component v0.11.0**) — **Family-member selection + doorbell fixes**
 - **Family-member selection (requires component v0.11.0):** the admin picks which person entities appear in the family tab (panel "Family members" field). The app filters everywhere (chores, calendar "for whom", dashboard, notes) via `familyMembers()`. Empty = show all (backward compatible). Published as `familyMemberIds`.

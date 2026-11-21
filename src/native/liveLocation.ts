@@ -40,8 +40,10 @@ export function watchLiveLocation(onUpdate: (loc: LiveLocation) => void): () => 
       onUpdate({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy });
     },
     () => undefined,
-    // distanceFilter أكبر = النقطة ما تتحركش إلا لو اتحركت فعلاً 25 متر+.
-    { enableHighAccuracy: true, distanceFilter: 25, interval: 20000, fastestInterval: 10000 },
+    // تتبّع لحظي سلس (زي Find Hub) طول ما الخريطة مفتوحة: تحديث كل ~ثانية-ثانيتين
+    // وبمسافة صغيرة عشان النقطة تتابع المشي والسواقة. فلتر الدقة فوق (>50م) +
+    // distanceFilter 6م بيمنعوا تشويش الوقوف مكانك. الـwatch بيقف أول ما تسيب الخريطة.
+    { enableHighAccuracy: true, distanceFilter: 6, interval: 2000, fastestInterval: 1000 },
   );
   return () => Geolocation.clearWatch(id);
 }
