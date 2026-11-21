@@ -120,7 +120,7 @@ function AppContent({onThemeModeChange}:{onThemeModeChange:(m:ThemeMode)=>void})
  // مزامنة مناطق HA (zone.*) للخدمة النيتف عشان تسجّلها كـ geofences وتبلّغ الحضور
  // بـ location_name (home/not_home/اسم المنطقة) بدل حساب HA من GPS الخام — ده
  // بيمنع تذبذب الدخول/الخروج على حافة البيت.
- const mobileZones=useMemo(()=>states.filter(e=>e.entity_id.startsWith('zone.')&&isFiniteCoord(e)).map(z=>({name:z.entity_id==='zone.home'?'home':String(z.attributes.friendly_name??z.entity_id.replace('zone.','')),lat:Number(z.attributes.latitude),lng:Number(z.attributes.longitude),radius:Number(z.attributes.radius??100)})),[states]);
+ const mobileZones=useMemo(()=>states.filter(e=>e.entity_id.startsWith('zone.')&&isFiniteCoord(e)).map(z=>({name:z.entity_id,lat:Number(z.attributes.latitude),lng:Number(z.attributes.longitude),radius:Number(z.attributes.radius??100)})),[states]);
  const mobileZonesKey=mobileZones.map(z=>`${z.name}:${z.lat.toFixed(5)},${z.lng.toFixed(5)}:${z.radius}`).join('|');
  useEffect(()=>{if(!settings.mobileAppWebhookId||settings.shareLocation!==true||mobileZones.length===0)return;void setMobileAppZones(mobileZones);},[mobileZonesKey,settings.mobileAppWebhookId,settings.shareLocation]);
  // إعدادات البيكونات للخدمة النيتف. بنبعتها كمان لما الاتنين مقفولين عشان

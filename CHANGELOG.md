@@ -6,6 +6,14 @@
 
 ## العربية
 
+### [2.47.0] — 2026-11-21  (native — **محتاج بناء APK**) — **إصلاح جذري لتذبذب الحضور home↔away**
+- إصلاح بنيوي لمشكلة قديمة: إشعارات "دخل/خرج البيت" متكرّرة والجهاز ثابت.
+- **السبب:** كنا نبعت GPS خام باستمرار ونسيب HA يعيد حساب المنطقة من كل قراية → تشويش الـGPS على الحافة بيقلب home/away. التطبيق الرسمي مابيعملش كده لأنه بيعتمد على geofences الـPlay Services (فيها hysteresis) كمرجع.
+- **الحل:** الجيوفنس بقى مرجع المنطقة. التطبيق يبعت `entity_id` المنطقة كـ requestId؛ GeofenceReceiver يفتكر المنطقة عند الدخول ويمسحها عند الخروج الفعلي؛ `sendLocation` يبعت `in_zones:[zone]` مع الإحداثيات الحقيقية طول ما إحنا جوّا → HA يثبّت الحضور ويتجاهل التشويش. الخروج بس لما الجيوفنس يطلّع EXIT فعلي.
+- `in_zones` (مش الـdeprecated `location_name`)، والإحداثيات بتتبعت زي ما هي فالخريطة تفضل مظبوطة.
+- ⚠️ **native → لازم بناء APK** (مش OTA). ومحتاج تجربة فعلية بالحركة.
+- `tsc` نظيف · ١٠٥ تست · لينت أخضر · مفيش بصمة.
+
 ### [2.46.1] — 2026-11-21  (تعديل JS — OTA) — **مؤشّر "LIVE" في الخريطة الـnative**
 - الـbadge بتاع "LIVE" (نقطة حمرا + كلمة LIVE) كان في الخريطة الويب بس. ضفناه للخريطة الـnative كمان (`PeopleList`) — بيظهر جنب اسم الفرد المختار (غير نفسك) وقت التتبّع اللحظي شغّال. الخريطتين بقوا متّسقين.
 
@@ -1279,6 +1287,14 @@
 ---
 
 ## English
+
+### [2.47.0] — 2026-11-21  (native — **requires an APK build**) — **Architectural fix for home↔away presence flapping**
+- Structural fix for a long-standing issue: repeated "arrived/left Home" notifications while the device is stationary.
+- **Cause:** we sent raw GPS continuously and let HA recompute the zone from every fix → GPS jitter at the zone edge flipped home/away. The official app doesn't do this — it relies on Play Services geofences (with built-in hysteresis) as the zone source.
+- **Fix:** the geofence is now the zone authority. The app sends the zone's `entity_id` as the geofence requestId; GeofenceReceiver remembers the zone on enter and clears it on a real exit; `sendLocation` sends `in_zones:[zone]` with the real coordinates while inside → HA pins presence and ignores jitter. You only leave when the geofence fires a real EXIT.
+- Uses `in_zones` (not the deprecated `location_name`); real coordinates still sent so the map stays accurate.
+- ⚠️ **native → needs an APK build** (not OTA). Requires real-world testing with movement.
+- tsc clean · 105 tests · lint green.
 
 ### [2.46.1] — 2026-11-21  (JS change — OTA) — **"LIVE" badge on the native map**
 - The "LIVE" badge (red dot + LIVE label) existed only on the web map. Added it to the native map too (`PeopleList`) — it shows next to the selected member's name (not yourself) while live tracking is active. Both maps are now consistent.

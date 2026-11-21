@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingEvent
 import okhttp3.Call
 import okhttp3.Callback
@@ -38,10 +39,23 @@ class GeofenceReceiver : BroadcastReceiver() {
     val webhookId = prefs.getString("webhookId", "") ?: ""
     if (baseUrl.isEmpty() || webhookId.isEmpty()) return
 
-    // الجيوفنس بيوقّظنا عند عبور حدود المنطقة عشان نبعت موقع طازة فورًا. بنبعت
-    // الإحداثيات الخام بس ونسيب HA يحسب الحضور (مفيش location_name).
-    // ولو دقة قراية الحدث ضعيفة، بنطلب من الخدمة **قراية دقيقة بمحاولات** بدل ما
-    // نبعت قراية رديئة — نفس تصرّف التطبيق الرسمي عند حدود الزون.
+    // الجيوفنس هو **مرجع المنطقة** (فيه hysteresis مدمج من Play Services، مابيتذبذبش
+    // زي حساب الحضور من كل قراية GPS خام). بنفتكر المنطقة اللي إحنا جواها دلوقتي،
+    // ونبعتها كـ in_zones مع الإحداثيات الحقيقية — فـHA يثبّت الحضور ويتجاهل تشويش
+    // الـGPS على الحافة. مابنخرجش إلا لما الجيوفنس يطلّع EXIT فعلي.
+    val transition = event.geofenceTransition
+    val triggered = event.triggeringGeofences?.mapNotNull { it.requestId } ?: emptyList()
+    when (transition) {
+      Geofence.GEOFENCE_TRANSITION_ENTER, Geofence.GEOFENCE_TRANSITION_DWELL ->
+        triggered.firstOrNull()?.let { prefs.edit().putString(MobileAppService.KEY_CURRENT_ZONE, it).apply() }
+      Geofence.GEOFENCE_TRANSITION_EXIT -> {
+        val current = prefs.getString(MobileAppService.KEY_CURRENT_ZONE, null)
+        if (current != null && triggered.contains(current)) prefs.edit().remove(MobileAppService.KEY_CURRENT_ZONE).apply()
+      }
+    }
+
+    // نبعت موقع طازة فورًا. لو دقة قراية الحدث ضعيفة، بنطلب من الخدمة **قراية دقيقة
+    // بمحاولات** بدل ما نبعت قراية رديئة — نفس تصرّف التطبيق الرسمي عند حدود الزون.
     val loc = event.triggeringLocation ?: return
     if (loc.hasAccuracy() && loc.accuracy > MAX_ACCURACY_M) {
       val intent2 = Intent(context, MobileAppService::class.java).apply { action = MobileAppService.ACTION_REQUEST_ACCURATE }
@@ -49,13 +63,16 @@ class GeofenceReceiver : BroadcastReceiver() {
       return
     }
 
-    post(baseUrl, webhookId, loc.latitude, loc.longitude, if (loc.hasAccuracy()) loc.accuracy.toInt() else null)
+    val inZone = prefs.getString(MobileAppService.KEY_CURRENT_ZONE, null)
+    post(baseUrl, webhookId, loc.latitude, loc.longitude, if (loc.hasAccuracy()) loc.accuracy.toInt() else null, inZone)
   }
 
-  private fun post(baseUrl: String, webhookId: String, lat: Double, lng: Double, acc: Int?) {
+  private fun post(baseUrl: String, webhookId: String, lat: Double, lng: Double, acc: Int?, inZone: String?) {
     val data = JSONObject()
       .put("gps", JSONArray().put(lat).put(lng))
     if (acc != null) data.put("gps_accuracy", acc)
+    // داخل منطقة → نثبّت الحضور عبر in_zones (مع الإحداثيات زي ما هي).
+    if (inZone != null) data.put("in_zones", JSONArray().put(inZone))
     val body = JSONObject().put("type", "update_location").put("data", data)
     val request = Request.Builder()
       .url("$baseUrl/api/webhook/$webhookId")

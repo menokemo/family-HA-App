@@ -503,8 +503,17 @@ class MobileAppService : Service() {
     // المنطقة من الإحداثيات ويستخدم in_zones (شوف TrackerEntity في
     // device_tracker/entity.py)، فالحضور يبقى يقيني والخريطة تفضل مظبوطة.
     // مابنغيّرش إحداثي واحد — ده الفرق الجوهري عن 2.18.5.
-    if (homeBtDevices.isNotEmpty() && connectedBtAddresses().any { homeBtDevices.contains(it) }) {
-      data.put("in_zones", JSONArray().put(HOME_ZONE_ENTITY))
+    // الحضور اليقيني عبر in_zones (مع الإحداثيات الحقيقية زي ما هي): HA بيتخطّى
+    // حساب المنطقة من GPS الخام فيبطّل التذبذب على الحافة. مصدرين مستقلين:
+    //  (1) مرساة البلوتوث — جهاز البيت الثابت متصل → دليل مستقل إننا في البيت.
+    //  (2) المنطقة المثبّتة من الجيوفنس — دخلنا منطقة ولسه ماطلعناش منها (EXIT).
+    val inZones = LinkedHashSet<String>()
+    if (homeBtDevices.isNotEmpty() && connectedBtAddresses().any { homeBtDevices.contains(it) }) inZones.add(HOME_ZONE_ENTITY)
+    getSharedPreferences("mobile_app", Context.MODE_PRIVATE).getString(KEY_CURRENT_ZONE, null)?.let { inZones.add(it) }
+    if (inZones.isNotEmpty()) {
+      val arr = JSONArray()
+      inZones.forEach { arr.put(it) }
+      data.put("in_zones", arr)
     }
     post(JSONObject().put("type", "update_location").put("data", data))
     // كل قراية جديدة ممكن تدخّلنا/تخرّجنا من نطاق المنطقة، فبنعيد تقييم مُشغّل
@@ -1050,6 +1059,9 @@ class MobileAppService : Service() {
     const val EXTRA_HOME_BT_DEVICES = "homeBtDevices"
     // كيان منطقة البيت في HA — ثابت في HA نفسه.
     private const val HOME_ZONE_ENTITY = "zone.home"
+    // المنطقة اللي الجيوفنس مثبّتنا جوّاها دلوقتي (entity_id زي "zone.home").
+    // بيكتبها GeofenceReceiver عند الدخول/الخروج، وبنبعتها كـ in_zones.
+    const val KEY_CURRENT_ZONE = "geofence_current_zone"
     // تأخير الاستقرار جوه المنطقة قبل حدث DWELL (تهدئة زي التطبيق الرسمي).
     private const val GEOFENCE_LOITER_MS = 30000
     private const val CHANNEL = "mobile_app_report"

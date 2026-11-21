@@ -3,8 +3,9 @@ package com.mkdd.familyha
 import android.location.Location
 import org.json.JSONArray
 
-/** منطقة Home Assistant (zone.*) كما يمرّرها التطبيق: name = الاسم اللي يتبعت
- *  لـHA ("home" لمنطقة البيت، أو اسم المنطقة لغيرها). */
+/** منطقة Home Assistant (zone.*) كما يمرّرها التطبيق: name = الـ entity_id الكامل
+ *  للمنطقة (مثل "zone.home" / "zone.work"). بيتسجّل كـ requestId للـ geofence،
+ *  وبيتبعت لـHA كـ `in_zones` عشان يثبّت الحضور عند عبور الحدود (من غير تذبذب). */
 data class GeoZone(val name: String, val lat: Double, val lng: Double, val radius: Float)
 
 /** أدوات مشتركة بين الخدمة والـ GeofenceReceiver (عشان مانكررش المنطق). */
